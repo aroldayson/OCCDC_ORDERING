@@ -1,0 +1,3010 @@
+{
+  "products": [
+    {
+      "id": "vegetables-fruits-banana-lakatan",
+      "name": "Banana, lakatan",
+      "defaultQty": 35.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-bell-pepper",
+      "name": "Bell Pepper",
+      "defaultQty": 35.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-bell-pepper-red-and-green",
+      "name": "Bell Pepper (Red and Green)",
+      "defaultQty": 8.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-bell-pepper-red",
+      "name": "bell pepper (red)",
+      "defaultQty": 16.5,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-carrots",
+      "name": "Carrots",
+      "defaultQty": 148.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-garlic",
+      "name": "Garlic",
+      "defaultQty": 26.5,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-ginger",
+      "name": "Ginger",
+      "defaultQty": 4.25,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-kalamansi",
+      "name": "Kalamansi",
+      "defaultQty": 3.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-onion-white",
+      "name": "Onion white",
+      "defaultQty": 2.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-onion",
+      "name": "Onion",
+      "defaultQty": 28.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-onion-red",
+      "name": "Onion Red",
+      "defaultQty": 14.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-papaya",
+      "name": "Papaya",
+      "defaultQty": 20.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-papaya-or-sayote",
+      "name": "papaya or Sayote",
+      "defaultQty": 21.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-sayote",
+      "name": "Sayote",
+      "defaultQty": 60.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-potato",
+      "name": "Potato",
+      "defaultQty": 138.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "vegetables-fruits-sili-haba-pangsigang",
+      "name": "Sili haba( Pangsigang)",
+      "defaultQty": 1.0,
+      "unit": "kg",
+      "category": "vegetables_fruits"
+    },
+    {
+      "id": "meat-chicken-breast",
+      "name": "Chicken (Breast)",
+      "defaultQty": 433.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-chicken-drumstick",
+      "name": "Chicken (Drumstick)",
+      "defaultQty": 46.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-chicken-whole",
+      "name": "Chicken (Whole)",
+      "defaultQty": 55.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-chicken-breast-drumstick",
+      "name": "Chicken breast/drumstick",
+      "defaultQty": 30.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-chicken-giniling",
+      "name": "Chicken Giniling",
+      "defaultQty": 30.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-ground-chicken",
+      "name": "Ground Chicken",
+      "defaultQty": 19.5,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-ground-pork",
+      "name": "Ground Pork",
+      "defaultQty": 136.5,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-pork-kasim",
+      "name": "Pork (Kasim)",
+      "defaultQty": 96.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-pork-giniling",
+      "name": "Pork Giniling",
+      "defaultQty": 26.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-pork-kasim-lomo",
+      "name": "Pork Kasim/Lomo",
+      "defaultQty": 90.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-pork-liver",
+      "name": "Pork Liver",
+      "defaultQty": 8.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "meat-pork-lomo",
+      "name": "Pork lomo",
+      "defaultQty": 14.0,
+      "unit": "kg",
+      "category": "meat"
+    },
+    {
+      "id": "fish-egg-egg-medium",
+      "name": "Egg (Medium)",
+      "defaultQty": 17.0,
+      "unit": "tray",
+      "category": "fish_egg"
+    },
+    {
+      "id": "fish-egg-egg-small",
+      "name": "egg (small)",
+      "defaultQty": 8.0,
+      "unit": "tray",
+      "category": "fish_egg"
+    },
+    {
+      "id": "fish-egg-eggs",
+      "name": "Eggs",
+      "defaultQty": 4.0,
+      "unit": "tray",
+      "category": "fish_egg"
+    },
+    {
+      "id": "fish-egg-fish-fillet-dory",
+      "name": "Fish Fillet (Dory)",
+      "defaultQty": 326.0,
+      "unit": "kg",
+      "category": "fish_egg"
+    },
+    {
+      "id": "groceries-all-purpose-flour",
+      "name": "All Purpose Flour",
+      "defaultQty": 44.5,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-banana-ketchup",
+      "name": "Banana Ketchup",
+      "defaultQty": 4.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-bayleaf-50-g-pack",
+      "name": "bayleaf 50 g/pack",
+      "defaultQty": 4.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-block-ground-papper100g-pack",
+      "name": "block ground papper100g/pack",
+      "defaultQty": 1.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-black-pepper-powder",
+      "name": "black Pepper Powder",
+      "defaultQty": 1.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-black-pepper-ground-kg",
+      "name": "Black Pepper, Ground ,  ½kg",
+      "defaultQty": 5.0,
+      "unit": "packs",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-black-pepper-ground",
+      "name": "Black pepper Ground",
+      "defaultQty": 2.5,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-black-pepper-ground-500g",
+      "name": "black pepper Ground 500g",
+      "defaultQty": 1.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-block-pepper-granules-50-g-pack",
+      "name": "block pepper (granules) 50 g/pack",
+      "defaultQty": 12.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-breading-mix-garlic",
+      "name": "Breading Mix (Garlic)",
+      "defaultQty": 1.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-breading-mix",
+      "name": "Breading mix",
+      "defaultQty": 5.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-butter",
+      "name": "Butter",
+      "defaultQty": 2.0,
+      "unit": "pc",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-bread-crumbs",
+      "name": "Bread crumbs",
+      "defaultQty": 5.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-cooking-oil-1l",
+      "name": "Cooking oil 1L",
+      "defaultQty": 7.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-cooking-oil",
+      "name": "Cooking oil",
+      "defaultQty": 30.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-cooking-oil-2l",
+      "name": "Cooking oil 2L",
+      "defaultQty": 8.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-catsup-1-kilo",
+      "name": "Catsup 1 kilo",
+      "defaultQty": 1.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-chicken-pork-cubes-60-cubes",
+      "name": "Chicken/Pork Cubes 60 cubes",
+      "defaultQty": 1.0,
+      "unit": "tub",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-cling-wrap-12-x500m",
+      "name": "Cling wrap 12\"x500m",
+      "defaultQty": 1.0,
+      "unit": "roll",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-corn-kernel-425g",
+      "name": "Corn Kernel 425g",
+      "defaultQty": 41.0,
+      "unit": "can",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-cornstrach",
+      "name": "CornStrach",
+      "defaultQty": 1.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-fish-sauce",
+      "name": "Fish Sauce",
+      "defaultQty": 11.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-fish-sauce-300ml",
+      "name": "Fish Sauce 300ml",
+      "defaultQty": 1.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-garbage-plastic-black-large",
+      "name": "Garbage plastic black Large",
+      "defaultQty": 20.0,
+      "unit": "roll",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-iodized-salt",
+      "name": "Iodized Salt",
+      "defaultQty": 11.5,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-laurel-leaves-100g",
+      "name": "Laurel Leaves, 100g",
+      "defaultQty": 2.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-laurel-leaves",
+      "name": "Laurel leaves",
+      "defaultQty": 5.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-liquid-seaoning-250ml",
+      "name": "Liquid Seaoning, 250ml",
+      "defaultQty": 1.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-liquid-seasoning",
+      "name": "Liquid Seasoning",
+      "defaultQty": 1.5,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-liquid-seasoning-500ml-bottle",
+      "name": "liquid seasoning 500ML/bottle",
+      "defaultQty": 6.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-liquid-seasoning-100g-pack",
+      "name": "Liquid Seasoning 100g/pack",
+      "defaultQty": 2.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-mixed-butter-vegetables-1-kilo-pack",
+      "name": "Mixed Butter Vegetables 1 kilo/pack",
+      "defaultQty": 7.5,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-mixed-butter-vegetables-250g-pack",
+      "name": "Mixed Butter Vegetables 250g/pack",
+      "defaultQty": 8.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-mixed-vegetables-500g-carrots-green-peas-corn",
+      "name": "Mixed Vegetables (500g) (Carrots, Green Peas, Corn)",
+      "defaultQty": 90.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-oyster-sauce",
+      "name": "Oyster sauce",
+      "defaultQty": 3.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-oyster-sauce-405g",
+      "name": "Oyster Sauce (405g)",
+      "defaultQty": 8.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-oyster-sauce-500ml",
+      "name": "Oyster Sauce 500ml",
+      "defaultQty": 1.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-pine-apple-chunks-108oz",
+      "name": "Pine Apple Chunks 108oz",
+      "defaultQty": 5.0,
+      "unit": "can",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-pine-apple-chunks-822g",
+      "name": "Pine Apple Chunks, 822g",
+      "defaultQty": 8.0,
+      "unit": "can",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-pineapple-chunks-432g",
+      "name": "Pineapple Chunks (432g)",
+      "defaultQty": 17.0,
+      "unit": "can",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-pineapple-chunks-200g",
+      "name": "Pineapple chunks, 200g",
+      "defaultQty": 40.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-pinaapple-chuck",
+      "name": "Pinaapple Chuck",
+      "defaultQty": 25.0,
+      "unit": "can",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-rice-kg",
+      "name": "Rice Kg",
+      "defaultQty": 155.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-rice-sack",
+      "name": "Rice Sack",
+      "defaultQty": 34.0,
+      "unit": "sack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-soy-sauce",
+      "name": "Soy Sauce",
+      "defaultQty": 49.5,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-soy-sauce-1liter-bottle",
+      "name": "soy sauce 1liter/bottle",
+      "defaultQty": 7.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-soy-sauce-gallon",
+      "name": "Soy Sauce Gallon",
+      "defaultQty": 2.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-spring-oil",
+      "name": "Spring Oil",
+      "defaultQty": 2.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-spring-oil-1-5-l-bottle",
+      "name": "Spring Oil (1.5 L / bottle)",
+      "defaultQty": 4.0,
+      "unit": "bottles",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-sugar",
+      "name": "Sugar",
+      "defaultQty": 3.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-sugar-white",
+      "name": "sugar (white)",
+      "defaultQty": 7.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-sugar-washed",
+      "name": "Sugar Washed",
+      "defaultQty": 4.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-sugar-segunda",
+      "name": "Sugar Segunda",
+      "defaultQty": 1.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-tomato-sauce-kilo",
+      "name": "tomato sauce kilo",
+      "defaultQty": 24.0,
+      "unit": "kg",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-tomato-sauce-liter",
+      "name": "tomato sauce liter",
+      "defaultQty": 2.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-tomato-sauce-900g",
+      "name": "Tomato Sauce (900g)",
+      "defaultQty": 15.0,
+      "unit": "pack",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-vinegar-gallon",
+      "name": "Vinegar gallon",
+      "defaultQty": 2.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-vinegar-liter",
+      "name": "Vinegar Liter",
+      "defaultQty": 15.0,
+      "unit": "liter",
+      "category": "groceries"
+    },
+    {
+      "id": "groceries-vinegar-bottles",
+      "name": "Vinegar Bottles",
+      "defaultQty": 2.0,
+      "unit": "gallon",
+      "category": "groceries"
+    },
+    {
+      "id": "other-order-apron",
+      "name": "Apron",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    },
+    {
+      "id": "other-order-kitchen-hand-gloves-100-s",
+      "name": "Kitchen Hand Gloves, 100's",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    },
+    {
+      "id": "other-order-lpg-kitchen-gas-with-tank-11kg",
+      "name": "LPG (kitchen gas) with tank, 11kg",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    },
+    {
+      "id": "other-order-lpg-hose",
+      "name": "LPG Hose",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    },
+    {
+      "id": "other-order-lpg-tank-refill-11kgs",
+      "name": "LPG Tank, Refill, 11kgs",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    },
+    {
+      "id": "other-order-single-burner-gas-stove-heavy-duty",
+      "name": "Single Burner Gas Stove, Heavy Duty",
+      "defaultQty": 1,
+      "unit": "pc",
+      "category": "other_order"
+    }
+  ],
+  "orderLines": [
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "potato",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "carrots",
+      "qty": 8.5,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "bell pepper (red)",
+      "qty": 0.75,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "white onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "sayote",
+      "qty": 9.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "red onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "lakatan",
+      "qty": 14.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 14.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 14.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Red bell pepper",
+      "qty": 8.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 6.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 1.5,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote or papaya",
+      "qty": 11.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Ginger",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Banana, lakatan",
+      "qty": 239.0,
+      "unit": "pcs"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 27.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Pepper",
+      "qty": 20.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Banana (Lacatan)",
+      "qty": 530.0,
+      "unit": "piece"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 7.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 5.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 15.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Papaya",
+      "qty": 10.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 15.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 15.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Pepper",
+      "qty": 10.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 4.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 10.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Papaya",
+      "qty": 5.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 8.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Banana (Lacatan)",
+      "qty": 210.0,
+      "unit": "piece"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 15.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Pepper (Red and Green)",
+      "qty": 8.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 6.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 2.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote or Papaya",
+      "qty": 10.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 15.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 2.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Lakatan Banana",
+      "qty": 491.0,
+      "unit": "piece"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Pepper",
+      "qty": 2.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 8.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Red Bell Pepper",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 2.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 2.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 20.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 20.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Pepper",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onions red",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Papaya",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Ginger",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sili haba (pangsigang)",
+      "qty": 0.5,
+      "unit": "kilo"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Banana Lacatan small size",
+      "qty": 962.0,
+      "unit": "pieces"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Kalamansi",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Carrot",
+      "qty": 7.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Lacatan Banana (10-12pcs/kilo)",
+      "qty": 6.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 6.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Red Bell Pepper",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 3.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "vegetables_fruits",
+      "name": "Ginger",
+      "qty": 0.25,
+      "unit": "kilo"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrots",
+      "qty": 13.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Potato",
+      "qty": 20.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Red Bell Pepper",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onion Red",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Ginger",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "potato",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "carrots",
+      "qty": 8.5,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "bell pepper (red)",
+      "qty": 0.75,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "white onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "sayote",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "red onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "garlic",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "lakatan",
+      "qty": 15.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Ginger",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Sayote",
+      "qty": 5.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "potato",
+      "qty": 5.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Carrot",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Bell Papper",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Onions  Red",
+      "qty": 4.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Garlic",
+      "qty": 3.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "vegetables_fruits",
+      "name": "Banana",
+      "qty": 128.0,
+      "unit": "pcs"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Whole)",
+      "qty": 27.0,
+      "unit": "Kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Chicken",
+      "qty": 9.5,
+      "unit": "Kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "pork kasim",
+      "qty": 7.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken breast",
+      "qty": 36.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground pork",
+      "qty": 9.5,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork lomo",
+      "qty": 14.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Drumstick)",
+      "qty": 33.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Breast)",
+      "qty": 48.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 22.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork (Kasim)",
+      "qty": 32.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Drumstick)",
+      "qty": 13.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Breast)",
+      "qty": 20.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 9.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork (Kasim)",
+      "qty": 13.0,
+      "unit": "kg"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "meat",
+      "name": "Chicken breast",
+      "qty": 38.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 10.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "meat",
+      "name": "Pork Lomo/Kasim",
+      "qty": 15.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken breast/drumstick",
+      "qty": 30.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 20.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken breast",
+      "qty": 35.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken Giniling",
+      "qty": 30.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken breast",
+      "qty": 150.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 41.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork kasim/lomo",
+      "qty": 50.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork Liver",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "BARRETTO I ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork kasim",
+      "qty": 25.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "meat",
+      "name": "Chicken breast",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 6.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "meat",
+      "name": "Pork Kasim",
+      "qty": 8.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken Breast",
+      "qty": 80.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork Giniling",
+      "qty": 26.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork Kasim/Lomo",
+      "qty": 25.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "STA. RITA ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork Liver",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken (Whole)",
+      "qty": 28.0,
+      "unit": "Kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Chicken",
+      "qty": 10.0,
+      "unit": "Kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "pork kasim",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Ground Pork",
+      "qty": 19.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Chicken Breast",
+      "qty": 16.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "meat",
+      "name": "Pork Kasim",
+      "qty": 8.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "egg (small)",
+      "qty": 1.0,
+      "unit": "tray"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "fish fillet",
+      "qty": 27.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Fish dory, fillet",
+      "qty": 14.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Egg, small (30s)",
+      "qty": 6.0,
+      "unit": "tray"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Fish Fillet (Dory)",
+      "qty": 32.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Egg (Medium)",
+      "qty": 4.0,
+      "unit": "tray"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Fish Fillet (Dory)",
+      "qty": 13.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Egg (Medium)",
+      "qty": 4.0,
+      "unit": "tray"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "fish_egg",
+      "name": "Fish Dory Fillet/ Tilapia",
+      "qty": 15.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "fish_egg",
+      "name": "Egg, 30 pieces/tray, Medium-size",
+      "qty": 7.0,
+      "unit": "trays"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Egg (M)",
+      "qty": 2.0,
+      "unit": "tray"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Cream Dory/Fish Fillet",
+      "qty": 30.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Eggs",
+      "qty": 1.0,
+      "unit": "Tray"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Fish Fillet/Dory/tilapia/bangus",
+      "qty": 70.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "fish_egg",
+      "name": "Fish Dory Fillet",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "fish_egg",
+      "name": "Egg. 30pcs",
+      "qty": 3.0,
+      "unit": "tray"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "egg (small)",
+      "qty": 1.0,
+      "unit": "tray"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "fish fillet",
+      "qty": 27.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Eggs",
+      "qty": 8.0,
+      "unit": "dozen"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "fish_egg",
+      "name": "Fist fillet",
+      "qty": 8.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice (JASMINE)",
+      "qty": 45.0,
+      "unit": "Kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "tomato sauce",
+      "qty": 5.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "white onion",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "flour",
+      "qty": 5.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "pineapple chunks 432 g/can",
+      "qty": 5.0,
+      "unit": "can"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (ground) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (granules) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (whole) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "bayleaf 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "iodized salt",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "soy sauce 1liter/bottle",
+      "qty": 3.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "vinegar 1liter/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "fish sauce 1liter/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "liquid seasoning 500ML/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "sugar (white)",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "banana ketchup",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Spring Oil (1.5 L / bottle)",
+      "qty": 2.0,
+      "unit": "Bottle"
+    },
+    {
+      "school": "ASINAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Butter Vegetables 1 kilo/pack",
+      "qty": 3.5,
+      "unit": "pack"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice, 25kg",
+      "qty": 1.0,
+      "unit": "sack"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Corn kernel, 425g",
+      "qty": 11.0,
+      "unit": "can"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Flour",
+      "qty": 2.5,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Iodized salt",
+      "qty": 0.5,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cooking oil",
+      "qty": 6.0,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Ground pepper, black, 500g",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy sauce",
+      "qty": 1.5,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liquid seasoning",
+      "qty": 0.5,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster sauce",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Sugar, washed",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pineapple chunks, 200g",
+      "qty": 30.0,
+      "unit": "pouch"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish sauce",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Tomato sauce",
+      "qty": 5.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Dried Laurel leaves, 50g",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice (25 kgs)",
+      "qty": 4.0,
+      "unit": "sack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Vegetables (500g) (Carrots, Green Peas, Corn)",
+      "qty": 40.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "All Purpose Flour",
+      "qty": 11.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Spring Oil",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Iodized Salt",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 20.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liquid Seasoning (500ml)",
+      "qty": 2.0,
+      "unit": "Bottle"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pineapple Chunks (432g)",
+      "qty": 5.0,
+      "unit": "can"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster Sauce (405g)",
+      "qty": 4.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Tomato Sauce (900g)",
+      "qty": 10.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce",
+      "qty": 2.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (ground) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (granules) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (whole) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "bayleaf 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Sugar (White)",
+      "qty": 3.0,
+      "unit": "kg"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 3.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "BOTON ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Banana Ketchup",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice (25 kgs)",
+      "qty": 2.0,
+      "unit": "sack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Vegetables (500g) (Carrots, Green Peas, Corn)",
+      "qty": 20.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "All Purpose Flour",
+      "qty": 3.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Spring Oil",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Iodized Salt",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liquid Seasoning (500ml)",
+      "qty": 1.0,
+      "unit": "Bottle"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pineapple Chunks (432g)",
+      "qty": 2.0,
+      "unit": "can"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster Sauce (405g)",
+      "qty": 2.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Tomato Sauce (900g)",
+      "qty": 5.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (ground) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (granules) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (whole) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "bayleaf 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Sugar (White)",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 1.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Banana Ketchup",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 10.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "IRAM I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce",
+      "qty": 1.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Rice, 25kgs/sack",
+      "qty": 9.0,
+      "unit": "sacks"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Corn Kernel, 425g/can",
+      "qty": 10.0,
+      "unit": "cans"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Flour, 1kg/pack",
+      "qty": 2.0,
+      "unit": "packs"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Black Pepper, Ground ,  ½kg",
+      "qty": 5.0,
+      "unit": "packs"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Iodized Salt",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Cooking oil, 1L",
+      "qty": 5.0,
+      "unit": "packs"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Liquid Seaoning, 250ml",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Oyster Sauce",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Sugar",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Pine Apple Chunks, 822g",
+      "qty": 5.0,
+      "unit": "cans"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Tomato Sauce, 1kg/pack",
+      "qty": 4.0,
+      "unit": "packs"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "groceries",
+      "name": "Laurel Leaves, 100g",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice 1 sack (25kg)",
+      "qty": 5.0,
+      "unit": "sack"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Vegetables (500g) (Carrots, Green Peas, Corn)",
+      "qty": 30.0,
+      "unit": "pack"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "All Purpose Flour",
+      "qty": 10.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cooking Oil",
+      "qty": 20.0,
+      "unit": "liter"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pepper Powder",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 15.0,
+      "unit": "liter"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 5.0,
+      "unit": "liter"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Iodized Salt",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Washed Sugar",
+      "qty": 3.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster Sauce 405g",
+      "qty": 2.0,
+      "unit": "pack"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pineapple Chunks 822g",
+      "qty": 3.0,
+      "unit": "can"
+    },
+    {
+      "school": "NEW CABALAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liquid seasoning 500ml",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice",
+      "qty": 60.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Flour",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cooking oil 2L",
+      "qty": 3.0,
+      "unit": "bottles"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Breading Mix (Garlic)",
+      "qty": 5.0,
+      "unit": "pack"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Iodized Salt",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Butter",
+      "qty": 2.0,
+      "unit": "pcs"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce (patis)",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "CornStrach",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "MABAYUAN ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Ground Black Pepper",
+      "qty": 1.0,
+      "unit": "bottles"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Salt iodized",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pepper",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 2.0,
+      "unit": "liters"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce",
+      "qty": 2.0,
+      "unit": "liters"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster sauce",
+      "qty": 1.0,
+      "unit": "liters"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liver Spread 230g",
+      "qty": 5.0,
+      "unit": "cans"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Flour",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cooking oil 2.84L",
+      "qty": 5.0,
+      "unit": "bottles"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Corn Kernel 425g",
+      "qty": 10.0,
+      "unit": "cans"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Sugar Segunda",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 2.0,
+      "unit": "liters"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pine Apple Chunks 108oz",
+      "qty": 5.0,
+      "unit": "cans"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Catsup 1 kilo",
+      "qty": 1.0,
+      "unit": "gal"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Tomato sauce",
+      "qty": 3.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Laurel leaves",
+      "qty": 1.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Breading mix",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Bread crumbs",
+      "qty": 5.0,
+      "unit": "kilos"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Chicken/Pork Cubes 60 cubes",
+      "qty": 1.0,
+      "unit": "tub"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cling wrap 12\"x500m",
+      "qty": 1.0,
+      "unit": "roll"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Garbage plastic black Large",
+      "qty": 20.0,
+      "unit": "roll"
+    },
+    {
+      "school": "OLONGAPO CITY ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice 25kls.",
+      "qty": 1.0,
+      "unit": "sack"
+    },
+    {
+      "school": "BARRETTO I ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "rice Jasmine (25kg)",
+      "qty": 5.0,
+      "unit": "sack"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Corn Kernel 425G",
+      "qty": 5.0,
+      "unit": "can"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "All Purpose flour 1kg",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Black pepper ground",
+      "qty": 0.5,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Iodized Salt 1kg",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Cooking oil 1L",
+      "qty": 2.0,
+      "unit": "liter"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Soy Sauce",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Liquid Seasoning",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Sugar",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Pineapple Chunks, 200g pouch",
+      "qty": 10.0,
+      "unit": "pack"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Fish Sauce",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Tomato Sauce",
+      "qty": 2.0,
+      "unit": "liter"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Laurel Leaves, 100g",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+      "category": "groceries",
+      "name": "Oyster Sauce",
+      "qty": 1.0,
+      "unit": "liter"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Butter Vegetables 1 kilo/pack",
+      "qty": 4.0,
+      "unit": "pack"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "tomato sauce",
+      "qty": 5.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "flour",
+      "qty": 5.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "pineapple chunks 432 g/can",
+      "qty": 5.0,
+      "unit": "can"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (ground) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (granules) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block pepper (whole) 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "bayleaf 50 g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "iodized salt",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "soy sauce 1liter/bottle",
+      "qty": 3.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "vinegar 1liter/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "fish sauce 1liter/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "liquid seasoning 500ML/bottle",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "sugar (white)",
+      "qty": 1.0,
+      "unit": "kilo"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "banana ketchup",
+      "qty": 1.0,
+      "unit": "gallon"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Spring Oil (1.5 L / bottle)",
+      "qty": 2.0,
+      "unit": "Bottle"
+    },
+    {
+      "school": "TAPINAC ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice",
+      "qty": 50.0,
+      "unit": "Kilo"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Mixed Butter Vegetables 250g/pack",
+      "qty": 8.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Pinaapple Chuck",
+      "qty": 25.0,
+      "unit": "can"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Vinegar",
+      "qty": 2.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Sugar",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Oyster Sauce 500ml",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Soy Sauce 500ml",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Cooking Oil",
+      "qty": 4.0,
+      "unit": "Liter"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Tomato Sauce 1kg/pack",
+      "qty": 2.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Laurel Leaves",
+      "qty": 4.0,
+      "unit": "packs"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Liquid Seasoning 100g/pack",
+      "qty": 2.0,
+      "unit": "Bottle"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "iodized salt",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Flour",
+      "qty": 1.0,
+      "unit": "kg"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Fish Sauce 300ml",
+      "qty": 1.0,
+      "unit": "bottle"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "block ground papper100g/pack",
+      "qty": 1.0,
+      "unit": "pack"
+    },
+    {
+      "school": "ILALIM ELEMENTARY SCHOOL",
+      "category": "groceries",
+      "name": "Rice",
+      "qty": 1.0,
+      "unit": "sack"
+    },
+    {
+      "school": "BANICAIN ELEMENTARY SCHOOL",
+      "category": "other_order",
+      "name": "LPG (kitchen gas) with tank, 11kg",
+      "qty": 1.0,
+      "unit": "pcs"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "other_order",
+      "name": "LPG Tank, Refill, 11kgs",
+      "qty": 1.0,
+      "unit": "Refill"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "other_order",
+      "name": "Single Burner Gas Stove, Heavy Duty",
+      "qty": 1.0,
+      "unit": "unit"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "other_order",
+      "name": "LPG Hose",
+      "qty": 1.0,
+      "unit": "piece"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "other_order",
+      "name": "Apron",
+      "qty": 2.0,
+      "unit": "Piece"
+    },
+    {
+      "school": "JAMES L. GORDON INTEGRATED SCHOOL",
+      "category": "other_order",
+      "name": "Kitchen Hand Gloves, 100's",
+      "qty": 1.0,
+      "unit": "box"
+    }
+  ],
+  "schools": [
+    "ASINAN ELEMENTARY SCHOOL",
+    "BANICAIN ELEMENTARY SCHOOL",
+    "BARRETTO I ELEMENTARY SCHOOL",
+    "BOTON ELEMENTARY SCHOOL",
+    "ILALIM ELEMENTARY SCHOOL",
+    "IRAM I ELEMENTARY SCHOOL",
+    "JAMES L. GORDON INTEGRATED SCHOOL",
+    "MABAYUAN ELEMENTARY SCHOOL",
+    "NEW CABALAN ELEMENTARY SCHOOL",
+    "OLONGAPO CITY ELEMENTARY SCHOOL",
+    "SERGIA SORIANO ESTEBAN INTEGRATED SCHOOL II",
+    "STA. RITA ELEMENTARY SCHOOL",
+    "TAPINAC ELEMENTARY SCHOOL"
+  ]
+}

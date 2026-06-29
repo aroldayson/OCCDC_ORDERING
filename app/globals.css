@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1e293b;
+  --sidebar-bg-outer: #050a18;
+  --sidebar-navy-from: #0c1e45;
+  --sidebar-navy-mid: #0a1931;
+  --sidebar-navy-to: #050a18;
+  --sidebar-section-bar: #1e3a5f;
+  --sidebar-active-bg: #82caff;
+  --sidebar-active-text: #0a1931;
+  --sidebar-text: #e2e8f0;
+  --sidebar-text-muted: #94a3b8;
 }
 
 @theme inline {
-  --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-sidebar-active: var(--sidebar-active-bg);
+  --color-sidebar-active-text: var(--sidebar-active-text);
+  --color-sidebar-section: var(--sidebar-section-bar);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
+  background: #ffffff;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.sidebar-gradient {
+  background: linear-gradient(
+    180deg,
+    var(--sidebar-navy-from) 0%,
+    var(--sidebar-navy-mid) 50%,
+    var(--sidebar-navy-to) 100%
+  );
+}
+
+/* Hide native scrollbars on elements that use Tailwind overflow utilities.
+   This targets common classes like `overflow-y-auto`, `overflow-auto`,
+   `overflow-x-auto`, and `overflow-scroll` used across the app UI. */
+.overflow-y-auto,
+.overflow-auto,
+.overflow-x-auto,
+.overflow-scroll {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }

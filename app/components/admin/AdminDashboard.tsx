@@ -1,0 +1,156 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Menu } from "lucide-react";
+import { getOrders } from "../order/orderStorage";
+import { filterOrdersForSchool } from "../order/orderAccess";
+import type { WeeklyOrderRecord } from "../order/types";
+import { useAuth } from "@/app/providers/AuthProvider";
+import WeeklyOrderView from "./WeeklyOrderView";
+import AdminSidebar, { type AdminView } from "./AdminSidebar";
+import { SidebarToggleButton } from "./SidebarToggle";
+import RestaurantDashboard from "./overview/RestaurantDashboard";
+import OrdersTable from "./OrdersTable";
+import OrderDetailPanel from "./OrderDetailPanel";
+
+const viewMeta: Record<AdminView, { title: string; subtitle?: string }> = {
+  overview: { title: "Dashboard", subtitle: "Welcome back!" },
+  "place-order": {
+    title: "Weekly Product Order",
+    subtitle: "Place orders, process by client, and manage weekly items",
+  },
+  orders: { title: "View Orders", subtitle: "Manage client orders" },
+};
+
+export default function AdminDashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const [activeView, setActiveView] = useState<AdminView>(
+    isAdmin ? "overview" : "place-order",
+  );
+  const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const loadOrders = useCallback(() => {
+    setOrders(getOrders());
+  }, []);
+
+  useEffect(() => {
+    loadOrders();
+    window.addEventListener("occdc-orders-updated", loadOrders);
+    return () => window.removeEventListener("occdc-orders-updated", loadOrders);
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!isAdmin && activeView !== "place-order") {
+      setActiveView("place-order");
+    }
+  }, [isAdmin, activeView]);
+
+  const visibleOrders = useMemo(() => {
+    if (isAdmin) return orders;
+    return filterOrdersForSchool(orders, user?.school_name);
+  }, [orders, isAdmin, user?.school_name]);
+
+  const selectedOrder = visibleOrders.find((o) => o.id === selectedId) ?? null;
+
+  return (
+    <div className="flex h-dvh w-full overflow-hidden bg-slate-50">
+      <AdminSidebar
+        activeView={activeView}
+        onViewChange={setActiveView}
+        sidebarOpen={sidebarOpen}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+        onToggleSidebar={() => setSidebarOpen(false)}
+        isAdmin={isAdmin}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center border-b border-slate-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {!sidebarOpen && (
+              <SidebarToggleButton
+                onClick={() => setSidebarOpen(true)}
+                ariaLabel="Show sidebar"
+              />
+            )}
+
+            {!sidebarOpen && (
+              <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white lg:flex">
+                OCC
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1 pl-0.5 sm:pl-1">
+              <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-lg">
+                {viewMeta[activeView].title}
+              </h1>
+              {viewMeta[activeView].subtitle && (
+                <p className="truncate text-xs text-slate-500 sm:text-sm">
+                  {viewMeta[activeView].subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <main
+          className={`min-h-0 flex-1 p-4 sm:p-6 ${
+            activeView === "place-order" || activeView === "orders"
+              ? "flex flex-col overflow-hidden"
+              : "overflow-y-auto"
+          }`}
+        >
+          {activeView === "overview" && isAdmin && <RestaurantDashboard />}
+
+          {activeView === "place-order" && (
+            <WeeklyOrderView orders={orders} onOrdersUpdated={loadOrders} />
+          )}
+
+          {activeView === "orders" && isAdmin && (
+            <div
+              className={`flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 ${
+                selectedOrder ? "lg:grid lg:grid-cols-3 lg:gap-5" : "w-full"
+              }`}
+            >
+              <div
+                className={`flex min-h-0 flex-col ${
+                  selectedOrder ? "lg:col-span-2" : "w-full"
+                }`}
+              >
+                <OrdersTable
+                  orders={visibleOrders}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              </div>
+              {selectedOrder && (
+                <div
+                  className={`flex min-h-0 flex-col ${selectedOrder ? "lg:col-span-1" : ""}`}
+                >
+                  <OrderDetailPanel
+                    order={selectedOrder}
+                    onClose={() => setSelectedId(null)}
+                    onStatusChange={loadOrders}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
