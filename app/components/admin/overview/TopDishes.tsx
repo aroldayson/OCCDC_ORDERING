@@ -1,39 +1,80 @@
-import { ChevronDown, Calendar } from "lucide-react";
+import type { WeeklyOrderRecord } from "../../order/types";
 
-const topDishes = [
-  { name: "Twice Cooked Pork", orders: 960, emoji: "🥩" },
-  { name: "Kung Pao Chicken", orders: 842, emoji: "🍗" },
-  { name: "Mapo Tofu", orders: 715, emoji: "🫕" },
-  { name: "Dan Dan Noodles", orders: 623, emoji: "🍜" },
-];
+type TopDishesProps = {
+  orders: WeeklyOrderRecord[];
+};
 
-export default function TopDishes() {
+type GroupedProduct = {
+  name: string;
+  qty: number;
+  unit: string;
+  category: string;
+};
+
+export default function TopDishes({ orders }: TopDishesProps) {
+  // Aggregate products
+  const productMap = new Map<string, GroupedProduct>();
+
+  for (const order of orders) {
+    for (const item of order.items) {
+      const key = `${item.name.toLowerCase()}-${item.unit.toLowerCase()}`;
+      const existing = productMap.get(key);
+      if (existing) {
+        existing.qty += item.qty;
+      } else {
+        productMap.set(key, {
+          name: item.name,
+          qty: item.qty,
+          unit: item.unit,
+          category: item.category,
+        });
+      }
+    }
+  }
+
+  const sortedProducts = Array.from(productMap.values())
+    .sort((a, b) => b.qty - a.qty);
+
+  const getEmoji = (category: string) => {
+    switch (category) {
+      case "vegetables_fruits":
+        return "🥦";
+      case "meat":
+        return "🥩";
+      case "fish_egg":
+        return "🍳";
+      case "groceries":
+        return "🥫";
+      default:
+        return "📦";
+    }
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-bold text-slate-800">Top Dishes</h2>
-        <button className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
-          <Calendar className="h-3.5 w-3.5" />
-          This Week
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm flex flex-col h-[400px]">
+      <div className="mb-4 flex items-center justify-between shrink-0">
+        <h2 className="text-base font-bold text-slate-800">Top Ordered Products</h2>
       </div>
-      <ul className="space-y-4">
-        {topDishes.map((dish) => (
-          <li key={dish.name} className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
-              {dish.emoji}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-800">{dish.name}</p>
-              <p className="text-sm">
-                <span className="font-bold text-slate-800">{dish.orders}</span>{" "}
-                <span className="text-orange-500">Orders</span>
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {sortedProducts.length === 0 ? (
+        <div className="py-8 text-center text-sm text-slate-500 flex-1 flex items-center justify-center">No ordered items yet.</div>
+      ) : (
+        <ul className="space-y-4 overflow-y-auto flex-1 pr-2">
+          {sortedProducts.map((prod) => (
+            <li key={`${prod.name}-${prod.unit}`} className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
+                {getEmoji(prod.category)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-800">{prod.name}</p>
+                <p className="text-sm">
+                  <span className="font-bold text-slate-800">{prod.qty.toLocaleString()}</span>{" "}
+                  <span className="text-slate-500">{prod.unit}</span>
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

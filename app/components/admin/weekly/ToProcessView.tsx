@@ -7,6 +7,8 @@ import OrderDetailsPanel from "./OrderDetailsPanel";
 import ClientSummaryModal from "./ClientSummaryModal";
 import OrderViewModal from "./OrderViewModal";
 import { buildClientGroups } from "./utils";
+import { getClients } from "../../order/clientStorage";
+import type { ClientRecord } from "../../order/clientStorage";
 
 type StatusFilter = "all" | OrderStatus;
 
@@ -16,6 +18,8 @@ type ToProcessViewProps = {
   onAddOrder: (clientName?: string) => void;
   onAddClient: () => void;
   statusFilter: StatusFilter;
+  weekLabel?: string;
+  isAdmin?: boolean;
 };
 
 export default function ToProcessView({
@@ -24,21 +28,32 @@ export default function ToProcessView({
   onAddOrder,
   onAddClient,
   statusFilter,
+  weekLabel,
+  isAdmin = false,
 }: ToProcessViewProps) {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [viewOrder, setViewOrder] = useState<WeeklyOrderRecord | null>(null);
+  const [mobileShowSidebar, setMobileShowSidebar] = useState(true);
+  const [registeredClients, setRegisteredClients] = useState<ClientRecord[]>([]);
+
+  useEffect(() => {
+    getClients().then(setRegisteredClients);
+    const refresh = () => getClients().then(setRegisteredClients);
+    window.addEventListener("occdc-clients-updated", refresh);
+    return () => window.removeEventListener("occdc-clients-updated", refresh);
+  }, []);
 
   const filteredOrders = useMemo(() => {
-    const base = orders.filter((o) => o.status === "pending" || o.status === "processing");
+    const base = orders.filter((o) => o.status === "pending" || o.status === "accepted" || o.status === "processing");
     if (statusFilter === "all") return base;
     return base.filter((o) => o.status === statusFilter);
   }, [orders, statusFilter]);
 
   const clients = useMemo(() => {
-    const groups = buildClientGroups(filteredOrders);
+    const groups = buildClientGroups(filteredOrders, registeredClients);
     return groups.filter((c) => c.orderCount > 0);
-  }, [filteredOrders]);
+  }, [filteredOrders, registeredClients]);
 
   const clientOrders = useMemo(() => {
     if (!selectedClient) return [];
@@ -56,26 +71,34 @@ export default function ToProcessView({
       });
   }, [clientOrders]);
 
-  useEffect(() => {
+  const [prevClients, setPrevClients] = useState(clients);
+  if (clients !== prevClients) {
+    setPrevClients(clients);
     if (clients.length === 0) {
       setSelectedClient(null);
-      return;
-    }
-    if (!selectedClient || !clients.some((c) => c.name === selectedClient)) {
+    } else if (!selectedClient || !clients.some((c) => c.name === selectedClient)) {
       setSelectedClient(clients[0].name);
     }
-  }, [clients, selectedClient]);
+  }
 
   return (
     <>
       <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden lg:flex-row">
-        <ClientsSidebar
-          clients={clients}
-          selectedClient={selectedClient}
-          onSelect={setSelectedClient}
-          onAddClient={onAddClient}
-        />
-        <div className="min-h-0 flex-1 overflow-hidden">
+        {isAdmin && (
+          <div className={`${mobileShowSidebar ? "flex" : "hidden"} lg:flex h-full min-h-0 w-full lg:w-56 lg:shrink-0 xl:w-64 flex-col`}>
+            <ClientsSidebar
+              clients={clients}
+              selectedClient={selectedClient}
+              onSelect={(name) => {
+                setSelectedClient(name);
+                setMobileShowSidebar(false);
+              }}
+              onAddClient={onAddClient}
+              isAdmin={isAdmin}
+            />
+          </div>
+        )}
+        <div className={`${!isAdmin || !mobileShowSidebar ? "flex" : "hidden"} lg:flex min-h-0 flex-1 flex-col overflow-hidden`}>
           <OrderDetailsPanel
             clientName={selectedClient}
             categories={selectedCategories}
@@ -84,6 +107,8 @@ export default function ToProcessView({
             onAddOrder={() => onAddOrder(selectedClient ?? undefined)}
             onViewSummary={() => setSummaryOpen(true)}
             onViewOrder={setViewOrder}
+            onBack={() => setMobileShowSidebar(true)}
+            weekLabel={weekLabel}
           />
         </div>
       </div>
@@ -94,6 +119,7 @@ export default function ToProcessView({
         categories={selectedCategories}
         orders={clientOrders}
         onClose={() => setSummaryOpen(false)}
+        weekLabel={weekLabel ?? ""}
       />
 
       <OrderViewModal

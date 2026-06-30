@@ -1,14 +1,9 @@
 import { weekLabel } from "./products";
-import type { OrderItem, WeeklyOrderRecord } from "./types";
+import type { OrderItem, WeeklyOrderRecord, OrderStatus } from "./types";
 import type { OrderRole } from "./roles";
+import { supabase } from "@/lib/supabase";
 
-const STORAGE_KEY = "occdc_orders";
-const STORAGE_VERSION = "excel-week1-v1";
-const VERSION_KEY = "occdc_orders_version";
 
-function slug(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
 
 function seedOrders(): WeeklyOrderRecord[] {
   const now = Date.now();
@@ -516,53 +511,124 @@ function seedOrders(): WeeklyOrderRecord[] {
   ];
 }
 
-function migrateOrder(order: WeeklyOrderRecord & { clientRole?: OrderRole }): WeeklyOrderRecord {
-  if (order.clientRole) return order;
-  const inferred = (order.items[0]?.category as OrderRole | undefined) ?? "groceries";
-  return { ...order, clientRole: inferred };
-}
 
-export function getOrders(): WeeklyOrderRecord[] {
-  if (typeof window === "undefined") return [];
+
+export async function getOrders(): Promise<WeeklyOrderRecord[]> {
   try {
-    const version = localStorage.getItem(VERSION_KEY);
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw || version !== STORAGE_VERSION) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
       const seeded = seedOrders();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      localStorage.setItem(VERSION_KEY, STORAGE_VERSION);
+      const dbOrders = seeded.map(o => ({
+        id: o.id,
+        client_name: o.clientName,
+        client_role: o.clientRole,
+        week_label: o.weekLabel,
+        status: o.status,
+        item_count: o.itemCount,
+        created_at: o.createdAt,
+        items: o.items
+      }));
+      await supabase.from("orders").insert(dbOrders);
       return seeded;
     }
-    const parsed = JSON.parse(raw) as WeeklyOrderRecord[];
-    return parsed.map(migrateOrder);
-  } catch {
+
+    type DbOrderRow = {
+      id: string;
+      client_name: string;
+      client_role: OrderRole;
+      week_label: string;
+      status: OrderStatus;
+      item_count: number;
+      created_at: string;
+      items: WeeklyOrderRecord["items"];
+    };
+    return (data as DbOrderRow[]).map((row) => ({
+      id: row.id,
+      clientName: row.client_name,
+      clientRole: row.client_role,
+      weekLabel: row.week_label,
+      status: row.status,
+      itemCount: row.item_count,
+      createdAt: row.created_at,
+      items: row.items
+    }));
+  } catch (err) {
+    console.error("Error fetching orders from Supabase:", err);
     return [];
   }
 }
 
-export function saveOrder(order: WeeklyOrderRecord): void {
-  const orders = getOrders();
-  orders.unshift(order);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event("occdc-orders-updated"));
+export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
+  try {
+    const dbOrder = {
+      id: order.id,
+      client_name: order.clientName,
+      client_role: order.clientRole,
+      week_label: order.weekLabel,
+      status: order.status,
+      item_count: order.itemCount,
+      created_at: order.createdAt,
+      items: order.items
+    };
+    const { error } = await supabase.from("orders").insert(dbOrder);
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error saving order to Supabase:", err);
+  }
 }
 
-export function updateOrderStatus(id: string, status: WeeklyOrderRecord["status"]): void {
-  const orders = getOrders().map((o) => (o.id === id ? { ...o, status } : o));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event("occdc-orders-updated"));
+export async function updateOrderStatus(id: string, status: WeeklyOrderRecord["status"]): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status })
+      .eq("id", id);
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error updating order status in Supabase:", err);
+  }
 }
 
-export function deleteOrder(id: string): void {
-  const orders = getOrders().filter((o) => o.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event("occdc-orders-updated"));
+export async function deleteOrder(id: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("orders")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error deleting order from Supabase:", err);
+  }
 }
 
-export function updateOrder(updated: WeeklyOrderRecord): void {
-  const orders = getOrders().map((o) => (o.id === updated.id ? updated : o));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event("occdc-orders-updated"));
+export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
+  try {
+    const dbOrder = {
+      client_name: updated.clientName,
+      client_role: updated.clientRole,
+      week_label: updated.weekLabel,
+      status: updated.status,
+      item_count: updated.itemCount,
+      items: updated.items
+    };
+    const { error } = await supabase
+      .from("orders")
+      .update(dbOrder)
+      .eq("id", updated.id);
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error updating order in Supabase:", err);
+  }
 }
 
 export function createOrderId(): string {

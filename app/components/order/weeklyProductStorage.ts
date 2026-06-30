@@ -4,32 +4,44 @@ const STORAGE_KEY = "occdc_weekly_products";
 const OVERRIDES_KEY = "occdc_weekly_overrides";
 const HIDDEN_KEY = "occdc_weekly_hidden";
 
+function getKeys(weekLabel?: string) {
+  const suffix = weekLabel ? `_${weekLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}` : "";
+  return {
+    storageKey: `${STORAGE_KEY}${suffix}`,
+    overridesKey: `${OVERRIDES_KEY}${suffix}`,
+    hiddenKey: `${HIDDEN_KEY}${suffix}`,
+  };
+}
+
 type ProductOverride = Partial<Omit<WeeklyProduct, "id">>;
 
-function getCustomProducts(): WeeklyProduct[] {
+function getCustomProducts(weekLabel?: string): WeeklyProduct[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const { storageKey } = getKeys(weekLabel);
+    const raw = localStorage.getItem(storageKey);
     return raw ? (JSON.parse(raw) as WeeklyProduct[]) : [];
   } catch {
     return [];
   }
 }
 
-function getOverrides(): Record<string, ProductOverride> {
+function getOverrides(weekLabel?: string): Record<string, ProductOverride> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(OVERRIDES_KEY);
+    const { overridesKey } = getKeys(weekLabel);
+    const raw = localStorage.getItem(overridesKey);
     return raw ? (JSON.parse(raw) as Record<string, ProductOverride>) : {};
   } catch {
     return {};
   }
 }
 
-function getHiddenIds(): Set<string> {
+function getHiddenIds(weekLabel?: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(HIDDEN_KEY);
+    const { hiddenKey } = getKeys(weekLabel);
+    const raw = localStorage.getItem(hiddenKey);
     return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
   } catch {
     return new Set();
@@ -45,22 +57,25 @@ function applyOverride(product: WeeklyProduct, override?: ProductOverride): Week
   return { ...product, ...override };
 }
 
-export function getWeeklyProducts(): WeeklyProduct[] {
-  const hidden = getHiddenIds();
-  const overrides = getOverrides();
+export function getWeeklyProducts(weekLabel?: string): WeeklyProduct[] {
+  const hidden = getHiddenIds(weekLabel);
+  const overrides = getOverrides(weekLabel);
   const base = weeklyProducts
     .filter((p) => !hidden.has(p.id))
     .map((p) => applyOverride(p, overrides[p.id]));
-  const custom = getCustomProducts().filter((p) => !hidden.has(p.id));
+  const custom = getCustomProducts(weekLabel).filter((p) => !hidden.has(p.id));
   return [...base, ...custom];
 }
 
-export function isCustomProduct(id: string): boolean {
-  return getCustomProducts().some((p) => p.id === id);
+export function isCustomProduct(id: string, weekLabel?: string): boolean {
+  return getCustomProducts(weekLabel).some((p) => p.id === id);
 }
 
-export function addWeeklyProduct(product: Omit<WeeklyProduct, "id"> & { id?: string }): WeeklyProduct {
-  const custom = getCustomProducts();
+export function addWeeklyProduct(
+  product: Omit<WeeklyProduct, "id"> & { id?: string },
+  weekLabel?: string,
+): WeeklyProduct {
+  const custom = getCustomProducts(weekLabel);
   const slug =
     product.name
       .toLowerCase()
@@ -81,35 +96,40 @@ export function addWeeklyProduct(product: Omit<WeeklyProduct, "id"> & { id?: str
   };
 
   custom.push(entry);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+  const { storageKey } = getKeys(weekLabel);
+  localStorage.setItem(storageKey, JSON.stringify(custom));
   notify();
   return entry;
 }
 
-export function updateWeeklyProduct(id: string, data: ProductOverride): void {
-  if (isCustomProduct(id)) {
-    const custom = getCustomProducts().map((p) => (p.id === id ? { ...p, ...data } : p));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+export function updateWeeklyProduct(id: string, data: ProductOverride, weekLabel?: string): void {
+  if (isCustomProduct(id, weekLabel)) {
+    const custom = getCustomProducts(weekLabel).map((p) => (p.id === id ? { ...p, ...data } : p));
+    const { storageKey } = getKeys(weekLabel);
+    localStorage.setItem(storageKey, JSON.stringify(custom));
   } else if (weeklyProducts.some((p) => p.id === id)) {
-    const overrides = getOverrides();
+    const overrides = getOverrides(weekLabel);
     overrides[id] = { ...overrides[id], ...data };
-    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+    const { overridesKey } = getKeys(weekLabel);
+    localStorage.setItem(overridesKey, JSON.stringify(overrides));
   }
   notify();
 }
 
-export function removeWeeklyProduct(id: string): void {
-  if (isCustomProduct(id)) {
-    const custom = getCustomProducts().filter((p) => p.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+export function removeWeeklyProduct(id: string, weekLabel?: string): void {
+  if (isCustomProduct(id, weekLabel)) {
+    const custom = getCustomProducts(weekLabel).filter((p) => p.id !== id);
+    const { storageKey } = getKeys(weekLabel);
+    localStorage.setItem(storageKey, JSON.stringify(custom));
   } else {
-    const hidden = getHiddenIds();
+    const hidden = getHiddenIds(weekLabel);
     hidden.add(id);
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+    const { hiddenKey } = getKeys(weekLabel);
+    localStorage.setItem(hiddenKey, JSON.stringify([...hidden]));
   }
   notify();
 }
 
-export function getCustomWeeklyProducts(): WeeklyProduct[] {
-  return getCustomProducts();
+export function getCustomWeeklyProducts(weekLabel?: string): WeeklyProduct[] {
+  return getCustomProducts(weekLabel);
 }

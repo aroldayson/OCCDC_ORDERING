@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useEffect } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,8 +30,8 @@ export default function LoginPage() {
       await signIn(email, password);
       router.refresh();
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Failed to sign in");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign in");
     } finally {
       setLoading(false);
     }
@@ -99,7 +107,7 @@ export default function LoginPage() {
 
           <div className="mt-6 border-t border-slate-700 pt-6">
             <p className="text-center text-sm text-slate-400">
-              Don't have an account?{" "}
+              {"Don't have an account? "}
               <Link
                 href="/auth/signup"
                 className="font-medium text-blue-400 hover:text-blue-300"

@@ -3,9 +3,7 @@ export type ClientRecord = {
   name: string;
 };
 
-const STORAGE_KEY = "occdc_clients";
-const STORAGE_VERSION = "excel-week1-v1";
-const VERSION_KEY = "occdc_clients_version";
+
 
 function seedClients(): ClientRecord[] {
   return [
@@ -25,19 +23,34 @@ function seedClients(): ClientRecord[] {
   ];
 }
 
-function readClients(): ClientRecord[] {
-  if (typeof window === "undefined") return [];
+import { supabase } from "@/lib/supabase";
+
+async function readClients(): Promise<ClientRecord[]> {
   try {
-    const version = localStorage.getItem(VERSION_KEY);
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw || version !== STORAGE_VERSION) {
+    const { data, error } = await supabase
+      .from("schools")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
       const seeded = seedClients();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      localStorage.setItem(VERSION_KEY, STORAGE_VERSION);
+      const dbSchools = seeded.map((s) => ({
+        id: s.id,
+        name: s.name,
+      }));
+      await supabase.from("schools").insert(dbSchools);
       return seeded;
     }
-    return JSON.parse(raw) as ClientRecord[];
-  } catch {
+
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+    }));
+  } catch (err) {
+    const error = err as Error;
+    console.error("Error fetching schools from Supabase:", error.message || error);
     return [];
   }
 }
@@ -46,17 +59,18 @@ function notify() {
   window.dispatchEvent(new Event("occdc-clients-updated"));
 }
 
-export function getClients(): ClientRecord[] {
+export async function getClients(): Promise<ClientRecord[]> {
   return readClients();
 }
 
-export function getClientByName(name: string): ClientRecord | undefined {
-  return readClients().find((c) => c.name === name);
+export async function getClientByName(name: string): Promise<ClientRecord | undefined> {
+  const clients = await readClients();
+  return clients.find((c) => c.name === name);
 }
 
-export function resolveClientBySchoolName(schoolName: string): ClientRecord {
+export async function resolveClientBySchoolName(schoolName: string): Promise<ClientRecord> {
   const normalized = schoolName.trim().toUpperCase();
-  const clients = readClients();
+  const clients = await readClients();
   const existing = clients.find((c) => c.name.toUpperCase() === normalized);
   if (existing) return existing;
 
@@ -70,13 +84,20 @@ export function resolveClientBySchoolName(schoolName: string): ClientRecord {
   return addClient(schoolName.trim());
 }
 
-export function addClient(name: string): ClientRecord {
-  const clients = readClients();
+export async function addClient(name: string): Promise<ClientRecord> {
+  const clients = await readClients();
   const existing = clients.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
   if (existing) return existing;
-  const entry: ClientRecord = { id: `school-${Date.now()}`, name: name.trim() };
-  clients.push(entry);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
-  notify();
+
+  const entry = { id: `school-${Date.now()}`, name: name.trim() };
+  try {
+    const { error } = await supabase.from("schools").insert([entry]);
+    if (error) throw error;
+    notify();
+  } catch (err) {
+    const error = err as Error;
+    console.error("Error saving school to Supabase:", error.message || error);
+  }
+  
   return entry;
 }

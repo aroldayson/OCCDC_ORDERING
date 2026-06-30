@@ -3,10 +3,11 @@ import { updateOrderStatus } from "../order/orderStorage";
 import { printOrderForm } from "./printOrder";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 
-const statusOptions: OrderStatus[] = ["pending", "processing", "completed"];
+const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed"];
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
+  accepted: "bg-blue-50 text-blue-700 border-blue-200",
   processing: "bg-violet-50 text-violet-700 border-violet-200",
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
@@ -35,8 +36,8 @@ export default function OrderDetailPanel({
 }: OrderDetailPanelProps) {
   if (!order) return null;
 
-  function handleStatusChange(status: OrderStatus) {
-    updateOrderStatus(order!.id, status);
+  async function handleStatusChange(status: OrderStatus) {
+    await updateOrderStatus(order!.id, status);
     onStatusChange();
   }
 

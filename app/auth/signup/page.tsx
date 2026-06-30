@@ -3,12 +3,19 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useEffect } from "react";
 import { SignupForm } from "@/app/components/auth/SignupForm";
 import type { UserRole } from "@/lib/supabase";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [loading, isAuthenticated, router]);
 
   const handleSignup = async (
     email: string,

@@ -1,0 +1,114 @@
+
+> occdcorderingsystem@0.1.0 lint
+> eslint
+
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\auth\login\page.tsx
+   33:19  error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  110:18  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\AdminDashboard.tsx
+  41:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\AdminDashboard.tsx:41:5
+  39 |
+  40 |   useEffect(() => {
+> 41 |     loadOrders();
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |     window.addEventListener("occdc-orders-updated", loadOrders);
+  43 |     return () => window.removeEventListener("occdc-orders-updated", loadOrders);
+  44 |   }, [loadOrders]);  react-hooks/set-state-in-effect
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\WeeklyItemsManager.tsx
+    8:3   warning  'Pencil' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   11:3   warning  'Trash2' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   15:10  warning  'getWeeklyProducts' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   15:29  warning  'removeWeeklyProduct' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   16:10  warning  'getCategoryDisplay' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   17:34  warning  'OrderItem' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   74:3   warning  'weekLabel' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   76:3   warning  'onEditItem' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  108:5   error    Error: Calling setState from useMemo may trigger an infinite loop
+
+Each time the memo callback is evaluated it will change state. This can cause a memoization dependency to change, running the memo function again and causing an infinite loop. Instead of setting state in useMemo(), prefer deriving the value during render. (https://react.dev/reference/react/useState).
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\WeeklyItemsManager.tsx:108:5
+  106 |   // Reset to page 1 when search or page size changes
+  107 |   useMemo(() => {
+> 108 |     setPage(1);
+      |     ^^^^^^^ Found setState() within useMemo()
+  109 |   }, [search, pageSize]);
+  110 |
+  111 |   return (  react-hooks/set-state-in-render
+  109:6   warning  React Hook useMemo has unnecessary dependencies: 'pageSize' and 'search'. Either exclude them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\WeeklyOrderView.tsx
+  16:8   warning  'ClientOrdersView' is defined but never used                                                          @typescript-eslint/no-unused-vars
+  30:7   warning  'clientTabs' is assigned a value but never used                                                       @typescript-eslint/no-unused-vars
+  82:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+  99:12  warning  'openAddItemModal' is defined but never used                                                          @typescript-eslint/no-unused-vars
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\weekly\AddOrderItemModal.tsx
+  30:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\weekly\AddOrderItemModal.tsx:30:7
+  28 |   useEffect(() => {
+  29 |     if (open) {
+> 30 |       setProductName("");
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  31 |       setQty("");
+  32 |       setUnit("kg");
+  33 |       setNote("");  react-hooks/set-state-in-effect
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\weekly\ToProcessView.tsx
+  76:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\weekly\ToProcessView.tsx:76:7
+  74 |   useEffect(() => {
+  75 |     if (clients.length === 0) {
+> 76 |       setSelectedClient(null);
+     |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  77 |       return;
+  78 |     }
+  79 |     if (!selectedClient || !clients.some((c) => c.name === selectedClient)) {  react-hooks/set-state-in-effect
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\admin\weekly\utils.ts
+  2:10  warning  'getClients' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\auth\SignupForm.tsx
+  62:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\order\WeeklyOrder.tsx
+   15:8  warning  'ClientNameField' is defined but never used                                                         @typescript-eslint/no-unused-vars
+  130:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  132:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+  134:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/set-state-in-effect')
+
+D:\OCCDC Files\Project Website\occdcorderingsystem\app\components\order\orderStorage.ts
+    6:7   warning  'STORAGE_KEY' is assigned a value but never used      @typescript-eslint/no-unused-vars
+    7:7   warning  'STORAGE_VERSION' is assigned a value but never used  @typescript-eslint/no-unused-vars
+    8:7   warning  'VERSION_KEY' is assigned a value but never used      @typescript-eslint/no-unused-vars
+   10:10  warning  'slug' is defined but never used                      @typescript-eslint/no-unused-vars
+  520:10  warning  'migrateOrder' is defined but never used              @typescript-eslint/no-unused-vars
+
+✖ 30 problems (7 errors, 23 warnings)
+  0 errors and 4 warnings potentially fixable with the `--fix` option.
+

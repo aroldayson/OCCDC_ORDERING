@@ -5,18 +5,18 @@ import { X } from "lucide-react";
 type AddClientModalProps = {
   open: boolean;
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => void | Promise<void>;
 };
 
 export default function AddClientModal({ open, onClose, onSave }: AddClientModalProps) {
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get("name") ?? "").trim();
     if (!name) return;
-    onSave(name);
+    await onSave(name);
     onClose();
   }
 

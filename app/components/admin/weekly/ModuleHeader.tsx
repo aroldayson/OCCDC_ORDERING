@@ -1,17 +1,16 @@
-import { Filter, Plus } from "lucide-react";
-import { weekLabel } from "../../order/products";
+import { Filter } from "lucide-react";
 
 type ModuleHeaderProps = {
+  weekLabel: string;
   pendingCount: number;
   onFilter: () => void;
-  onAddOrder: () => void;
   filterActive?: boolean;
 };
 
 export default function ModuleHeader({
+  weekLabel,
   pendingCount,
   onFilter,
-  onAddOrder,
   filterActive,
 }: ModuleHeaderProps) {
   return (
@@ -37,13 +36,6 @@ export default function ModuleHeader({
         >
           <Filter className="h-4 w-4" />
           Filter
-        </button>
-        <button
-          onClick={onAddOrder}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:px-4"
-        >
-          <Plus className="h-4 w-4" />
-          Add Order
         </button>
       </div>
     </div>

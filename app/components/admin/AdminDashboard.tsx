@@ -26,29 +26,23 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const [activeView, setActiveView] = useState<AdminView>(
-    isAdmin ? "overview" : "place-order",
-  );
+  const [activeView, setActiveView] = useState<AdminView>("overview");
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const loadOrders = useCallback(() => {
-    setOrders(getOrders());
+  const loadOrders = useCallback(async () => {
+    const data = await getOrders();
+    setOrders(data);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrders();
     window.addEventListener("occdc-orders-updated", loadOrders);
     return () => window.removeEventListener("occdc-orders-updated", loadOrders);
   }, [loadOrders]);
-
-  useEffect(() => {
-    if (!isAdmin && activeView !== "place-order") {
-      setActiveView("place-order");
-    }
-  }, [isAdmin, activeView]);
 
   const visibleOrders = useMemo(() => {
     if (isAdmin) return orders;
@@ -107,28 +101,25 @@ export default function AdminDashboard() {
         </header>
 
         <main
-          className={`min-h-0 flex-1 p-4 sm:p-6 ${
-            activeView === "place-order" || activeView === "orders"
-              ? "flex flex-col overflow-hidden"
-              : "overflow-y-auto"
-          }`}
+          className={`min-h-0 flex-1 p-4 sm:p-6 ${activeView === "place-order" || activeView === "orders"
+            ? "flex flex-col overflow-hidden"
+            : "overflow-y-auto"
+            }`}
         >
-          {activeView === "overview" && isAdmin && <RestaurantDashboard />}
+          {activeView === "overview" && <RestaurantDashboard orders={orders} />}
 
           {activeView === "place-order" && (
             <WeeklyOrderView orders={orders} onOrdersUpdated={loadOrders} />
           )}
 
-          {activeView === "orders" && isAdmin && (
+          {activeView === "orders" && (
             <div
-              className={`flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 ${
-                selectedOrder ? "lg:grid lg:grid-cols-3 lg:gap-5" : "w-full"
-              }`}
+              className={`flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 ${selectedOrder ? "lg:grid lg:grid-cols-3 lg:gap-5" : "w-full"
+                }`}
             >
               <div
-                className={`flex min-h-0 flex-col ${
-                  selectedOrder ? "lg:col-span-2" : "w-full"
-                }`}
+                className={`flex min-h-0 flex-col ${selectedOrder ? "lg:col-span-2" : "w-full"
+                  }`}
               >
                 <OrdersTable
                   orders={visibleOrders}

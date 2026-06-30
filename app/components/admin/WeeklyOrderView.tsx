@@ -13,7 +13,6 @@ import WeeklyItemsManager from "./WeeklyItemsManager";
 import ModuleHeader from "./weekly/ModuleHeader";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
 import ToProcessView from "./weekly/ToProcessView";
-import ClientOrdersView from "./weekly/ClientOrdersView";
 import WeekSelector from "./weekly/WeekSelector";
 import { addClient } from "../order/clientStorage";
 import AddClientModal from "./weekly/AddClientModal";
@@ -27,10 +26,7 @@ const adminTabs: { id: Tab; label: string; icon: typeof Package }[] = [
   { id: "items", label: "Weekly Items", icon: PlusCircle },
 ];
 
-const clientTabs: { id: Tab; label: string; icon: typeof Package }[] = [
-  { id: "order", label: "Place Order", icon: Package },
-  { id: "process", label: "My Orders", icon: ClipboardList },
-];
+
 
 type WeeklyOrderViewProps = {
   orders: WeeklyOrderRecord[];
@@ -42,7 +38,7 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
   const isAdmin = user?.role === "admin";
   const schoolName = user?.school_name?.trim() ?? "";
 
-  const tabs = isAdmin ? adminTabs : clientTabs;
+  const tabs = adminTabs;
 
   const [tab, setTab] = useState<Tab>("order");
   const [weekOffset, setWeekOffset] = useState<WeekOffset>(0);
@@ -61,7 +57,7 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
   }, [orders, selectedWeek.weekLabel, isAdmin, schoolName]);
 
   const pendingCount = scopedOrders.filter(
-    (o) => o.status === "pending" || o.status === "processing",
+    (o) => o.status === "pending" || o.status === "accepted" || o.status === "processing",
   ).length;
 
   function handleAddOrder(clientName?: string) {
@@ -73,8 +69,8 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
     setAddClientOpen(true);
   }
 
-  function handleSaveClient(name: string) {
-    addClient(name);
+  async function handleSaveClient(name: string) {
+    await addClient(name);
     setPlaceOrderClient(name);
     setTab("order");
   }
@@ -84,22 +80,14 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
   }
 
   function cycleFilter() {
-    const order: StatusFilter[] = ["all", "pending", "processing"];
+    const order: StatusFilter[] = ["all", "pending", "accepted", "processing"];
     const idx = order.indexOf(statusFilter);
     setStatusFilter(order[(idx + 1) % order.length]);
   }
 
-  function handleEditItem(item: WeeklyProduct | null) {
-    setEditingItem(item);
-    setItemModalOpen(!!item);
-    if (item) setTab("items");
-  }
 
-  function openAddItemModal() {
-    setEditingItem(null);
-    setItemModalOpen(true);
-    setTab("items");
-  }
+
+
 
   function handleSaveItem(data: ItemFormData) {
     const qty = parseFloat(data.defaultQty);
@@ -114,15 +102,23 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
     };
 
     if (editingItem) {
-      updateWeeklyProduct(editingItem.id, payload);
+      updateWeeklyProduct(editingItem.id, payload, selectedWeek.weekLabel);
     } else {
-      addWeeklyProduct(payload);
+      addWeeklyProduct(payload, selectedWeek.weekLabel);
     }
     setItemModalOpen(false);
     setEditingItem(null);
   }
 
   const fixedClientName = !isAdmin && schoolName ? schoolName : undefined;
+
+  if (authLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden">
@@ -156,11 +152,11 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
         <WeekSelector selectedOffset={weekOffset} onChange={setWeekOffset} />
       </div>
 
-      {isAdmin && (
+      {(isAdmin || tab !== "order") && (
         <ModuleHeader
+          weekLabel={selectedWeek.weekLabel}
           pendingCount={pendingCount}
           onFilter={handleFilterToggle}
-          onAddOrder={() => handleAddOrder(placeOrderClient || undefined)}
           filterActive={statusFilter !== "all"}
         />
       )}
@@ -183,55 +179,49 @@ export default function WeeklyOrderView({ orders, onOrdersUpdated }: WeeklyOrder
         {tab === "order" && (
           <WeeklyOrder
             embedded
-            defaultClientName={isAdmin ? placeOrderClient : undefined}
+            defaultClientName={placeOrderClient || undefined}
             fixedClientName={fixedClientName}
             weekLabel={selectedWeek.weekLabel}
             onOrderSubmitted={() => {
               onOrdersUpdated();
-              if (isAdmin) setPlaceOrderClient("");
-              setTab(isAdmin ? "process" : "process");
+              setPlaceOrderClient("");
+              setTab("process");
             }}
           />
         )}
-        {tab === "process" && isAdmin && (
+        {tab === "process" && (
           <ToProcessView
             orders={scopedOrders}
             onUpdated={onOrdersUpdated}
             onAddOrder={handleAddOrder}
             onAddClient={handleAddClient}
             statusFilter={statusFilter}
+            weekLabel={selectedWeek.weekLabel}
+            isAdmin={isAdmin}
           />
         )}
-        {tab === "process" && !isAdmin && schoolName && (
-          <ClientOrdersView orders={scopedOrders} schoolName={schoolName} />
-        )}
-        {tab === "items" && isAdmin && (
+        {tab === "items" && (
           <WeeklyItemsManager
-            onEditItem={handleEditItem}
-            onAddItem={openAddItemModal}
+            orders={scopedOrders}
           />
         )}
       </div>
 
-      {isAdmin && (
-        <>
-          <ItemFormModal
-            open={itemModalOpen}
-            editing={editingItem}
-            onClose={() => {
-              setItemModalOpen(false);
-              setEditingItem(null);
-            }}
-            onSave={handleSaveItem}
-          />
+      <ItemFormModal
+        open={itemModalOpen}
+        editing={editingItem}
+        onClose={() => {
+          setItemModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSave={handleSaveItem}
+      />
 
-          <AddClientModal
-            open={addClientOpen}
-            onClose={() => setAddClientOpen(false)}
-            onSave={handleSaveClient}
-          />
-        </>
-      )}
+      <AddClientModal
+        open={addClientOpen}
+        onClose={() => setAddClientOpen(false)}
+        onSave={handleSaveClient}
+      />
     </div>
   );
 }

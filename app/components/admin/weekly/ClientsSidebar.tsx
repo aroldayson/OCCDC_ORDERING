@@ -10,6 +10,7 @@ type ClientsSidebarProps = {
   selectedClient: string | null;
   onSelect: (name: string) => void;
   onAddClient: () => void;
+  isAdmin?: boolean;
 };
 
 export default function ClientsSidebar({
@@ -17,6 +18,7 @@ export default function ClientsSidebar({
   selectedClient,
   onSelect,
   onAddClient,
+  isAdmin = false,
 }: ClientsSidebarProps) {
   const [search, setSearch] = useState("");
 
@@ -94,15 +96,17 @@ export default function ClientsSidebar({
         )}
       </ul>
 
-      <div className="shrink-0 border-t border-slate-100 p-3">
-        <button
-          onClick={onAddClient}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
-        >
-          <Plus className="h-4 w-4" />
-          Add School
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="shrink-0 border-t border-slate-100 p-3">
+          <button
+            onClick={onAddClient}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add School
+          </button>
+        </div>
+      )}
     </div>
   );
 }

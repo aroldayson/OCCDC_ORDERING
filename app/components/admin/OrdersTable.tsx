@@ -4,6 +4,7 @@ import { printOrderForm } from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700",
+  accepted: "bg-blue-50 text-blue-700",
   processing: "bg-violet-50 text-violet-700",
   completed: "bg-emerald-50 text-emerald-700",
 };

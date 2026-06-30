@@ -18,8 +18,8 @@ export default function ClientSelectField({
   const [clients, setClients] = useState<ClientRecord[]>([]);
 
   useEffect(() => {
-    setClients(getClients());
-    const refresh = () => setClients(getClients());
+    getClients().then(setClients);
+    const refresh = () => getClients().then(setClients);
     window.addEventListener("occdc-clients-updated", refresh);
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
@@ -87,6 +87,7 @@ export default function ClientSelectField({
   );
 }
 
-export function findClientIdByName(name: string): string {
-  return getClients().find((c) => c.name === name)?.id ?? "";
+export async function findClientIdByName(name: string): Promise<string> {
+  const clients = await getClients();
+  return clients.find((c) => c.name === name)?.id ?? "";
 }

@@ -1,4 +1,5 @@
 import type { OrderRole } from "./roles";
+import { getWeekInfo } from "./weekUtils";
 
 export type ProductCategory = OrderRole;
 
@@ -11,7 +12,7 @@ export type WeeklyProduct = {
   category: ProductCategory;
 };
 
-export const weekLabel = "WEEK 1 — June 29-July 3, 2026";
+export const weekLabel = getWeekInfo(0).weekLabel;
 
 export const weeklyProducts: WeeklyProduct[] = [
   { id: "vegetables-fruits-banana-lakatan", name: "Banana, lakatan", defaultQty: 35.0, unit: "kg", category: "vegetables_fruits" },

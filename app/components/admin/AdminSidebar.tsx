@@ -21,9 +21,9 @@ const navItems: {
   label: string;
   adminOnly?: boolean;
 }[] = [
-  { id: "overview", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
+  { id: "overview", icon: LayoutDashboard, label: "Dashboard" },
   { id: "place-order", icon: ShoppingBag, label: "Weekly Order" },
-  { id: "orders", icon: ClipboardList, label: "View Orders", adminOnly: true },
+  { id: "orders", icon: ClipboardList, label: "View Orders" },
 ];
 
 type AdminSidebarProps = {

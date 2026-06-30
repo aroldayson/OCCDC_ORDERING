@@ -25,8 +25,8 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [isLoading, setIsLoading] = useState(loading);
 
   useEffect(() => {
-    setSchools(getClients());
-    const refresh = () => setSchools(getClients());
+    getClients().then(setSchools);
+    const refresh = () => getClients().then(setSchools);
     window.addEventListener("occdc-clients-updated", refresh);
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
@@ -59,8 +59,8 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
 
     try {
       await onSubmit(email, password, role, schoolName.trim() || undefined);
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to sign up";
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to sign up";
 
       if (
         errorMessage.includes("rate limit") ||

@@ -2,10 +2,11 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, type UserProfile, type UserRole } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: UserProfile | null;
-  session: any;
+  session: Session | null;
   loading: boolean;
   signUp: (
     email: string,
@@ -71,7 +72,7 @@ function mergeProfileWithAuth(
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -205,8 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(buildFallbackProfile(authUser, role, trimmedSchool));
-    } catch (error: any) {
-      throw new Error(error.message || "Sign up failed");
+    } catch (error) {
+      throw new Error((error as Error).message || "Sign up failed");
     }
   };
 
@@ -244,8 +245,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(mergeProfileWithAuth(null, session.user));
         }
       }
-    } catch (error: any) {
-      throw new Error(error.message || "Sign in failed");
+    } catch (error) {
+      throw new Error((error as Error).message || "Sign in failed");
     }
   };
 

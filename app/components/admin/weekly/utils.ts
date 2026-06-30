@@ -1,5 +1,4 @@
 import type { WeeklyProduct } from "../../order/products";
-import { getClients } from "../../order/clientStorage";
 import { orderRoleLabels, orderRoles } from "../../order/roles";
 import type { OrderRole } from "../../order/roles";
 import type { OrderItem, WeeklyOrderRecord } from "../../order/types";
@@ -41,8 +40,7 @@ function uniqueCategories(orders: WeeklyOrderRecord[]): OrderRole[] {
   return orderRoles.filter((role) => seen.has(role));
 }
 
-export function buildClientGroups(orders: WeeklyOrderRecord[]): ClientGroup[] {
-  const registered = getClients();
+export function buildClientGroups(orders: WeeklyOrderRecord[], registered: { id: string; name: string }[]): ClientGroup[] {
   const orderByClient = new Map<string, WeeklyOrderRecord[]>();
 
   for (const order of orders) {

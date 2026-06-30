@@ -15,6 +15,7 @@ const statusStyles: Record<
   { label: string; className: string }
 > = {
   pending: { label: "Pending", className: "bg-amber-100 text-amber-700" },
+  accepted: { label: "Accepted", className: "bg-sky-100 text-sky-700" },
   processing: { label: "Processing", className: "bg-blue-100 text-blue-700" },
   completed: { label: "Completed", className: "bg-emerald-100 text-emerald-700" },
 };

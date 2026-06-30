@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   BarChart3,
   ChevronDown,
   ChevronUp,
@@ -12,15 +13,17 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
-import { deleteOrder } from "../../order/orderStorage";
+import { deleteOrder, updateOrder } from "../../order/orderStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import { printOrderForm } from "../printOrder";
 import type { OrderRole } from "../../order/roles";
 import type { OrderItem, WeeklyOrderRecord } from "../../order/types";
 import { formatOrderDate, getCategoryDisplayFromItem } from "./utils";
+import AddOrderItemModal from "./AddOrderItemModal";
 
 const statusStyles = {
   pending: "bg-amber-100 text-amber-700",
+  accepted: "bg-blue-100 text-blue-700",
   processing: "bg-violet-100 text-violet-700",
   completed: "bg-emerald-100 text-emerald-700",
 };
@@ -30,9 +33,11 @@ const PREVIEW_COUNT = 5;
 function CategorySummary({
   orders,
   categories,
+  onAddItem,
 }: {
   orders: WeeklyOrderRecord[];
   categories: OrderRole[];
+  onAddItem: (category: OrderRole) => void;
 }) {
   const summary = categories.map((category) => {
     const items = orders.flatMap((o) =>
@@ -48,15 +53,24 @@ function CategorySummary({
       {summary.map(({ category, itemCount, totalQty }) => (
         <div
           key={category}
-          className={`rounded-lg border-2 p-3 text-center ${orderRoleColors[category]}`}
+          className={`flex flex-col justify-between rounded-lg border-2 p-3 text-center ${orderRoleColors[category]}`}
         >
-          <p className="text-xs font-semibold uppercase">
-            {orderRoleLabels[category]}
-          </p>
-          <p className="mt-2 text-lg font-bold">{totalQty}</p>
-          <p className="text-xs text-slate-600">
-            {itemCount} item{itemCount !== 1 ? "s" : ""}
-          </p>
+          <div>
+            <p className="text-xs font-semibold uppercase">
+              {orderRoleLabels[category]}
+            </p>
+            <p className="mt-2 text-lg font-bold">{totalQty}</p>
+            <p className="text-xs text-slate-600">
+              {itemCount} item{itemCount !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <button
+            onClick={() => onAddItem(category)}
+            className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-sm transition-all border border-black/5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Item
+          </button>
         </div>
       ))}
     </div>
@@ -149,9 +163,9 @@ function OrderAccordion({
   const [open, setOpen] = useState(defaultOpen);
   const [itemsExpanded, setItemsExpanded] = useState(false);
 
-  function handleDelete() {
+  async function handleDelete() {
     if (confirm(`Delete order ${order.id}?`)) {
-      deleteOrder(order.id);
+      await deleteOrder(order.id);
       onUpdated();
     }
   }
@@ -233,6 +247,12 @@ function OrderAccordion({
             expanded={itemsExpanded}
             onToggleAll={() => setItemsExpanded((v) => !v)}
           />
+          {order.notes && (
+            <div className="mt-3 rounded-lg bg-amber-50/50 border border-amber-100 p-3 text-xs text-slate-700">
+              <span className="font-bold text-amber-800 uppercase block mb-1">Notes / Remarks:</span>
+              <p className="whitespace-pre-wrap">{order.notes}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -247,6 +267,8 @@ type OrderDetailsPanelProps = {
   onAddOrder: () => void;
   onViewSummary: () => void;
   onViewOrder: (order: WeeklyOrderRecord) => void;
+  onBack?: () => void;
+  weekLabel?: string;
 };
 
 export default function OrderDetailsPanel({
@@ -257,7 +279,11 @@ export default function OrderDetailsPanel({
   onAddOrder,
   onViewSummary,
   onViewOrder,
+  onBack,
+  weekLabel,
 }: OrderDetailsPanelProps) {
+  const [addItemCategory, setAddItemCategory] = useState<OrderRole | null>(null);
+
   if (!clientName) {
     return (
       <div className="flex h-full items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
@@ -266,10 +292,47 @@ export default function OrderDetailsPanel({
     );
   }
 
+  async function handleAddItem(productName: string, qty: number, unit: string, note?: string) {
+    if (!addItemCategory) return;
+    const catOrder = orders.find((o) => o.clientRole === addItemCategory);
+    if (!catOrder) return;
+
+    const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "item";
+    const productId = `${addItemCategory}-${slug}-${Date.now()}`;
+
+    const newItem: OrderItem = {
+      productId,
+      name: productName,
+      qty,
+      unit,
+      note,
+      category: addItemCategory,
+    };
+
+    const updatedItems = [...catOrder.items, newItem];
+    const updatedOrder = {
+      ...catOrder,
+      items: updatedItems,
+      itemCount: updatedItems.length,
+    };
+
+    await updateOrder(updatedOrder);
+    onUpdated();
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden"
+              aria-label="Back to schools list"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600">
             <User className="h-4 w-4" />
           </div>
@@ -315,7 +378,7 @@ export default function OrderDetailsPanel({
           </p>
         ) : (
           <>
-            <CategorySummary orders={orders} categories={categories} />
+            <CategorySummary orders={orders} categories={categories} onAddItem={setAddItemCategory} />
             <div className="space-y-3">
               {orders.map((order, i) => (
                 <OrderAccordion
@@ -330,6 +393,17 @@ export default function OrderDetailsPanel({
           </>
         )}
       </div>
+
+      {addItemCategory !== null && (
+        <AddOrderItemModal
+          key={addItemCategory}
+          open={addItemCategory !== null}
+          category={addItemCategory}
+          weekLabel={weekLabel}
+          onClose={() => setAddItemCategory(null)}
+          onAdd={handleAddItem}
+        />
+      )}
     </div>
   );
 }

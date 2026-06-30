@@ -12,7 +12,7 @@ import type { OrderRole } from "./roles";
 import type { OrderState } from "./types";
 import OrderHeader from "./OrderHeader";
 import ClientSelectField from "./ClientSelectField";
-import ClientNameField from "./ClientNameField";
+
 import ProductRow from "./ProductRow";
 import OrderSuccessBanner from "./OrderSuccessBanner";
 import SubmitBar from "./SubmitBar";
@@ -40,8 +40,10 @@ export default function WeeklyOrder({
   weekLabel: weekLabelProp,
   onOrderSubmitted,
 }: WeeklyOrderProps) {
+  const activeWeekLabel = weekLabelProp ?? weekLabel;
+
   const [allProducts, setAllProducts] = useState<WeeklyProduct[]>(() =>
-    typeof window !== "undefined" ? getWeeklyProducts() : [],
+    typeof window !== "undefined" ? getWeeklyProducts(activeWeekLabel) : [],
   );
   // Maintain a global order state across all categories so selections
   // persist when the user steps through multiple category pages.
@@ -59,10 +61,8 @@ export default function WeeklyOrder({
   const [newItemUnit, setNewItemUnit] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
-  const [lastOrder, setLastOrder] = useState<WeeklyOrderRecord | null>(null);
+  const [lastOrders, setLastOrders] = useState<WeeklyOrderRecord[]>([]);
   const [validationError, setValidationError] = useState("");
-  const activeWeekLabel = weekLabelProp ?? weekLabel;
 
   const products = useMemo(() => {
     if (!selectedCategory) return [];
@@ -76,11 +76,12 @@ export default function WeeklyOrder({
   );
 
   const syncProducts = useCallback(() => {
-    const list = getWeeklyProducts();
+    const list = getWeeklyProducts(activeWeekLabel);
     setAllProducts(list);
-  }, []);
+  }, [activeWeekLabel]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     syncProducts();
     window.addEventListener("occdc-weekly-products-updated", syncProducts);
     return () =>
@@ -93,32 +94,44 @@ export default function WeeklyOrder({
     // If order is empty, populate defaults for all products so selections
     // persist across category steps.
     if (Object.keys(order).length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrder(buildInitialState(allProducts));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProducts]);
 
   useEffect(() => {
     const clientName = fixedClientName || defaultClientName;
     if (!clientName) return;
 
-    const client = fixedClientName
-      ? resolveClientBySchoolName(fixedClientName)
-      : getClients().find((c) => c.name === defaultClientName);
+    async function initClient() {
+      let client;
+      if (fixedClientName) {
+        client = await resolveClientBySchoolName(fixedClientName);
+      } else {
+        const clients = await getClients();
+        client = clients.find((c) => c.name === defaultClientName);
+      }
 
-    if (client) {
-      setSelectedClient(client);
-      setSelectedClientId(client.id);
-      setClientName(client.name);
+      if (client) {
+        setSelectedClient(client);
+        setSelectedClientId(client.id);
+        setClientName(client.name);
+      }
     }
+    
+    initClient();
   }, [defaultClientName, fixedClientName]);
 
-  useEffect(() => {
-    // When client changes, clear submission state but keep selections.
+  // Derived state adjustment during render (instead of useEffect to avoid cascading renders warning)
+  const [prevSelectedClient, setPrevSelectedClient] = useState(selectedClient);
+  if (selectedClient !== prevSelectedClient) {
+    setPrevSelectedClient(selectedClient);
     setSubmitted(false);
-    setLastOrderId(null);
+    setLastOrders([]);
     setEditingId(null);
     setNotes("");
-  }, [selectedClient]);
+  }
 
   function handleClientChange(client: ClientRecord | null) {
     setSelectedClient(client);
@@ -153,35 +166,48 @@ export default function WeeklyOrder({
     setOrder(buildInitialState(allProducts));
     setEditingId(null);
     setSubmitted(false);
-    setLastOrderId(null);
-    setLastOrder(null);
+    setLastOrders([]);
     setNotes("");
   }
 
-  function handleSubmit() {
-    if (selectedItems.length === 0 || !selectedClient || !selectedCategory)
+  async function handleSubmit() {
+    if (selectedItems.length === 0 || !selectedClient)
       return;
 
-    const quantities = Object.fromEntries(
-      selectedItems.map((p) => [p.id, order[p.id].qty]),
-    );
-    const orderId = createOrderId();
-    const orderRecord: WeeklyOrderRecord = {
-      id: orderId,
-      clientName: selectedClient.name,
-      clientRole: selectedCategory as OrderRole,
-      weekLabel: activeWeekLabel,
-      status: "pending",
-      itemCount: selectedItems.length,
-      createdAt: new Date().toISOString(),
-      items: buildOrderItems(selectedItems, quantities),
-      notes: notes.trim() || undefined,
-    };
+    // Group selected items by category
+    const itemsByCategory: Record<string, typeof selectedItems> = {};
+    selectedItems.forEach((item) => {
+      const cat = item.category;
+      if (!itemsByCategory[cat]) itemsByCategory[cat] = [];
+      itemsByCategory[cat].push(item);
+    });
 
-    saveOrder(orderRecord);
+    const categoriesWithOrders = Object.keys(itemsByCategory);
+    const createdOrders: WeeklyOrderRecord[] = [];
 
-    setLastOrderId(orderId);
-    setLastOrder(orderRecord);
+    for (const cat of categoriesWithOrders) {
+      const catItems = itemsByCategory[cat];
+      const quantities = Object.fromEntries(
+        catItems.map((p) => [p.id, order[p.id].qty]),
+      );
+      const orderId = createOrderId();
+      const orderRecord: WeeklyOrderRecord = {
+        id: orderId,
+        clientName: selectedClient.name,
+        clientRole: cat as OrderRole,
+        weekLabel: activeWeekLabel,
+        status: "pending",
+        itemCount: catItems.length,
+        createdAt: new Date().toISOString(),
+        items: buildOrderItems(catItems, quantities),
+        notes: notes.trim() || undefined,
+      };
+
+      await saveOrder(orderRecord);
+      createdOrders.push(orderRecord);
+    }
+
+    setLastOrders(createdOrders);
     setSubmitted(true);
     onOrderSubmitted?.();
 
@@ -227,114 +253,116 @@ export default function WeeklyOrder({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Add order item
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
-          <input
-            value={newItemName}
-            onChange={(e) => {
-              setNewItemName(e.target.value);
-              setValidationError("");
-            }}
-            placeholder="Item name"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+      {selectedCategory && (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Add order item
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
+            <input
+              value={newItemName}
+              onChange={(e) => {
+                setNewItemName(e.target.value);
+                setValidationError("");
+              }}
+              placeholder="Item name"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            />
+            <input
+              value={newItemQty}
+              onChange={(e) => {
+                setNewItemQty(e.target.value);
+                setValidationError("");
+              }}
+              placeholder="Qty"
+              type="number"
+              min="0"
+              step="0.1"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            />
+            <select
+              value={newItemUnit}
+              onChange={(e) => {
+                setNewItemUnit(e.target.value);
+                setValidationError("");
+              }}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            >
+              <option value="">Select unit</option>
+              <option value="kg">kg</option>
+              <option value="sack">sack</option>
+              <option value="pcs">pcs</option>
+              <option value="pc">pc</option>
+              <option value="liter">liter</option>
+              <option value="bottle">bottle</option>
+              <option value="tray">tray</option>
+              <option value="gallon">gallon</option>
+              <option value="pack">pack</option>
+              <option value="tub">tub</option>
+              <option value="roll">roll</option>
+              <option value="can">can</option>
+              <option value="box">box</option>
+              <option value="unit">unit</option>
+            </select>
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notes (optional)"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            rows={2}
           />
-          <input
-            value={newItemQty}
-            onChange={(e) => {
-              setNewItemQty(e.target.value);
+          {validationError && (
+            <p className="mt-2 text-xs text-red-600">{validationError}</p>
+          )}
+          <button
+            type="button"
+            disabled={
+              !selectedCategory ||
+              !newItemName.trim() ||
+              !newItemQty ||
+              !newItemUnit
+            }
+            onClick={() => {
+              const qty = parseFloat(newItemQty || "0");
+              if (!selectedCategory) {
+                setValidationError("Please select a category");
+                return;
+              }
+              if (!newItemName.trim()) {
+                setValidationError("Item name is required");
+                return;
+              }
+              if (isNaN(qty) || qty <= 0) {
+                setValidationError("Quantity must be greater than 0");
+                return;
+              }
+              if (!newItemUnit.trim()) {
+                setValidationError("Please select a unit");
+                return;
+              }
+              const entry = addWeeklyProduct({
+                name: newItemName.trim(),
+                defaultQty: qty,
+                unit: newItemUnit.trim() || "pc",
+                category: selectedCategory,
+              }, activeWeekLabel);
+              setOrder((prev) => ({
+                ...prev,
+                [entry.id]: { selected: true, qty: entry.defaultQty },
+              }));
+              setAllProducts(getWeeklyProducts(activeWeekLabel));
+              setNewItemName("");
+              setNewItemQty("");
+              setNewItemUnit("");
               setValidationError("");
             }}
-            placeholder="Qty"
-            type="number"
-            min="0"
-            step="0.1"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-          />
-          <select
-            value={newItemUnit}
-            onChange={(e) => {
-              setNewItemUnit(e.target.value);
-              setValidationError("");
-            }}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="">Select unit</option>
-            <option value="kg">kg</option>
-            <option value="sack">sack</option>
-            <option value="pcs">pcs</option>
-            <option value="pc">pc</option>
-            <option value="liter">liter</option>
-            <option value="bottle">bottle</option>
-            <option value="tray">tray</option>
-            <option value="gallon">gallon</option>
-            <option value="pack">pack</option>
-            <option value="tub">tub</option>
-            <option value="roll">roll</option>
-            <option value="can">can</option>
-            <option value="box">box</option>
-            <option value="unit">unit</option>
-          </select>
+            Add Item
+          </button>
         </div>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-          rows={2}
-        />
-        {validationError && (
-          <p className="mt-2 text-xs text-red-600">{validationError}</p>
-        )}
-        <button
-          type="button"
-          disabled={
-            !selectedCategory ||
-            !newItemName.trim() ||
-            !newItemQty ||
-            !newItemUnit
-          }
-          onClick={() => {
-            const qty = parseFloat(newItemQty || "0");
-            if (!selectedCategory) {
-              setValidationError("Please select a category");
-              return;
-            }
-            if (!newItemName.trim()) {
-              setValidationError("Item name is required");
-              return;
-            }
-            if (isNaN(qty) || qty <= 0) {
-              setValidationError("Quantity must be greater than 0");
-              return;
-            }
-            if (!newItemUnit.trim()) {
-              setValidationError("Please select a unit");
-              return;
-            }
-            const entry = addWeeklyProduct({
-              name: newItemName.trim(),
-              defaultQty: qty,
-              unit: newItemUnit.trim() || "pc",
-              category: selectedCategory,
-            });
-            setOrder((prev) => ({
-              ...prev,
-              [entry.id]: { selected: true, qty: entry.defaultQty },
-            }));
-            setAllProducts(getWeeklyProducts());
-            setNewItemName("");
-            setNewItemQty("");
-            setNewItemUnit("");
-            setValidationError("");
-          }}
-          className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Add Item
-        </button>
-      </div>
+      )}
     </div>
   );
 
@@ -346,15 +374,16 @@ export default function WeeklyOrder({
             itemCount={selectedItems.length}
             onPlaceAnother={resetToDefault}
           />
-          {lastOrder && (
+          {lastOrders.map((ord) => (
             <button
-              onClick={() => printOrderForm(lastOrder)}
+              key={ord.id}
+              onClick={() => printOrderForm(ord)}
               className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
             >
               <Printer className="h-4 w-4" />
-              Print Order Form
+              Print {orderRoleLabels[ord.clientRole]} Order ({ord.id})
             </button>
-          )}
+          ))}
         </div>
       ) : (
         <div
@@ -381,10 +410,12 @@ export default function WeeklyOrder({
         </div>
       )}
 
-      {submitted && lastOrderId && (
+      {submitted && lastOrders.length > 0 && (
         <p className="mb-4 text-center text-sm text-slate-500">
           Order ID:{" "}
-          <span className="font-semibold text-slate-700">{lastOrderId}</span>
+          <span className="font-semibold text-slate-700">
+            {lastOrders.map((o) => o.id).join(", ")}
+          </span>
         </p>
       )}
 

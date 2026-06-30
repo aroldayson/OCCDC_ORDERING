@@ -9,7 +9,7 @@ export type OrderItem = {
   category: string;
 };
 
-export type OrderStatus = "pending" | "processing" | "completed";
+export type OrderStatus = "pending" | "accepted" | "processing" | "completed";
 
 export type WeeklyOrderRecord = {
   id: string;

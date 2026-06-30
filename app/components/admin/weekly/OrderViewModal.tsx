@@ -5,7 +5,7 @@ import { updateOrderStatus } from "../../order/orderStorage";
 import type { OrderStatus, WeeklyOrderRecord } from "../../order/types";
 import { formatOrderDate, getCategoryDisplayFromItem } from "./utils";
 
-const statusOptions: OrderStatus[] = ["pending", "processing", "completed"];
+const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed"];
 
 type OrderViewModalProps = {
   order: WeeklyOrderRecord | null;
@@ -16,8 +16,8 @@ type OrderViewModalProps = {
 export default function OrderViewModal({ order, onClose, onUpdated }: OrderViewModalProps) {
   if (!order) return null;
 
-  function handleStatus(status: OrderStatus) {
-    updateOrderStatus(order!.id, status);
+  async function handleStatus(status: OrderStatus) {
+    await updateOrderStatus(order!.id, status);
     onUpdated();
     onClose();
   }
