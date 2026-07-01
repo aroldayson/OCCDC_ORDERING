@@ -598,6 +598,7 @@ export default function WeeklyOrderView({
         {tab === "items" && (
           <WeeklyItemsManager
             orders={scopedOrders}
+            categoryFilter={categoryFilter}
           />
         )}
       </div>

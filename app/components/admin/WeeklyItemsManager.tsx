@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,6 +25,7 @@ type AggregatedItem = {
 type WeeklyItemsManagerProps = {
   orders?: WeeklyOrderRecord[];
   onAddItem?: () => void;
+  categoryFilter?: string;
 };
 
 function aggregateOrderItems(orders: WeeklyOrderRecord[]): AggregatedItem[] {
@@ -69,11 +70,18 @@ const categoryLabels: Record<string, string> = {
 export default function WeeklyItemsManager({
   orders,
   onAddItem,
+  categoryFilter = "all",
 }: WeeklyItemsManagerProps) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [viewItem, setViewItem] = useState<AggregatedItem | null>(null);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const aggregated = useMemo(() => {
     if (!orders || orders.length === 0) return [];
@@ -81,15 +89,19 @@ export default function WeeklyItemsManager({
   }, [orders]);
 
   const filtered = useMemo(() => {
+    let base = aggregated;
+    if (categoryFilter !== "all") {
+      base = base.filter((item) => item.category === categoryFilter);
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return aggregated;
-    return aggregated.filter(
+    if (!q) return base;
+    return base.filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
         (categoryLabels[item.category] ?? item.category).toLowerCase().includes(q) ||
         item.unit.toLowerCase().includes(q),
     );
-  }, [aggregated, search]);
+  }, [aggregated, search, categoryFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);

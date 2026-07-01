@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RotateCcw, Printer } from "lucide-react";
+import { RotateCcw, Printer, CalendarOff } from "lucide-react";
 import { weekLabel, type WeeklyProduct } from "./products";
 import { buildOrderItems, createOrderId, saveOrder, getOrders } from "./orderStorage";
 import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
@@ -12,6 +12,7 @@ import { orderRoleLabels, orderRoles } from "./roles";
 import type { OrderRole } from "./roles";
 import type { OrderState } from "./types";
 import OrderHeader from "./OrderHeader";
+// import { useAuth } from "@/app/providers/AuthProvider";
 
 
 import ProductRow from "./ProductRow";
@@ -43,7 +44,20 @@ export default function WeeklyOrder({
   onOrderSubmitted,
   fixedCategory,
 }: WeeklyOrderProps) {
+  // const { user } = useAuth();
+  // const isAdmin = user?.role === "admin";
   const activeWeekLabel = weekLabelProp ?? weekLabel;
+
+  // const [isWednesday, setIsWednesday] = useState(false);
+
+  // /* eslint-disable react-hooks/set-state-in-effect */
+  // useEffect(() => {
+  //   setIsWednesday(new Date().getDay() === 3);
+  // }, []);
+  // /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Temporarily disabled Wednesday block while adding features
+  const isOrderingDisabled = false;
 
   const [allProducts, setAllProducts] = useState<WeeklyProduct[]>([]);
   const [order, setOrder] = useState<OrderState>({});
@@ -198,6 +212,10 @@ export default function WeeklyOrder({
   }
 
   async function handleSubmit() {
+    if (isOrderingDisabled) {
+      alert("Ordering is closed today (Wednesday).");
+      return;
+    }
     if (selectedItems.length === 0 || !selectedClient)
       return;
 
@@ -513,6 +531,29 @@ export default function WeeklyOrder({
     </div>
   );
 
+  const noticeCard = (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex gap-3">
+        <span className="text-xl shrink-0" role="img" aria-label="megaphone">📢</span>
+        <div>
+          <h4 className="text-sm font-bold text-slate-800">
+            Important Order Notice
+          </h4>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            Please note that we are closed for ordering every Wednesday as our suppliers compile our weekly shipments. Final pricing for all orders will be updated and sent out every Thursday. Thank you for planning ahead with us!
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const leftColumnContent = (
+    <div className="flex flex-col gap-6 w-full lg:w-[380px] shrink-0 self-start">
+      {leftPanel}
+      {noticeCard}
+    </div>
+  );
+
   const rightPanel = (
     <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 space-y-4">
       {submitted ? (
@@ -651,15 +692,50 @@ export default function WeeklyOrder({
     </div>
   );
 
-  const content = embedded ? (
-    <div className="grid gap-6 lg:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]">
-      {leftPanel}
-      {rightPanel}
-    </div>
-  ) : (
-    <div className="space-y-4">
-      {leftPanel}
-      {rightPanel}
+  if (isOrderingDisabled) {
+    const closedCard = (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm max-w-lg mx-auto mt-10 space-y-5">
+        <div className="rounded-full bg-amber-50 p-4 text-amber-600">
+          <CalendarOff className="h-8 w-8" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Ordering is Closed Today</h2>
+          <p className="mt-2 text-sm text-slate-500 max-w-sm">
+            Ordering is disabled every Tuesday for system maintenance and weekly order processing. Please place your orders on other days of the week.
+          </p>
+        </div>
+      </div>
+    );
+
+    if (embedded) {
+      return (
+        <div className="mx-auto w-full max-w-6xl p-4">
+          {closedCard}
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-dvh bg-slate-50 pb-28">
+        <OrderHeader clientName={clientName} onClientNameChange={setClientName} />
+        <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">{closedCard}</main>
+      </div>
+    );
+  }
+
+  const content = (
+    <div className="space-y-4 w-full">
+      {embedded ? (
+        <div className="grid gap-6 lg:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]">
+          {leftColumnContent}
+          {rightPanel}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {leftColumnContent}
+          {rightPanel}
+        </div>
+      )}
     </div>
   );
 
