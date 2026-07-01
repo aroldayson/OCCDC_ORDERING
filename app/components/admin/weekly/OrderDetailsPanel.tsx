@@ -40,22 +40,20 @@ function CategorySummary({
   onAddItem: (category: OrderRole) => void;
 }) {
   const summary = categories.map((category) => {
-    const catOrder = orders.find((o) => o.clientRole === category);
-    const isCompleted = catOrder?.status === "completed";
     const items = orders.flatMap((o) =>
       o.items.filter((i) => i.category === category),
     );
     const totalQty = items.reduce((sum, i) => sum + i.qty, 0);
     const itemCount = items.length;
-    return { category, itemCount, totalQty, isCompleted };
+    return { category, itemCount, totalQty };
   });
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5">
-      {summary.map(({ category, itemCount, totalQty, isCompleted }) => (
+      {summary.map(({ category, itemCount, totalQty }) => (
         <div
           key={category}
-          className={`flex flex-col justify-between rounded-lg border-2 p-3 text-center ${orderRoleColors[category]} ${isCompleted ? 'opacity-70' : ''}`}
+          className={`flex flex-col justify-between rounded-lg border-2 p-3 text-center ${orderRoleColors[category]}`}
         >
           <div>
             <p className="text-xs font-semibold uppercase">
@@ -67,15 +65,8 @@ function CategorySummary({
             </p>
           </div>
           <button
-            onClick={() => {
-              if (!isCompleted) onAddItem(category);
-            }}
-            disabled={isCompleted}
-            className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold transition-all border border-black/5 ${
-              isCompleted 
-                ? 'bg-slate-100/50 text-slate-400 cursor-not-allowed' 
-                : 'bg-white/70 hover:bg-white hover:shadow-sm text-slate-800'
-            }`}
+            onClick={() => onAddItem(category)}
+            className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-sm transition-all border border-black/5"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Item
@@ -394,11 +385,11 @@ export default function OrderDetailsPanel({
           <>
             <CategorySummary orders={orders} categories={categories} onAddItem={setAddItemCategory} />
             <div className="space-y-3">
-              {orders.map((order) => (
+              {orders.map((order, i) => (
                 <OrderAccordion
                   key={order.id}
                   order={order}
-                  defaultOpen={false}
+                  defaultOpen={i === 0}
                   onUpdated={onUpdated}
                   onView={onViewOrder}
                 />
