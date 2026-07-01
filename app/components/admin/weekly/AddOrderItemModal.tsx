@@ -6,41 +6,38 @@ import type { OrderRole } from "../../order/roles";
 import { orderRoleLabels } from "../../order/roles";
 import { getWeeklyProducts } from "../../order/weeklyProductStorage";
 import type { WeeklyProduct } from "../../order/products";
+import type { WeeklyOrderRecord } from "../../order/types";
+import { formatOrderDate } from "./utils";
 
 type AddOrderItemModalProps = {
   open: boolean;
   category: OrderRole | null;
   weekLabel?: string;
+  orders?: WeeklyOrderRecord[];
   onClose: () => void;
-  onAdd: (productName: string, qty: number, unit: string, price: number) => void;
+  onAdd: (productName: string, qty: number, unit: string, price: number, orderId: string) => void;
 };
 
 export default function AddOrderItemModal({
   open,
   category,
   weekLabel,
+  orders = [],
   onClose,
   onAdd,
 }: AddOrderItemModalProps) {
   const [productName, setProductName] = useState("");
   const [qty, setQty] = useState("");
-  const [unit, setUnit] = useState("kg");
   const [size, setSize] = useState("Medium");
-  const [catalogProducts, setCatalogProducts] = useState<WeeklyProduct[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>("custom");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open && category) {
       setQty("");
-      setSelectedProductId("custom");
-
-      // Load products catalog
-      getWeeklyProducts(weekLabel).then((prods) => {
-        setCatalogProducts(prods.filter((p) => p.category === category));
-      });
-
-      // Default names and units based on category
+      if (orders.length > 0) {
+        setSelectedOrderId(orders[0].id);
+      }
       if (
         category === "vegetables" ||
         category === "meat" ||
@@ -64,6 +61,25 @@ export default function AddOrderItemModal({
         setSize("");
       }
     }
+  }, [open, category, orders]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const [unit, setUnit] = useState("kg");
+  const [price, setPrice] = useState("");
+  const [catalogProducts, setCatalogProducts] = useState<WeeklyProduct[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>("custom");
+
+  useEffect(() => {
+    if (open && category) {
+      getWeeklyProducts(weekLabel).then((prods) => {
+        setCatalogProducts(prods.filter((p) => p.category === category));
+      });
+      // Reset form
+      setProductName("");
+      setQty("");
+      setUnit("kg");
+      setPrice("");
+      setSelectedProductId("custom");
+    }
   }, [open, category, weekLabel]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -74,7 +90,7 @@ export default function AddOrderItemModal({
     const finalQty = parseFloat(qty);
     let finalName = productName.trim();
 
-    if (!finalName || isNaN(finalQty) || finalQty <= 0) return;
+    if (!finalName || isNaN(finalQty) || finalQty <= 0 || !selectedOrderId) return;
 
     if (category === "egg") {
       const sizeSuffix = `(${size.trim()})`;
@@ -87,7 +103,7 @@ export default function AddOrderItemModal({
       }
     }
 
-    onAdd(finalName, finalQty, unit.trim(), 0);
+    onAdd(finalName, finalQty, unit.trim(), 0, selectedOrderId);
     onClose();
   };
 
@@ -142,22 +158,43 @@ export default function AddOrderItemModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          {orders && orders.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Select Order <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                required
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none"
+              >
+                {orders.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    Order {o.id} ({formatOrderDate(o.createdAt)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">
               Select Product <span className="text-red-500">*</span>
             </label>
-            <select
-              value={selectedProductId}
-              onChange={handleProductSelect}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="custom">-- Custom Product --</option>
-              {catalogProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (₱{p.price}/{p.unit})
-                </option>
-              ))}
-            </select>
+            <input
+              type="text"
+              required
+              disabled={category === "egg" || category === "rice"}
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder="e.g. All Purpose Flour"
+              className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none ${
+                category === "egg" || category === "rice"
+                  ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                  : "border-slate-200 bg-white"
+              }`}
+            />
           </div>
 
           {selectedProductId === "custom" && category !== "egg" && category !== "rice" && (
@@ -203,8 +240,11 @@ export default function AddOrderItemModal({
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 placeholder="e.g. 10"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
               />
+              <p className="mt-1 text-[10.5px] font-medium text-amber-600">
+                Note: For half kilo, input 0.5
+              </p>
             </div>
 
             <div>
@@ -234,7 +274,7 @@ export default function AddOrderItemModal({
                 <select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
                 >
                   <option value="tray/12">tray/12</option>
                   <option value="tray/30">tray/30</option>
@@ -246,7 +286,7 @@ export default function AddOrderItemModal({
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   placeholder="e.g. kg, pcs"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
                 />
               )}
             </div>
@@ -259,7 +299,7 @@ export default function AddOrderItemModal({
                 <select
                   value={size}
                   onChange={(e) => setSize(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
                 >
                   <option value="Small">Small</option>
                   <option value="Medium">Medium</option>

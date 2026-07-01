@@ -17,15 +17,16 @@ import { deleteOrder, updateOrder } from "../../order/orderStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import { printOrderForm } from "../printOrder";
 import type { OrderRole } from "../../order/roles";
-import type { OrderItem, WeeklyOrderRecord } from "../../order/types";
+import type { OrderStatus, OrderItem, WeeklyOrderRecord } from "../../order/types";
 import { formatOrderDate, getCategoryDisplayFromItem } from "./utils";
 import AddOrderItemModal from "./AddOrderItemModal";
 
-const statusStyles = {
+const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-100 text-amber-700",
   accepted: "bg-blue-100 text-blue-700",
   processing: "bg-violet-100 text-violet-700",
   completed: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-red-100 text-red-700",
 };
 
 const PREVIEW_COUNT = 5;
@@ -297,9 +298,9 @@ export default function OrderDetailsPanel({
     );
   }
 
-  async function handleAddItem(productName: string, qty: number, unit: string, price: number) {
+  async function handleAddItem(productName: string, qty: number, unit: string, price: number, orderId: string) {
     if (!addItemCategory) return;
-    const catOrder = orders.find((o) => o.clientRole === addItemCategory);
+    const catOrder = orders.find((o) => o.id === orderId);
     if (!catOrder) return;
 
     const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "item";
@@ -407,6 +408,7 @@ export default function OrderDetailsPanel({
           open={addItemCategory !== null}
           category={addItemCategory}
           weekLabel={weekLabel}
+          orders={orders.filter(o => o.clientRole === addItemCategory)}
           onClose={() => setAddItemCategory(null)}
           onAdd={handleAddItem}
         />

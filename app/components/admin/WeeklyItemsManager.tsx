@@ -20,6 +20,7 @@ type AggregatedItem = {
   unit: string;
   category: string;
   orderCount: number;
+  price: number;
 };
 
 type WeeklyItemsManagerProps = {
@@ -46,6 +47,7 @@ function aggregateOrderItems(orders: WeeklyOrderRecord[]): AggregatedItem[] {
           unit: item.unit,
           category: item.category,
           orderCount: 1,
+          price: item.price || 0,
         });
       }
     }
@@ -70,7 +72,7 @@ const categoryLabels: Record<string, string> = {
 export default function WeeklyItemsManager({
   orders,
   onAddItem,
-  categoryFilter = "all",
+  categoryFilter,
 }: WeeklyItemsManagerProps) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -89,13 +91,15 @@ export default function WeeklyItemsManager({
   }, [orders]);
 
   const filtered = useMemo(() => {
-    let base = aggregated;
-    if (categoryFilter !== "all") {
-      base = base.filter((item) => item.category === categoryFilter);
+    let list = aggregated;
+    
+    if (categoryFilter && categoryFilter !== "all") {
+      list = list.filter(item => item.category === categoryFilter);
     }
+
     const q = search.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
+    if (!q) return list;
+    return list.filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
         (categoryLabels[item.category] ?? item.category).toLowerCase().includes(q) ||
@@ -147,6 +151,8 @@ export default function WeeklyItemsManager({
                 <th className="px-4 py-3 sm:px-5">Category</th>
                 <th className="px-4 py-3 sm:px-5">Total Qty</th>
                 <th className="px-4 py-3 sm:px-5">Unit</th>
+                <th className="px-4 py-3 sm:px-5">Price</th>
+                <th className="px-4 py-3 sm:px-5">Total Cost</th>
                 <th className="px-4 py-3 sm:px-5">Orders</th>
                 <th className="px-4 py-3 text-right sm:px-5">Actions</th>
               </tr>
@@ -154,7 +160,7 @@ export default function WeeklyItemsManager({
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                  <td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">
                     No items found for this week.
                   </td>
                 </tr>
@@ -169,6 +175,12 @@ export default function WeeklyItemsManager({
                       {item.totalQty}
                     </td>
                     <td className="px-4 py-3 text-slate-600 sm:px-5">{item.unit}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800 sm:px-5">
+                      ₱{item.price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-800 sm:px-5">
+                      ₱{(item.totalQty * item.price).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                     <td className="px-4 py-3 text-slate-500 sm:px-5">
                       <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                         {item.orderCount} order{item.orderCount !== 1 ? "s" : ""}

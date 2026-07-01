@@ -18,6 +18,7 @@ const statusStyles: Record<
   accepted: { label: "Accepted", className: "bg-sky-100 text-sky-700" },
   processing: { label: "Processing", className: "bg-blue-100 text-blue-700" },
   completed: { label: "Completed", className: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700" },
 };
 
 export default function ClientOrdersView({

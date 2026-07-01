@@ -77,7 +77,10 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sign up";
 
-      if (
+      if (errorMessage === "verification_required") {
+        setError("🎉 Success! Please check your Gmail account to verify your email address before signing in.");
+        // We leave isLoading as false so they can read the message, or they can navigate to login.
+      } else if (
         errorMessage.includes("rate limit") ||
         errorMessage.includes("rate_limit")
       ) {
@@ -105,20 +108,20 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-xl border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-700 space-y-1">
+        <div className={`rounded-xl border px-4 py-3 text-sm space-y-1 ${error.includes('Success!') ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}`}>
           <p>{error}</p>
           {(error.includes("Too many signup attempts") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("rate_limit")) && (
-            <p className="mt-1.5 text-xs text-red-600/80 font-medium">
+            <p className="mt-1.5 text-xs text-red-500 font-medium">
               💡 <strong>Developer Tip:</strong> Supabase has a default limit of 3 signups per hour. To increase/disable this, go to your <strong>Supabase Dashboard &gt; Project Settings &gt; Auth</strong>, scroll down to <strong>Rate Limits</strong>, and increase the <strong>Signups (per hour)</strong> configuration.
             </p>
           )}
         </div>
       )}
 
-      <div>
+      <div className="space-y-1.5">
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-slate-200"
+          className="text-sm font-semibold text-slate-700"
         >
           Email
         </label>
@@ -129,15 +132,15 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           onChange={(e) => setEmail(e.target.value)}
           required
           disabled={isLoading}
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
           placeholder="you@example.com"
         />
       </div>
 
-      <div>
+      <div className="space-y-1.5">
         <label
           htmlFor="role"
-          className="block text-sm font-medium text-slate-200"
+          className="text-sm font-semibold text-slate-700"
         >
           Account Type
         </label>
@@ -150,7 +153,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
             if (nextRole === "admin") setSchoolName("");
           }}
           disabled={isLoading}
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
         >
           <option value="client">School / Client</option>
           <option value="admin">Supplier / Admin</option>
@@ -159,16 +162,16 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
 
       {role === "admin" && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-200">
+          <label className="text-sm font-semibold text-slate-700">
             Supplied Categories
           </label>
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
             {availableCategories.map((category) => {
               const isChecked = selectedCategories.includes(category);
               return (
                 <label
                   key={category}
-                  className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none hover:text-white"
+                  className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none hover:text-slate-900 p-1"
                 >
                   <input
                     type="checkbox"
@@ -181,24 +184,24 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
                         setSelectedCategories([...selectedCategories, category]);
                       }
                     }}
-                    className="h-4 w-4 rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800"
+                    className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <span className="capitalize">{category}</span>
                 </label>
               );
             })}
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Select the categories of products that you supply
           </p>
         </div>
       )}
 
       {role !== "admin" && (
-        <div>
+        <div className="space-y-1.5">
           <label
             htmlFor="schoolName"
-            className="block text-sm font-medium text-slate-200"
+            className="text-sm font-semibold text-slate-700"
           >
             School
           </label>
@@ -208,7 +211,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
             onChange={(e) => setSchoolName(e.target.value)}
             disabled={isLoading}
             required
-            className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
           >
             <option value="">Select your school...</option>
             {schools.map((school) => (
@@ -217,16 +220,16 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Ito ang school na naka-fix sa order form pagkatapos mag-login
           </p>
         </div>
       )}
 
-      <div>
+      <div className="space-y-1.5">
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-slate-200"
+          className="text-sm font-semibold text-slate-700"
         >
           Password
         </label>
@@ -237,16 +240,16 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
           required
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
           placeholder="••••••••"
         />
-        <p className="mt-1 text-xs text-slate-400">At least 6 characters</p>
+        <p className="text-xs text-slate-500">At least 6 characters</p>
       </div>
 
-      <div>
+      <div className="space-y-1.5">
         <label
           htmlFor="confirmPassword"
-          className="block text-sm font-medium text-slate-200"
+          className="text-sm font-semibold text-slate-700"
         >
           Confirm Password
         </label>
@@ -257,7 +260,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           onChange={(e) => setConfirmPassword(e.target.value)}
           disabled={isLoading}
           required
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
           placeholder="••••••••"
         />
       </div>
@@ -265,7 +268,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full mt-4 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm disabled:opacity-50"
       >
         {isLoading ? "Creating account..." : "Create Account"}
       </button>

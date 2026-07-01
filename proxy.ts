@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const publicRoutes = ["/", "/auth/login", "/auth/signup"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch (error) {
-    console.error("Supabase auth fetch failed in middleware:", error);
+    console.error("Supabase auth fetch failed in proxy:", error);
   }
 
   const pathname = request.nextUrl.pathname;

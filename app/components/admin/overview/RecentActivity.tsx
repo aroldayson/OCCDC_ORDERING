@@ -1,5 +1,5 @@
 import { Clock } from "lucide-react";
-import type { WeeklyOrderRecord } from "../../order/types";
+import type { OrderStatus, WeeklyOrderRecord } from "../../order/types";
 import { orderRoleLabels } from "../../order/roles";
 
 type RecentActivityProps = {
@@ -11,11 +11,12 @@ export default function RecentActivity({ orders }: RecentActivityProps) {
   const sortedOrders = [...orders]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const statusStyles = {
+  const statusStyles: Record<OrderStatus, string> = {
     pending: "bg-amber-50 text-amber-600",
     accepted: "bg-blue-50 text-blue-600",
     processing: "bg-violet-50 text-violet-600",
     completed: "bg-emerald-50 text-emerald-600",
+    cancelled: "bg-red-50 text-red-600",
   };
 
   return (
