@@ -53,8 +53,8 @@ export default function OrdersTable({
             key={order.id}
             onClick={() => onSelect(order.id)}
             className={`w-full rounded-2xl border p-4 cursor-pointer transition-all ${selectedId === order.id
-                ? "border-blue-300 bg-blue-50 shadow-sm"
-                : "border-slate-100 bg-white hover:border-slate-200"
+              ? "border-blue-300 bg-blue-50 shadow-sm"
+              : "border-slate-100 bg-white hover:border-slate-200"
               }`}
           >
             <div className="flex items-start justify-between gap-2">

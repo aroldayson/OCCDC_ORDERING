@@ -474,3 +474,26 @@ export function printClientSummary(
     printWindow.print();
   }
 }
+
+export function printAllOrders(
+  title: string,
+  weekLabel: string,
+  orders: WeeklyOrderRecord[]
+) {
+  const itemsMap: Record<string, { name: string; qty: number; unit: string; category: string; price?: number }> = {};
+  
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      const key = `${item.productId}-${item.price}`;
+      if (!itemsMap[key]) {
+        itemsMap[key] = { ...item };
+      } else {
+        itemsMap[key].qty += item.qty;
+      }
+    });
+  });
+
+  const allItems = Object.values(itemsMap);
+
+  printClientSummary(title, weekLabel, allItems, orders);
+}
