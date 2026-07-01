@@ -90,9 +90,9 @@ export default function ToProcessView({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden lg:flex-row">
+      <div className="flex h-auto lg:h-full lg:min-h-0 flex-col gap-4 lg:overflow-hidden lg:flex-row w-full">
         {isAdmin && (
-          <div className={`${mobileShowSidebar ? "flex" : "hidden"} lg:flex h-full min-h-0 w-full lg:w-56 lg:shrink-0 xl:w-64 flex-col`}>
+          <div className={`${mobileShowSidebar ? "flex" : "hidden"} lg:flex h-auto lg:h-full lg:min-h-0 w-full lg:w-56 lg:shrink-0 xl:w-64 flex-col`}>
             <ClientsSidebar
               clients={clients}
               selectedClient={selectedClient}
@@ -105,11 +105,12 @@ export default function ToProcessView({
             />
           </div>
         )}
-        <div className={`${!isAdmin || !mobileShowSidebar ? "flex" : "hidden"} lg:flex min-h-0 flex-1 flex-col overflow-hidden`}>
+        <div className={`${!isAdmin || !mobileShowSidebar ? "flex" : "hidden"} lg:flex h-auto lg:h-full lg:min-h-0 flex-1 flex-col lg:overflow-hidden`}>
           <OrderDetailsPanel
             clientName={selectedClient}
             categories={selectedCategories}
             orders={clientOrders}
+            categoryFilter={categoryFilter}
             onUpdated={onUpdated}
             onAddOrder={() => onAddOrder(selectedClient ?? undefined)}
             onViewSummary={() => setSummaryOpen(true)}

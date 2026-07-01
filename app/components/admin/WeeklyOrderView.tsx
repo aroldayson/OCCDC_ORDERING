@@ -48,7 +48,15 @@ type WeeklyOrderViewProps = {
   fixedCategory?: OrderRole;
 };
 
-function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printOrderForm, setSelectedOrderDetail }: any) {
+interface SchoolGroupBlockProps {
+  clientName: string;
+  clientOrders: WeeklyOrderRecord[];
+  handleStatusChange: (id: string, status: OrderStatus) => Promise<void>;
+  printOrderForm: (order: WeeklyOrderRecord) => void;
+  setSelectedOrderDetail: (order: WeeklyOrderRecord | null) => void;
+}
+
+function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printOrderForm, setSelectedOrderDetail }: SchoolGroupBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -74,8 +82,8 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const itemsMap: Record<string, any> = {};
-              clientOrders.forEach((o: any) => o.items.forEach((i: any) => {
+              const itemsMap: Record<string, { name: string; qty: number; unit: string; category: string; price: number }> = {};
+              clientOrders.forEach((o) => o.items.forEach((i) => {
                 const k = `${i.productId}-${i.price}`;
                 if(!itemsMap[k]) itemsMap[k] = {...i};
                 else itemsMap[k].qty += i.qty;
@@ -95,7 +103,7 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
 
       {isExpanded && (
         <div className="flex flex-col bg-white">
-          {clientOrders.map((order: any, idx: number) => {
+          {clientOrders.map((order, idx: number) => {
             const isAdditional = idx > 0;
             return (
               <div key={order.id} className={`p-5 ${idx > 0 ? 'border-t border-slate-200 border-dashed' : ''}`}>
@@ -171,7 +179,7 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
                       {["pending", "accepted", "processing", "completed", "cancelled"].map((status) => (
                         <button
                           key={status}
-                          onClick={() => handleStatusChange(order.id, status)}
+                          onClick={() => handleStatusChange(order.id, status as OrderStatus)}
                           className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === status
                             ? statusStyles[status as OrderStatus]
                             : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
@@ -208,7 +216,7 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
             <div className="bg-slate-800 text-white px-5 py-4 flex justify-between items-center rounded-b-xl">
               <span className="font-bold">Grand Total ({clientOrders.length} Orders)</span>
               <span className="text-lg font-black">
-                ₱{clientOrders.reduce((sum: number, o: any) => sum + (o.totalPrice || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                ₱{clientOrders.reduce((sum: number, o: WeeklyOrderRecord) => sum + (o.totalPrice || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
               </span>
             </div>
           )}
@@ -388,7 +396,7 @@ export default function WeeklyOrderView({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col gap-4 overflow-hidden">
+    <div className="flex h-auto lg:h-full lg:min-h-0 w-full flex-col gap-4 lg:overflow-hidden">
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {!forceTab && (
           <div className="flex w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:flex-1">
@@ -442,7 +450,7 @@ export default function WeeklyOrderView({
         </div>
       )}
 
-      <div className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : "overflow-hidden"}`}>
+      <div className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : "lg:overflow-hidden overflow-y-auto"}`}>
         {tab === "order" && (
           <div className="space-y-8">
             {isAdmin && fixedCategory !== "other_order" && (

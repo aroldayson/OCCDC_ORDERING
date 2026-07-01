@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -78,6 +78,12 @@ export default function WeeklyItemsManager({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [viewItem, setViewItem] = useState<AggregatedItem | null>(null);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const aggregated = useMemo(() => {
     if (!orders || orders.length === 0) return [];

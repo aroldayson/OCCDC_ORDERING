@@ -32,7 +32,7 @@ export default function AddOrderItemModal({
   const [selectedOrderId, setSelectedOrderId] = useState("");
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  React.useEffect(() => {
+  useEffect(() => {
     if (open && category) {
       setQty("");
       if (orders.length > 0) {
@@ -81,6 +81,7 @@ export default function AddOrderItemModal({
       setSelectedProductId("custom");
     }
   }, [open, category, weekLabel]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!open || !category) return null;
 
@@ -110,15 +111,29 @@ export default function AddOrderItemModal({
     const val = e.target.value;
     setSelectedProductId(val);
     if (val === "custom") {
-      setProductName("");
-      setPrice("");
-      setUnit("kg");
       setQty("");
+      if (
+        category === "vegetables" ||
+        category === "meat" ||
+        category === "fruits" ||
+        category === "fish"
+      ) {
+        setUnit("kg");
+        setProductName("");
+      } else if (category === "rice") {
+        setUnit("sack");
+        setProductName("Rice");
+      } else if (category === "egg") {
+        setUnit("tray/30");
+        setProductName("Egg");
+      } else {
+        setUnit("kg");
+        setProductName("");
+      }
     } else {
       const p = catalogProducts.find((prod) => prod.id === val);
       if (p) {
         setProductName(p.name);
-        setPrice(p.price.toString());
         setUnit(p.unit);
         setQty(p.defaultQty.toString());
       }
@@ -181,6 +196,36 @@ export default function AddOrderItemModal({
               }`}
             />
           </div>
+
+          {selectedProductId === "custom" && category !== "egg" && category !== "rice" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Product Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="e.g. All Purpose Flour"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          )}
+
+          {selectedProductId === "custom" && (category === "egg" || category === "rice") && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Product Name
+              </label>
+              <input
+                type="text"
+                disabled
+                value={productName}
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 cursor-not-allowed outline-none"
+              />
+            </div>
+          )}
 
           <div className={`grid gap-3 ${category === "egg" ? "grid-cols-3" : "grid-cols-2"}`}>
             <div>
