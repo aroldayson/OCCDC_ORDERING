@@ -192,7 +192,7 @@ export default function AdminDashboard() {
           )}
 
           {activeView === "products" && (
-            <ProductCatalogManager />
+            <ProductCatalogManager orders={visibleOrders} />
           )}
 
           {activeView === "orders" && (

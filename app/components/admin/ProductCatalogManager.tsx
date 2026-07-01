@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { getWeeklyProducts, addWeeklyProduct, updateWeeklyProduct, removeWeeklyProduct } from "../order/weeklyProductStorage";
 import type { WeeklyProduct } from "../order/products";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
@@ -11,6 +11,19 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
 
 const PAGE_SIZES = [10, 20, 50];
+
+function formatProductId(id: string) {
+  const match = id.match(/-(\d+)$/);
+  if (match) {
+    return `PRD-${match[1].slice(-4)}`;
+  }
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return `PRD-${Math.abs(hash).toString().slice(0, 4).padStart(4, '0')}`;
+}
 
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
@@ -23,7 +36,19 @@ const categoryLabels: Record<string, string> = {
   other_order: "Other Orders",
 };
 
-export default function ProductCatalogManager() {
+import { filterOrdersForWeek } from "../order/orderAccess";
+import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
+import { printCatalog } from "./printOrder";
+
+const statusStyles: Record<OrderStatus, string> = {
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  accepted: "bg-blue-50 text-blue-700 border-blue-200",
+  processing: "bg-violet-50 text-violet-700 border-violet-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-700 border-red-200",
+};
+
+export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrderRecord[] }) {
   const { user } = useAuth();
   const [weekOffset, setWeekOffset] = useState<WeekOffset>(0);
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
@@ -34,6 +59,12 @@ export default function ProductCatalogManager() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const selectedWeek = useMemo(() => getWeekInfo(weekOffset), [weekOffset]);
+
+  const hasCompletedOrders = useMemo(() => {
+    if (!orders) return false;
+    const weekOrders = filterOrdersForWeek(orders, selectedWeek.weekLabel);
+    return weekOrders.some((o) => o.status === "completed");
+  }, [orders, selectedWeek.weekLabel]);
 
   const loadProducts = useCallback(() => {
     getWeeklyProducts(selectedWeek.weekLabel).then(setProducts);
@@ -53,13 +84,28 @@ export default function ProductCatalogManager() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return allowedProducts;
+
+    if (orders && q.startsWith("ord-")) {
+      const matchedOrders = orders.filter((o) => o.id.toLowerCase().includes(q));
+      if (matchedOrders.length > 0) {
+        const clientNames = new Set(matchedOrders.map((o) => o.clientName));
+        const allClientOrders = orders.filter((o) => clientNames.has(o.clientName));
+        const orderProductIds = new Set(allClientOrders.flatMap((o) => o.items.map((i) => i.productId)));
+        return allowedProducts.filter((p) => orderProductIds.has(p.id));
+      }
+    }
+
     return allowedProducts.filter(
       (p) =>
+        formatProductId(p.id).toLowerCase().includes(q) ||
         p.name.toLowerCase().includes(q) ||
         (categoryLabels[p.category] ?? p.category).toLowerCase().includes(q) ||
-        p.unit.toLowerCase().includes(q),
+        p.defaultQty.toString().includes(q) ||
+        p.unit.toLowerCase().includes(q) ||
+        p.price.toString().includes(q) ||
+        p.price.toLocaleString("en-PH", { minimumFractionDigits: 2 }).includes(q)
     );
-  }, [allowedProducts, search]);
+  }, [allowedProducts, search, orders]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -100,14 +146,11 @@ export default function ProductCatalogManager() {
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <WeekSelector selectedOffset={weekOffset} onChange={setWeekOffset} />
         <button
-          onClick={() => {
-            setEditingItem(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 self-start sm:self-auto"
+          onClick={() => printCatalog(selectedWeek.weekLabel, filtered)}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 self-start sm:self-auto shadow-sm"
         >
-          <Plus className="h-4 w-4" />
-          Add Catalog Product
+          <Printer className="h-4 w-4" />
+          Print / Download PDF
         </button>
       </div>
 
@@ -133,6 +176,7 @@ export default function ProductCatalogManager() {
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-50">
               <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <th className="px-4 py-3 sm:px-5">Orders</th>
                 <th className="px-4 py-3 sm:px-5">Item</th>
                 <th className="px-4 py-3 sm:px-5">Category</th>
                 <th className="px-4 py-3 sm:px-5">Default Qty</th>
@@ -144,13 +188,33 @@ export default function ProductCatalogManager() {
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
                     No products found in catalog.
                   </td>
                 </tr>
               ) : (
                 paged.map((item) => (
                   <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/80">
+                    <td className="px-4 py-3 sm:px-5">
+                      {(() => {
+                        const productOrders = orders?.filter(o => o.items.some(i => i.productId === item.id)) || [];
+                        if (productOrders.length === 0) {
+                          return <span className="text-xs text-slate-400 italic">No Orders</span>;
+                        }
+                        return (
+                          <div className="flex flex-col gap-1.5">
+                            {productOrders.map(o => (
+                              <div key={o.id} className="inline-flex items-center gap-2">
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusStyles[o.status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
+                                  {o.status}
+                                </span>
+                                <span className="font-semibold text-slate-500 text-[11px]">ID: {o.id}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 font-medium text-slate-800 sm:px-5">{item.name}</td>
                     <td className="px-4 py-3 text-slate-600 sm:px-5">
                       {categoryLabels[item.category] ?? item.category}
@@ -235,12 +299,13 @@ export default function ProductCatalogManager() {
       <ItemFormModal
         open={modalOpen}
         editing={editingItem}
-        allowedCategories={user?.categories}
+        allowedCategories={user?.role === "admin" ? user.categories : undefined}
         onClose={() => {
           setModalOpen(false);
           setEditingItem(null);
         }}
         onSave={handleSaveItem}
+        disablePriceEdit={hasCompletedOrders}
       />
     </div>
   );

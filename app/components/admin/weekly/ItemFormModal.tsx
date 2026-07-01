@@ -20,9 +20,10 @@ type ItemFormModalProps = {
   allowedCategories?: string[];
   onClose: () => void;
   onSave: (data: ItemFormData) => void;
+  disablePriceEdit?: boolean;
 };
 
-export default function ItemFormModal({ open, editing, allowedCategories, onClose, onSave }: ItemFormModalProps) {
+export default function ItemFormModal({ open, editing, allowedCategories, onClose, onSave, disablePriceEdit }: ItemFormModalProps) {
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -124,8 +125,9 @@ export default function ItemFormModal({ open, editing, allowedCategories, onClos
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                Price (₱) <span className="text-red-500">*</span>
+              <label className="mb-1 flex items-center justify-between text-xs font-medium text-slate-600">
+                <span>Price (₱) <span className="text-red-500">*</span></span>
+                {disablePriceEdit && <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Locked</span>}
               </label>
               <input
                 name="price"
@@ -135,7 +137,12 @@ export default function ItemFormModal({ open, editing, allowedCategories, onClos
                 required
                 defaultValue={editing?.price ?? ""}
                 placeholder="e.g. 150.00"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                readOnly={disablePriceEdit}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 ${
+                  disablePriceEdit 
+                    ? "border-slate-100 bg-slate-50 text-slate-500 cursor-not-allowed select-none" 
+                    : "border-slate-200 focus:border-blue-400 focus:ring-blue-100"
+                }`}
               />
             </div>
           </div>

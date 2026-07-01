@@ -5,7 +5,7 @@ import { updateOrderStatus } from "../../order/orderStorage";
 import type { OrderStatus, WeeklyOrderRecord } from "../../order/types";
 import { formatOrderDate, getCategoryDisplayFromItem } from "./utils";
 
-const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed"];
+const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed", "cancelled"];
 
 type OrderViewModalProps = {
   order: WeeklyOrderRecord | null;

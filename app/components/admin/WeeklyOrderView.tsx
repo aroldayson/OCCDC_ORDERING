@@ -26,6 +26,7 @@ const statusStyles: Record<OrderStatus, string> = {
   accepted: "bg-blue-50 text-blue-700 border-blue-200",
   processing: "bg-violet-50 text-violet-700 border-violet-200",
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-700 border-red-200",
 };
 
 type Tab = "order" | "process" | "items";
@@ -57,8 +58,17 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div>
-          <h3 className="text-lg font-bold text-slate-800">{clientName}</h3>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{clientOrders.length} Order{clientOrders.length !== 1 ? 's' : ''}</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+            <h3 className="text-lg font-bold text-slate-800">{clientName}</h3>
+            <div className="flex flex-wrap gap-1.5">
+               {Array.from(new Set(clientOrders.map((o: any) => o.status))).map((status: any) => (
+                  <span key={status} className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${statusStyles[status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
+                     {status === "pending" ? "Pending Approval" : status}
+                  </span>
+               ))}
+            </div>
+          </div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1 sm:mt-0.5">{clientOrders.length} Order{clientOrders.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -126,13 +136,20 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
 
                 <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-4 space-y-4">
                   <div className="space-y-2">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-slate-50">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 px-3 border-b border-slate-50">
                       Order Items
                     </div>
                     {order.items.map((item: any) => (
-                      <div key={item.productId} className="flex justify-between text-sm py-1 border-b border-slate-100/60 last:border-0 last:pb-0">
+                      <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 px-3 border-b border-slate-100/60 last:border-0 last:pb-0 gap-1 sm:gap-0">
                         <span className="font-medium text-slate-700">{item.name}</span>
-                        <span className="text-slate-600 font-bold">{item.qty} {item.unit}</span>
+                        <div className="flex items-center justify-between sm:justify-end sm:gap-4 text-slate-600">
+                          <span className="text-xs text-slate-400 font-medium">
+                            {item.qty} {item.unit} × ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="font-bold text-slate-700 min-w-[70px] text-right">
+                            ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -151,7 +168,7 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
                       Change Status
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {["pending", "accepted", "processing", "completed"].map((status) => (
+                      {["pending", "accepted", "processing", "completed", "cancelled"].map((status) => (
                         <button
                           key={status}
                           onClick={() => handleStatusChange(order.id, status)}
@@ -275,6 +292,8 @@ export default function WeeklyOrderView({
         list = list.filter((o) => o.status === "accepted" || o.status === "processing");
       } else if (categoryStatusFilter === "completed") {
         list = list.filter((o) => o.status === "completed");
+      } else if (categoryStatusFilter === "cancelled") {
+        list = list.filter((o) => o.status === "cancelled");
       }
     }
 
@@ -537,7 +556,7 @@ export default function WeeklyOrderView({
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                    {["all", "pending", "approved", "completed"].map((filter) => (
+                    {["all", "pending", "approved", "completed", "cancelled"].map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setCategoryStatusFilter(filter)}
@@ -590,6 +609,7 @@ export default function WeeklyOrderView({
         {tab === "items" && (
           <WeeklyItemsManager
             orders={scopedOrders}
+            categoryFilter={categoryFilter}
           />
         )}
       </div>
@@ -633,11 +653,16 @@ export default function WeeklyOrderView({
 
             <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-2">
               {selectedOrderDetail.items.map((item) => (
-                <div key={item.productId} className="flex justify-between text-sm py-1 border-b border-slate-200/60 last:border-0">
+                <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-slate-200/60 last:border-0 gap-1 sm:gap-0">
                   <span className="font-medium text-slate-700">{item.name}</span>
-                  <span className="text-slate-500">
-                    {item.qty} {item.unit}
-                  </span>
+                  <div className="flex items-center justify-between sm:justify-end sm:gap-4">
+                    <span className="text-xs text-slate-400 font-medium">
+                      {item.qty} {item.unit} × ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="font-bold text-slate-700 min-w-[70px] text-right">
+                      ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

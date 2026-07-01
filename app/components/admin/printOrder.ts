@@ -1,4 +1,5 @@
 import type { WeeklyOrderRecord } from "../order/types";
+import type { WeeklyProduct } from "../order/products";
 
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
@@ -10,6 +11,75 @@ const categoryLabels: Record<string, string> = {
   rice: "Rice",
   other_order: "Other Order",
 };
+
+export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Product Catalog - ${weekLabel}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f5f5f5; }
+        .container { background: white; max-width: 900px; margin: 0 auto; padding: 40px; border: 3px solid #001f3f; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #001f3f; padding-bottom: 20px; }
+        .form-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; }
+        .form-info { display: flex; gap: 40px; margin-bottom: 30px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+        td { border: 1px solid #999; padding: 12px; font-size: 12px; }
+        @media print {
+          body { background: white; padding: 0; }
+          .container { border: 1px solid #999; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="form-title">Weekly Product Catalog</div>
+          <div>Manage and view products for the selected week</div>
+        </div>
+        <div class="form-info">
+          <div><strong>WEEK :</strong> ${weekLabel}</div>
+          <div><strong>DATE PRINTED :</strong> ${new Date().toLocaleDateString("en-PH")}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>PRODUCT ID</th>
+              <th>ITEM</th>
+              <th>CATEGORY</th>
+              <th>DEFAULT QTY</th>
+              <th>UNIT</th>
+              <th>PRICE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products.map(p => `
+              <tr>
+                <td>${p.id}</td>
+                <td>${p.name}</td>
+                <td>${categoryLabels[p.category] ?? p.category}</td>
+                <td>${p.defaultQty}</td>
+                <td>${p.unit}</td>
+                <td>₱${(p.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  }
+}
+
 
 export function printOrderForm(order: WeeklyOrderRecord) {
   const html = `
@@ -495,5 +565,7 @@ export function printAllOrders(
 
   const allItems = Object.values(itemsMap);
 
-  printClientSummary(title, weekLabel, allItems, orders);
+  const schoolNames = Array.from(new Set(orders.map(o => o.clientName))).join(" / ");
+
+  printClientSummary(schoolNames || title, weekLabel, allItems, orders);
 }
