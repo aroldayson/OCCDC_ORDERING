@@ -52,11 +52,10 @@ interface SchoolGroupBlockProps {
   clientName: string;
   clientOrders: WeeklyOrderRecord[];
   handleStatusChange: (id: string, status: OrderStatus) => Promise<void>;
-  printOrderForm: (order: WeeklyOrderRecord) => void;
   setSelectedOrderDetail: (order: WeeklyOrderRecord | null) => void;
 }
 
-function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printOrderForm, setSelectedOrderDetail }: SchoolGroupBlockProps) {
+function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSelectedOrderDetail }: SchoolGroupBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -598,7 +597,6 @@ export default function WeeklyOrderView({
                         clientName={clientName}
                         clientOrders={clientOrders}
                         handleStatusChange={handleStatusChange}
-                        printOrderForm={printOrderForm}
                         setSelectedOrderDetail={setSelectedOrderDetail}
                       />
                     ))
