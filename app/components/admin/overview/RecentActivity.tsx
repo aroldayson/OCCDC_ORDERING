@@ -50,9 +50,8 @@ export default function RecentActivity({ orders }: RecentActivityProps) {
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
-                    statusStyles[order.status] ?? "bg-slate-50 text-slate-600"
-                  }`}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyles[order.status] ?? "bg-slate-50 text-slate-600"
+                    }`}
                 >
                   {order.status}
                 </span>

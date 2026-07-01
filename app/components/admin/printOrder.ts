@@ -1,5 +1,15 @@
 import type { WeeklyOrderRecord } from "../order/types";
 
+const categoryLabels: Record<string, string> = {
+  vegetables: "Vegetables",
+  fruits: "Fruits",
+  fish: "Fish",
+  egg: "Egg",
+  meat: "Meat",
+  groceries: "Groceries",
+  other_order: "Other Order",
+};
+
 export function printOrderForm(order: WeeklyOrderRecord) {
   const html = `
     <!DOCTYPE html>
@@ -166,6 +176,14 @@ export function printOrderForm(order: WeeklyOrderRecord) {
             <span class="form-info-label">DELIVERY DATE :</span>
             <span>${new Date().toLocaleDateString("en-PH")}</span>
           </div>
+          <div class="form-info-item">
+            <span class="form-info-label">CATEGORY :</span>
+            <span style="font-weight: bold; text-transform: uppercase;">${categoryLabels[order.clientRole] ?? order.clientRole}</span>
+          </div>
+          <div class="form-info-item">
+            <span class="form-info-label">STATUS :</span>
+            <span style="font-weight: bold; text-transform: uppercase;">${order.status}</span>
+          </div>
         </div>
 
         <table>
@@ -173,6 +191,7 @@ export function printOrderForm(order: WeeklyOrderRecord) {
             <tr>
               <th>ITEM NO.</th>
               <th>DESCRIPTION</th>
+              <th>CATEGORY</th>
               <th>QTY.</th>
               <th>UNIT</th>
               <th>UNIT PRICE</th>
@@ -186,10 +205,11 @@ export function printOrderForm(order: WeeklyOrderRecord) {
               <tr>
                 <td class="number-col">${index + 1}</td>
                 <td>${item.name}</td>
+                <td>${categoryLabels[item.category] ?? item.category}</td>
                 <td class="number-col">${item.qty}</td>
                 <td>${item.unit}</td>
-                <td>PHP</td>
-                <td class="total">-</td>
+                <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             `
               )
@@ -198,19 +218,8 @@ export function printOrderForm(order: WeeklyOrderRecord) {
         </table>
 
         <div style="text-align: right; font-weight: bold; margin-bottom: 30px;">
-          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">PHP -</span>
+          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
-
-        ${
-          order.notes
-            ? `
-        <div class="notes-section">
-          <div class="notes-label">NOTES:</div>
-          <div class="notes-content">${order.notes}</div>
-        </div>
-        `
-            : ""
-        }
 
         <div class="signature-section">
           <div>
@@ -240,9 +249,19 @@ export function printOrderForm(order: WeeklyOrderRecord) {
 export function printClientSummary(
   clientName: string,
   weekLabel: string,
-  items: { name: string; qty: number; unit: string; category: string }[],
-  ordersCount: number
+  items: { name: string; qty: number; unit: string; category: string; price?: number }[],
+  orders: { status: string }[]
 ) {
+  const ordersCount = orders.length;
+  const statusSummary = (() => {
+    const counts: Record<string, number> = {};
+    for (const o of orders) {
+      counts[o.status] = (counts[o.status] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([s, c]) => `${s.toUpperCase()}${c > 1 ? ` (${c})` : ""}`)
+      .join(" / ");
+  })();
   const html = `
     <!DOCTYPE html>
     <html>
@@ -385,6 +404,14 @@ export function printClientSummary(
             <span class="form-info-label">ORDERS :</span>
             <span>Total ${ordersCount} Category Orders</span>
           </div>
+          <div class="form-info-item">
+            <span class="form-info-label">CATEGORY :</span>
+            <span style="font-weight: bold; text-transform: uppercase;">${[...new Set(items.map(it => categoryLabels[it.category] ?? it.category))].join(" / ")}</span>
+          </div>
+          <div class="form-info-item">
+            <span class="form-info-label">STATUS :</span>
+            <span style="font-weight: bold; text-transform: uppercase;">${statusSummary}</span>
+          </div>
         </div>
 
         <table>
@@ -392,6 +419,7 @@ export function printClientSummary(
             <tr>
               <th>ITEM NO.</th>
               <th>DESCRIPTION</th>
+              <th>CATEGORY</th>
               <th>QTY.</th>
               <th>UNIT</th>
               <th>UNIT PRICE</th>
@@ -405,10 +433,11 @@ export function printClientSummary(
               <tr>
                 <td class="number-col">${index + 1}</td>
                 <td>${item.name}</td>
+                <td>${categoryLabels[item.category] ?? item.category}</td>
                 <td class="number-col">${item.qty}</td>
                 <td>${item.unit}</td>
-                <td>PHP</td>
-                <td class="total">-</td>
+                <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             `
               )
@@ -417,7 +446,7 @@ export function printClientSummary(
         </table>
 
         <div style="text-align: right; font-weight: bold; margin-bottom: 30px;">
-          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">PHP -</span>
+          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${items.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
         <div class="signature-section">

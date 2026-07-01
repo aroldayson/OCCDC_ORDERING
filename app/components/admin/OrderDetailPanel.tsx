@@ -1,6 +1,7 @@
 import { X, Printer, Eye, Edit, Trash2 } from "lucide-react";
 import { updateOrderStatus } from "../order/orderStorage";
 import { printOrderForm } from "./printOrder";
+import { useAuth } from "@/app/providers/AuthProvider";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 
 const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed"];
@@ -34,9 +35,13 @@ export default function OrderDetailPanel({
   onClose,
   onStatusChange,
 }: OrderDetailPanelProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   if (!order) return null;
 
   async function handleStatusChange(status: OrderStatus) {
+    if (!isAdmin) return;
     await updateOrderStatus(order!.id, status);
     onStatusChange();
   }
@@ -68,21 +73,21 @@ export default function OrderDetailPanel({
           </div>
           <div className="flex gap-1 shrink-0 sm:gap-2">
             <button
-              onClick={() => {}}
+              onClick={() => { }}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
               title="View order"
             >
               <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
-              onClick={() => {}}
+              onClick={() => { }}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
               title="Edit order"
             >
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
-              onClick={() => {}}
+              onClick={() => { }}
               className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition sm:p-1.5"
               title="Delete order"
             >
@@ -121,18 +126,20 @@ export default function OrderDetailPanel({
 
       <div className="border-b border-slate-100 p-3 sm:p-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Change Status
+          {isAdmin ? "Change Status" : "Order Status"}
         </p>
         <div className="flex flex-wrap gap-2">
           {statusOptions.map((s) => (
             <button
               key={s}
+              disabled={!isAdmin}
               onClick={() => handleStatusChange(s)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${
-                order.status === s
+              className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${order.status === s
                   ? statusStyles[s]
-                  : "border-slate-200 text-slate-500 hover:border-slate-300"
-              }`}
+                  : isAdmin
+                    ? "border-slate-200 text-slate-500 hover:border-slate-300"
+                    : "border-slate-100 text-slate-300 opacity-40"
+                }`}
             >
               {s}
             </button>
@@ -141,6 +148,12 @@ export default function OrderDetailPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 flex justify-between items-center">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Grand Total:</span>
+          <span className="text-base font-extrabold text-emerald-700">
+            ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
           {order.itemCount} Products — {order.weekLabel}
         </p>
@@ -159,13 +172,18 @@ export default function OrderDetailPanel({
                     <p className="text-sm font-medium text-slate-800">
                       {item.name}
                     </p>
-                    {item.note && (
-                      <p className="text-xs text-slate-400">{item.note}</p>
-                    )}
+                    <p className="text-xs text-slate-500 font-semibold">
+                      ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} / {item.unit}
+                    </p>
                   </div>
-                  <span className="shrink-0 text-sm font-bold text-blue-700">
-                    {item.qty} {item.unit}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-bold text-blue-700 block">
+                      {item.qty} {item.unit}
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700">
+                      ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>

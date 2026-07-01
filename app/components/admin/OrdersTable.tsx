@@ -52,11 +52,10 @@ export default function OrdersTable({
           <div
             key={order.id}
             onClick={() => onSelect(order.id)}
-            className={`w-full rounded-2xl border p-4 cursor-pointer transition-all ${
-              selectedId === order.id
+            className={`w-full rounded-2xl border p-4 cursor-pointer transition-all ${selectedId === order.id
                 ? "border-blue-300 bg-blue-50 shadow-sm"
                 : "border-slate-100 bg-white hover:border-slate-200"
-            }`}
+              }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -95,9 +94,8 @@ export default function OrdersTable({
 
       {/* Desktop table */}
       <div
-        className={`hidden min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm ${
-          compact ? "lg:hidden" : "lg:flex"
-        }`}
+        className={`hidden min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm ${compact ? "lg:hidden" : "lg:flex"
+          }`}
       >
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full text-left text-sm">
@@ -119,9 +117,8 @@ export default function OrdersTable({
                 <tr
                   key={order.id}
                   onClick={() => onSelect(order.id)}
-                  className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 ${
-                    selectedId === order.id ? "bg-blue-50" : ""
-                  }`}
+                  className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 ${selectedId === order.id ? "bg-blue-50" : ""
+                    }`}
                 >
                   <td className="px-3 py-3.5 font-medium text-slate-600 sm:px-5 whitespace-nowrap">
                     {order.id}

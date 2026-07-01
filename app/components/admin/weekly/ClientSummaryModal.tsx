@@ -26,7 +26,7 @@ export default function ClientSummaryModal({
   weekLabel,
 }: ClientSummaryModalProps) {
   const aggregated = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; unit: string; category: string }>();
+    const map = new Map<string, { name: string; qty: number; unit: string; category: string; price: number }>();
     for (const order of orders) {
       for (const item of order.items) {
         const key = `${item.productId}-${item.unit}`;
@@ -39,6 +39,7 @@ export default function ClientSummaryModal({
             qty: item.qty,
             unit: item.unit,
             category: getCategoryDisplayFromItem(item),
+            price: item.price || 0,
           });
         }
       }
@@ -74,7 +75,7 @@ export default function ClientSummaryModal({
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => printClientSummary(clientName, weekLabel, aggregated, orders.length)}
+              onClick={() => printClientSummary(clientName, weekLabel, aggregated, orders)}
               className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
               aria-label="Print summary"
             >

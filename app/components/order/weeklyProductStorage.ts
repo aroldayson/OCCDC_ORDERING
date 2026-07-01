@@ -1,81 +1,59 @@
+import { supabase } from "@/lib/supabase";
 import { weeklyProducts, type WeeklyProduct } from "./products";
 
-const STORAGE_KEY = "occdc_weekly_products";
-const OVERRIDES_KEY = "occdc_weekly_overrides";
-const HIDDEN_KEY = "occdc_weekly_hidden";
-
-function getKeys(weekLabel?: string) {
-  const suffix = weekLabel ? `_${weekLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")}` : "";
-  return {
-    storageKey: `${STORAGE_KEY}${suffix}`,
-    overridesKey: `${OVERRIDES_KEY}${suffix}`,
-    hiddenKey: `${HIDDEN_KEY}${suffix}`,
-  };
-}
-
-type ProductOverride = Partial<Omit<WeeklyProduct, "id">>;
-
-function getCustomProducts(weekLabel?: string): WeeklyProduct[] {
-  if (typeof window === "undefined") return [];
+export async function getWeeklyProducts(weekLabel?: string): Promise<WeeklyProduct[]> {
+  const activeWeek = weekLabel?.trim() || "default";
   try {
-    const { storageKey } = getKeys(weekLabel);
-    const raw = localStorage.getItem(storageKey);
-    return raw ? (JSON.parse(raw) as WeeklyProduct[]) : [];
-  } catch {
+    const { data, error } = await supabase
+      .from("weekly_products")
+      .select("*")
+      .eq("week_label", activeWeek);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      // Seed default catalog products for this week
+      const payload = weeklyProducts.map((p) => ({
+        id: p.id,
+        week_label: activeWeek,
+        name: p.name,
+        default_qty: p.defaultQty,
+        unit: p.unit,
+        price: p.price,
+        category: p.category,
+      }));
+
+      const { error: seedError } = await supabase
+        .from("weekly_products")
+        .insert(payload);
+
+      if (seedError) {
+        console.error("Error seeding weekly products:", seedError);
+        return weeklyProducts;
+      }
+
+      return weeklyProducts;
+    }
+
+    return (data as { id: string; name: string; default_qty: string; unit: string; price: string; category: string }[]).map((row) => ({
+      id: row.id,
+      name: row.name,
+      defaultQty: parseFloat(row.default_qty),
+      unit: row.unit,
+      price: parseFloat(row.price || "0"),
+      category: row.category as WeeklyProduct["category"],
+    }));
+  } catch (err) {
+    console.error("Error fetching weekly products from Supabase:", err);
     return [];
   }
 }
 
-function getOverrides(weekLabel?: string): Record<string, ProductOverride> {
-  if (typeof window === "undefined") return {};
-  try {
-    const { overridesKey } = getKeys(weekLabel);
-    const raw = localStorage.getItem(overridesKey);
-    return raw ? (JSON.parse(raw) as Record<string, ProductOverride>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function getHiddenIds(weekLabel?: string): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const { hiddenKey } = getKeys(weekLabel);
-    const raw = localStorage.getItem(hiddenKey);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function notify() {
-  window.dispatchEvent(new Event("occdc-weekly-products-updated"));
-}
-
-function applyOverride(product: WeeklyProduct, override?: ProductOverride): WeeklyProduct {
-  if (!override) return product;
-  return { ...product, ...override };
-}
-
-export function getWeeklyProducts(weekLabel?: string): WeeklyProduct[] {
-  const hidden = getHiddenIds(weekLabel);
-  const overrides = getOverrides(weekLabel);
-  const base = weeklyProducts
-    .filter((p) => !hidden.has(p.id))
-    .map((p) => applyOverride(p, overrides[p.id]));
-  const custom = getCustomProducts(weekLabel).filter((p) => !hidden.has(p.id));
-  return [...base, ...custom];
-}
-
-export function isCustomProduct(id: string, weekLabel?: string): boolean {
-  return getCustomProducts(weekLabel).some((p) => p.id === id);
-}
-
-export function addWeeklyProduct(
+export async function addWeeklyProduct(
   product: Omit<WeeklyProduct, "id"> & { id?: string },
   weekLabel?: string,
-): WeeklyProduct {
-  const custom = getCustomProducts(weekLabel);
+): Promise<WeeklyProduct> {
+  const activeWeek = weekLabel?.trim() || "default";
   const slug =
     product.name
       .toLowerCase()
@@ -83,53 +61,118 @@ export function addWeeklyProduct(
       .replace(/(^-|-$)/g, "") || "item";
 
   let id = product.id ?? slug;
-  const allIds = new Set([...weeklyProducts.map((p) => p.id), ...custom.map((p) => p.id)]);
-  if (allIds.has(id)) id = `${slug}-${Date.now()}`;
+  const existingList = await getWeeklyProducts(activeWeek);
+  if (existingList.some((p) => p.id === id)) {
+    id = `${slug}-${Date.now()}`;
+  }
 
-  const entry: WeeklyProduct = {
+  const entry = {
     id,
+    week_label: activeWeek,
     name: product.name,
-    defaultQty: product.defaultQty,
+    default_qty: product.defaultQty,
     unit: product.unit,
-    note: product.note,
+    price: product.price,
     category: product.category,
   };
 
-  custom.push(entry);
-  const { storageKey } = getKeys(weekLabel);
-  localStorage.setItem(storageKey, JSON.stringify(custom));
-  notify();
-  return entry;
-}
-
-export function updateWeeklyProduct(id: string, data: ProductOverride, weekLabel?: string): void {
-  if (isCustomProduct(id, weekLabel)) {
-    const custom = getCustomProducts(weekLabel).map((p) => (p.id === id ? { ...p, ...data } : p));
-    const { storageKey } = getKeys(weekLabel);
-    localStorage.setItem(storageKey, JSON.stringify(custom));
-  } else if (weeklyProducts.some((p) => p.id === id)) {
-    const overrides = getOverrides(weekLabel);
-    overrides[id] = { ...overrides[id], ...data };
-    const { overridesKey } = getKeys(weekLabel);
-    localStorage.setItem(overridesKey, JSON.stringify(overrides));
+  try {
+    const { error } = await supabase.from("weekly_products").insert(entry);
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
+  } catch (err) {
+    console.error("Error adding weekly product to Supabase:", err);
   }
-  notify();
+
+  return {
+    id: entry.id,
+    name: entry.name,
+    defaultQty: entry.default_qty,
+    unit: entry.unit,
+    price: entry.price,
+    category: entry.category,
+  };
 }
 
-export function removeWeeklyProduct(id: string, weekLabel?: string): void {
-  if (isCustomProduct(id, weekLabel)) {
-    const custom = getCustomProducts(weekLabel).filter((p) => p.id !== id);
-    const { storageKey } = getKeys(weekLabel);
-    localStorage.setItem(storageKey, JSON.stringify(custom));
-  } else {
-    const hidden = getHiddenIds(weekLabel);
-    hidden.add(id);
-    const { hiddenKey } = getKeys(weekLabel);
-    localStorage.setItem(hiddenKey, JSON.stringify([...hidden]));
+export async function updateWeeklyProduct(
+  id: string,
+  data: Partial<WeeklyProduct>,
+  weekLabel?: string,
+): Promise<void> {
+  const activeWeek = weekLabel?.trim() || "default";
+  
+  const payload: Partial<{
+    name: string;
+    default_qty: number;
+    unit: string;
+    price: number;
+    category: string;
+  }> = {};
+  if (data.name !== undefined) payload.name = data.name;
+  if (data.defaultQty !== undefined) payload.default_qty = data.defaultQty;
+  if (data.unit !== undefined) payload.unit = data.unit;
+  if (data.price !== undefined) payload.price = data.price;
+  if (data.category !== undefined) payload.category = data.category;
+
+  try {
+    const { error } = await supabase
+      .from("weekly_products")
+      .update(payload)
+      .eq("id", id)
+      .eq("week_label", activeWeek);
+
+    if (error) throw error;
+
+    // If price changed, cascade to all existing orders that contain this product
+    if (data.price !== undefined) {
+      const newPrice = data.price;
+      const { data: orders, error: ordErr } = await supabase
+        .from("orders")
+        .select("id, items, total_price");
+
+      if (!ordErr && orders) {
+        for (const order of orders) {
+          const items = order.items as Array<{ productId: string; price?: number; qty: number; [key: string]: unknown }> | null;
+          if (!Array.isArray(items)) continue;
+
+          const needsUpdate = items.some((it) => it.productId === id);
+          if (!needsUpdate) continue;
+
+          const updatedItems = items.map((it) =>
+            it.productId === id ? { ...it, price: newPrice } : it
+          );
+          const totalPrice = updatedItems.reduce(
+            (sum, it) => sum + (it.qty || 0) * ((it.productId === id ? newPrice : (it.price ?? 0))),
+            0
+          );
+
+          await supabase
+            .from("orders")
+            .update({ items: updatedItems, total_price: totalPrice })
+            .eq("id", order.id);
+        }
+      }
+    }
+
+    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error updating weekly product in Supabase:", err);
   }
-  notify();
 }
 
-export function getCustomWeeklyProducts(weekLabel?: string): WeeklyProduct[] {
-  return getCustomProducts(weekLabel);
+export async function removeWeeklyProduct(id: string, weekLabel?: string): Promise<void> {
+  const activeWeek = weekLabel?.trim() || "default";
+  try {
+    const { error } = await supabase
+      .from("weekly_products")
+      .delete()
+      .eq("id", id)
+      .eq("week_label", activeWeek);
+
+    if (error) throw error;
+    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
+  } catch (err) {
+    console.error("Error removing weekly product in Supabase:", err);
+  }
 }

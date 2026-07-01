@@ -84,13 +84,13 @@ export function buildClientGroups(orders: WeeklyOrderRecord[], registered: { id:
 }
 
 export function exportItemsCsv(items: WeeklyProduct[]) {
-  const header = ["Item", "Category", "Quantity", "Unit", "Notes"];
+  const header = ["Item", "Category", "Quantity", "Unit", "Price"];
   const rows = items.map((item) => [
     item.name,
     getCategoryDisplay(item),
     String(item.defaultQty),
     item.unit,
-    item.note ?? "",
+    String(item.price ?? 0),
   ]);
 
   const csv = [header, ...rows]

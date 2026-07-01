@@ -13,6 +13,7 @@ interface AuthContextType {
     password: string,
     role: UserRole,
     schoolName?: string,
+    categories?: string[],
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -34,6 +35,7 @@ function buildFallbackProfile(
   },
   role: UserRole = "user",
   schoolName?: string,
+  categories?: string[],
 ): UserProfile {
   return {
     id: authUser.id,
@@ -41,6 +43,7 @@ function buildFallbackProfile(
     role,
     school_name:
       schoolName ?? schoolFromMetadata(authUser.user_metadata) ?? undefined,
+    categories: categories ?? (authUser.user_metadata?.categories as string[]) ?? undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -57,6 +60,7 @@ function mergeProfileWithAuth(
   const metadata = authUser.user_metadata ?? {};
   const schoolFromMeta = schoolFromMetadata(metadata);
   const roleFromMeta = metadata.role as UserRole | undefined;
+  const categoriesFromMeta = metadata.categories as string[] | undefined;
 
   if (profile) {
     return {
@@ -64,10 +68,11 @@ function mergeProfileWithAuth(
       email: profile.email || (authUser.email ?? ""),
       role: (profile.role as UserRole) || roleFromMeta || "user",
       school_name: profile.school_name?.trim() || schoolFromMeta || undefined,
+      categories: profile.categories || categoriesFromMeta || undefined,
     };
   }
 
-  return buildFallbackProfile(authUser, roleFromMeta ?? "user", schoolFromMeta);
+  return buildFallbackProfile(authUser, roleFromMeta ?? "user", schoolFromMeta, categoriesFromMeta);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -148,64 +153,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     role: UserRole,
     schoolName?: string,
+    categories?: string[],
   ) => {
     const trimmedSchool = schoolName?.trim() || undefined;
 
     try {
-      const {
-        data: { user: authUser, session },
-        error: authError,
-      } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role,
-            schoolName: trimmedSchool ?? null,
-          },
-        },
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          schoolName: trimmedSchool,
+          categories,
+        }),
       });
 
-      if (authError) {
-        throw new Error(authError.message);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Server-side signup failed");
       }
-      if (!authUser) throw new Error("No user returned from signup");
+
+      const {
+        data: { user: authUser, session },
+        error: signInError,
+      } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
 
       if (session) {
         setSession(session);
       }
 
-      try {
-        const { error: profileError } = await supabase.from("user_profiles").upsert(
-          {
-            id: authUser.id,
-            email,
-            role,
-            school_name: trimmedSchool ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" },
-        );
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .maybeSingle();
 
-        if (!profileError) {
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("*")
-            .eq("id", authUser.id)
-            .maybeSingle();
-
-          if (profile) {
-            setUser(mergeProfileWithAuth(profile as UserProfile, authUser));
-            return;
-          }
+        if (profile) {
+          setUser(mergeProfileWithAuth(profile as UserProfile, authUser));
         } else {
-          console.warn("Profile upsert during signup:", profileError);
+          setUser(buildFallbackProfile(authUser, role, trimmedSchool, categories));
         }
-      } catch (insertError) {
-        console.warn("Profile upsert skipped during signup:", insertError);
       }
-
-      setUser(buildFallbackProfile(authUser, role, trimmedSchool));
     } catch (error) {
       throw new Error((error as Error).message || "Sign up failed");
     }

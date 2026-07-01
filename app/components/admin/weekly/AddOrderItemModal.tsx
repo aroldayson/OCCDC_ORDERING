@@ -10,7 +10,7 @@ type AddOrderItemModalProps = {
   category: OrderRole | null;
   weekLabel?: string;
   onClose: () => void;
-  onAdd: (productName: string, qty: number, unit: string, note?: string) => void;
+  onAdd: (productName: string, qty: number, unit: string, price: number) => void;
 };
 
 export default function AddOrderItemModal({
@@ -22,20 +22,19 @@ export default function AddOrderItemModal({
   const [productName, setProductName] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("kg");
-  const [note, setNote] = useState("");
-
-
+  const [price, setPrice] = useState("");
 
   if (!open || !category) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalQty = parseFloat(qty);
+    const finalPrice = parseFloat(price || "0");
     const finalName = productName.trim();
 
-    if (!finalName || isNaN(finalQty) || finalQty <= 0) return;
+    if (!finalName || isNaN(finalQty) || finalQty <= 0 || isNaN(finalPrice) || finalPrice < 0) return;
 
-    onAdd(finalName, finalQty, unit.trim(), note.trim() || undefined);
+    onAdd(finalName, finalQty, unit.trim(), finalPrice);
     onClose();
   };
 
@@ -71,8 +70,8 @@ export default function AddOrderItemModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
               <label className="mb-1 block text-xs font-medium text-slate-600">
                 Quantity <span className="text-red-500">*</span>
               </label>
@@ -88,7 +87,23 @@ export default function AddOrderItemModal({
               />
             </div>
 
-            <div>
+            <div className="col-span-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Price (₱) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                required
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="₱150.00"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <div className="col-span-1">
               <label className="mb-1 block text-xs font-medium text-slate-600">
                 Unit <span className="text-red-500">*</span>
               </label>
@@ -97,21 +112,10 @@ export default function AddOrderItemModal({
                 required
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                placeholder="e.g. kg, pcs, pack"
+                placeholder="e.g. kg, pcs"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Notes</label>
-            <textarea
-              rows={2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Optional notes..."
-              className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">

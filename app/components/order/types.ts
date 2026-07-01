@@ -5,7 +5,7 @@ export type OrderItem = {
   name: string;
   qty: number;
   unit: string;
-  note?: string;
+  price: number;
   category: string;
 };
 
@@ -20,7 +20,7 @@ export type WeeklyOrderRecord = {
   items: OrderItem[];
   itemCount: number;
   createdAt: string;
-  notes?: string;
+  totalPrice: number;
 };
 
 export type OrderLine = {

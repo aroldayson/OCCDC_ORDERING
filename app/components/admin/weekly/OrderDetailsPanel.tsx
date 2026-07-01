@@ -103,7 +103,8 @@ function OrderItemsTable({
               <th className="px-4 py-2.5">Category</th>
               <th className="px-4 py-2.5">Quantity</th>
               <th className="px-4 py-2.5">Unit</th>
-              <th className="px-4 py-2.5">Notes</th>
+              <th className="px-4 py-2.5 text-right">Price</th>
+              <th className="px-4 py-2.5 text-right">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -114,9 +115,6 @@ function OrderItemsTable({
               >
                 <td className="px-4 py-2.5">
                   <p className="font-medium text-slate-800">{item.name}</p>
-                  {item.note && !expanded && (
-                    <p className="text-xs text-slate-400">{item.note}</p>
-                  )}
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">
                   {getCategoryDisplayFromItem(item)}
@@ -125,8 +123,11 @@ function OrderItemsTable({
                   {item.qty}
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">{item.unit}</td>
-                <td className="px-4 py-2.5 text-slate-500">
-                  {item.note ?? "—"}
+                <td className="px-4 py-2.5 text-right font-semibold text-slate-700">
+                  ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                </td>
+                <td className="px-4 py-2.5 text-right font-bold text-emerald-700">
+                  ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
@@ -139,7 +140,7 @@ function OrderItemsTable({
             onClick={onToggleAll}
             className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            {expanded ? "Show less" : `View all ${items.length} items`}
+            {expanded ? "Show Less" : `Show All (${items.length})`}
           </button>
         </div>
       )}
@@ -187,6 +188,9 @@ function OrderAccordion({
                 Order Date: {formatOrderDate(order.createdAt)}
               </span>
               <span className="text-slate-500">Items: {order.itemCount}</span>
+              <span className="font-semibold text-emerald-700">
+                Total: ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
           <span
@@ -247,12 +251,6 @@ function OrderAccordion({
             expanded={itemsExpanded}
             onToggleAll={() => setItemsExpanded((v) => !v)}
           />
-          {order.notes && (
-            <div className="mt-3 rounded-lg bg-amber-50/50 border border-amber-100 p-3 text-xs text-slate-700">
-              <span className="font-bold text-amber-800 uppercase block mb-1">Notes / Remarks:</span>
-              <p className="whitespace-pre-wrap">{order.notes}</p>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -292,7 +290,7 @@ export default function OrderDetailsPanel({
     );
   }
 
-  async function handleAddItem(productName: string, qty: number, unit: string, note?: string) {
+  async function handleAddItem(productName: string, qty: number, unit: string, price: number) {
     if (!addItemCategory) return;
     const catOrder = orders.find((o) => o.clientRole === addItemCategory);
     if (!catOrder) return;
@@ -305,15 +303,17 @@ export default function OrderDetailsPanel({
       name: productName,
       qty,
       unit,
-      note,
+      price,
       category: addItemCategory,
     };
 
     const updatedItems = [...catOrder.items, newItem];
+    const totalPrice = updatedItems.reduce((sum, it) => sum + (it.qty * it.price), 0);
     const updatedOrder = {
       ...catOrder,
       items: updatedItems,
       itemCount: updatedItems.length,
+      totalPrice,
     };
 
     await updateOrder(updatedOrder);

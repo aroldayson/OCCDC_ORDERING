@@ -8,22 +8,27 @@ import {
   LogOut,
   X,
   ChevronUp,
+  Package,
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { SidebarToggleButton } from "./SidebarToggle";
 
-export type AdminView = "overview" | "place-order" | "orders";
+export type AdminView = "overview" | "place-order" | "orders" | "products" | "other-order" | string;
 
 const navItems: {
   id: AdminView;
   icon: typeof LayoutDashboard;
   label: string;
   adminOnly?: boolean;
+  clientOnly?: boolean;
 }[] = [
-  { id: "overview", icon: LayoutDashboard, label: "Dashboard" },
-  { id: "place-order", icon: ShoppingBag, label: "Weekly Order" },
-  { id: "orders", icon: ClipboardList, label: "View Orders" },
+  { id: "overview", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
+  { id: "place-order", icon: ShoppingBag, label: "Weekly Order", clientOnly: true },
+  { id: "other-order", icon: FileText, label: "Other Order", adminOnly: true },
+  { id: "orders", icon: ClipboardList, label: "Order Summary", clientOnly: true },
+  { id: "products", icon: Package, label: "Product", adminOnly: true },
 ];
 
 type AdminSidebarProps = {
@@ -72,7 +77,43 @@ function SidebarInner({
           ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
           : "User";
 
-  const visibleNavItems = navItems.filter((item) => isAdmin || !item.adminOnly);
+  const getSupplierNavItems = () => {
+    const list = [
+      { id: "overview", icon: LayoutDashboard, label: "Dashboard" }
+    ];
+
+    const cats = user?.categories && user.categories.length > 0
+      ? user.categories
+      : ["vegetables", "fruits", "fish", "egg", "meat", "groceries", "other_order"];
+
+    const labels: Record<string, string> = {
+      vegetables: "Vegetables Orders",
+      fruits: "Fruits Orders",
+      meat: "Meat Orders",
+      fish: "Fish Orders",
+      egg: "Egg Orders",
+      groceries: "Groceries Orders",
+      other_order: "Other Orders",
+    };
+
+    cats.forEach((cat) => {
+      const id = cat === "other_order" ? "other-order" : `other-order-${cat}`;
+      if (!list.some(item => item.id === id)) {
+        list.push({
+          id,
+          icon: FileText,
+          label: labels[cat] ?? "Other Order",
+        });
+      }
+    });
+
+    list.push({ id: "products", icon: Package, label: "Product" });
+    return list;
+  };
+
+  const visibleNavItems = isAdmin
+    ? getSupplierNavItems()
+    : navItems.filter((item) => !item.adminOnly);
 
   return (
     <>

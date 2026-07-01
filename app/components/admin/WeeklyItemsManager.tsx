@@ -56,9 +56,11 @@ function aggregateOrderItems(orders: WeeklyOrderRecord[]): AggregatedItem[] {
 }
 
 const categoryLabels: Record<string, string> = {
-  vegetables_fruits: "Vegetables & Fruits",
+  vegetables: "Vegetables",
+  fruits: "Fruits",
+  fish: "Fish",
+  egg: "Egg",
   meat: "Meat",
-  fish_egg: "Fish & Egg",
   groceries: "Groceries",
   other_order: "Other Orders",
 };

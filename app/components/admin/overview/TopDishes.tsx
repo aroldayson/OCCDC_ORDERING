@@ -37,11 +37,15 @@ export default function TopDishes({ orders }: TopDishesProps) {
 
   const getEmoji = (category: string) => {
     switch (category) {
-      case "vegetables_fruits":
+      case "vegetables":
         return "🥦";
+      case "fruits":
+        return "🍎";
       case "meat":
         return "🥩";
-      case "fish_egg":
+      case "fish":
+        return "🐟";
+      case "egg":
         return "🍳";
       case "groceries":
         return "🥫";

@@ -11,7 +11,7 @@ import { orderRoleLabels, orderRoles } from "./roles";
 import type { OrderRole } from "./roles";
 import type { OrderState } from "./types";
 import OrderHeader from "./OrderHeader";
-import ClientSelectField from "./ClientSelectField";
+
 
 import ProductRow from "./ProductRow";
 import OrderSuccessBanner from "./OrderSuccessBanner";
@@ -31,6 +31,7 @@ type WeeklyOrderProps = {
   fixedClientName?: string;
   weekLabel?: string;
   onOrderSubmitted?: () => void;
+  fixedCategory?: OrderRole;
 };
 
 export default function WeeklyOrder({
@@ -39,27 +40,32 @@ export default function WeeklyOrder({
   fixedClientName,
   weekLabel: weekLabelProp,
   onOrderSubmitted,
+  fixedCategory,
 }: WeeklyOrderProps) {
   const activeWeekLabel = weekLabelProp ?? weekLabel;
 
-  const [allProducts, setAllProducts] = useState<WeeklyProduct[]>(() =>
-    typeof window !== "undefined" ? getWeeklyProducts(activeWeekLabel) : [],
-  );
-  // Maintain a global order state across all categories so selections
-  // persist when the user steps through multiple category pages.
+  const [allProducts, setAllProducts] = useState<WeeklyProduct[]>([]);
   const [order, setOrder] = useState<OrderState>({});
   const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(
     null,
   );
-  const [selectedClientId, setSelectedClientId] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<OrderRole | "">("");
+  const [, setSelectedClientId] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<OrderRole | "">(
+    fixedCategory ?? ""
+  );
+
+  const [prevFixedCategory, setPrevFixedCategory] = useState<OrderRole | undefined>(fixedCategory);
+  if (fixedCategory !== prevFixedCategory) {
+    setPrevFixedCategory(fixedCategory);
+    setSelectedCategory(fixedCategory ?? "");
+  }
   const [clientName, setClientName] = useState(defaultClientName);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("");
-  const [notes, setNotes] = useState("");
+  const [newItemPrice, setNewItemPrice] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [lastOrders, setLastOrders] = useState<WeeklyOrderRecord[]>([]);
   const [validationError, setValidationError] = useState("");
@@ -69,30 +75,24 @@ export default function WeeklyOrder({
     return allProducts.filter((p) => p.category === selectedCategory);
   }, [allProducts, selectedCategory]);
 
-  // All selected items across categories (used for submission summary)
   const selectedItems = useMemo(
     () => allProducts.filter((p) => order[p.id]?.selected),
     [allProducts, order],
   );
 
   const syncProducts = useCallback(() => {
-    const list = getWeeklyProducts(activeWeekLabel);
-    setAllProducts(list);
+    getWeeklyProducts(activeWeekLabel).then(setAllProducts);
   }, [activeWeekLabel]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     syncProducts();
     window.addEventListener("occdc-weekly-products-updated", syncProducts);
     return () =>
       window.removeEventListener("occdc-weekly-products-updated", syncProducts);
   }, [syncProducts]);
 
-  // Initialize global order state once products are loaded.
   useEffect(() => {
     if (allProducts.length === 0) return;
-    // If order is empty, populate defaults for all products so selections
-    // persist across category steps.
     if (Object.keys(order).length === 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrder(buildInitialState(allProducts));
@@ -123,16 +123,15 @@ export default function WeeklyOrder({
     initClient();
   }, [defaultClientName, fixedClientName]);
 
-  // Derived state adjustment during render (instead of useEffect to avoid cascading renders warning)
   const [prevSelectedClient, setPrevSelectedClient] = useState(selectedClient);
   if (selectedClient !== prevSelectedClient) {
     setPrevSelectedClient(selectedClient);
     setSubmitted(false);
     setLastOrders([]);
     setEditingId(null);
-    setNotes("");
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function handleClientChange(client: ClientRecord | null) {
     setSelectedClient(client);
     setSelectedClientId(client?.id ?? "");
@@ -167,14 +166,12 @@ export default function WeeklyOrder({
     setEditingId(null);
     setSubmitted(false);
     setLastOrders([]);
-    setNotes("");
   }
 
   async function handleSubmit() {
     if (selectedItems.length === 0 || !selectedClient)
       return;
 
-    // Group selected items by category
     const itemsByCategory: Record<string, typeof selectedItems> = {};
     selectedItems.forEach((item) => {
       const cat = item.category;
@@ -190,6 +187,12 @@ export default function WeeklyOrder({
       const quantities = Object.fromEntries(
         catItems.map((p) => [p.id, order[p.id].qty]),
       );
+
+      const totalPrice = catItems.reduce((sum, item) => {
+        const qty = quantities[item.id] ?? 0;
+        return sum + (qty * item.price);
+      }, 0);
+
       const orderId = createOrderId();
       const orderRecord: WeeklyOrderRecord = {
         id: orderId,
@@ -200,7 +203,7 @@ export default function WeeklyOrder({
         itemCount: catItems.length,
         createdAt: new Date().toISOString(),
         items: buildOrderItems(catItems, quantities),
-        notes: notes.trim() || undefined,
+        totalPrice,
       };
 
       await saveOrder(orderRecord);
@@ -211,54 +214,53 @@ export default function WeeklyOrder({
     setSubmitted(true);
     onOrderSubmitted?.();
 
-    if (!embedded) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setOrder(buildInitialState(allProducts));
   }
 
   const categoryLabel = selectedCategory
     ? orderRoleLabels[selectedCategory]
     : "";
-  const readyToOrder = selectedClient && selectedCategory;
+
+  const readyToOrder = !!selectedClient && !!selectedCategory;
+
+  const grandTotal = useMemo(() => {
+    return selectedItems.reduce((sum, item) => {
+      const qty = order[item.id]?.qty ?? 0;
+      return sum + (qty * item.price);
+    }, 0);
+  }, [selectedItems, order]);
 
   const leftPanel = (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <ClientSelectField
-          selectedClientId={selectedClientId}
-          onClientChange={handleClientChange}
-          lockedClientName={fixedClientName}
-        />
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Order Category
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {orderRoles.map((role) => (
-            <button
-              key={role}
-              type="button"
-              onClick={() => setSelectedCategory(role)}
-              className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
-                selectedCategory === role
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-              }`}
-            >
-              {orderRoleLabels[role]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {selectedCategory && (
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Add order item
+    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+      {!fixedCategory && (
+        <div className="mb-5 sm:mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Select Category
           </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
+          <div className="flex flex-wrap gap-2">
+            {orderRoles.map((role) => (
+              <button
+                key={role}
+                onClick={() => setSelectedCategory(role)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                  selectedCategory === role
+                    ? "border-blue-600 bg-blue-50 text-blue-700"
+                    : "border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                {orderRoleLabels[role]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {readyToOrder && (
+        <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 sm:mb-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Add custom item to {categoryLabel}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-4">
             <input
               value={newItemName}
               onChange={(e) => {
@@ -266,7 +268,7 @@ export default function WeeklyOrder({
                 setValidationError("");
               }}
               placeholder="Item name"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none sm:col-span-1"
             />
             <input
               value={newItemQty}
@@ -278,6 +280,18 @@ export default function WeeklyOrder({
               type="number"
               min="0"
               step="0.1"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            />
+            <input
+              value={newItemPrice}
+              onChange={(e) => {
+                setNewItemPrice(e.target.value);
+                setValidationError("");
+              }}
+              placeholder="Price (₱)"
+              type="number"
+              min="0"
+              step="0.01"
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
             <select
@@ -305,13 +319,6 @@ export default function WeeklyOrder({
               <option value="unit">unit</option>
             </select>
           </div>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes (optional)"
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            rows={2}
-          />
           {validationError && (
             <p className="mt-2 text-xs text-red-600">{validationError}</p>
           )}
@@ -320,13 +327,15 @@ export default function WeeklyOrder({
             disabled={
               !selectedCategory ||
               !newItemName.trim() ||
-              !newItemQty ||
-              !newItemUnit
+              !newItemQty.trim() ||
+              !newItemPrice.trim() ||
+              !newItemUnit.trim()
             }
             onClick={() => {
-              const qty = parseFloat(newItemQty || "0");
+              const qty = parseFloat(newItemQty);
+              const priceVal = parseFloat(newItemPrice);
               if (!selectedCategory) {
-                setValidationError("Please select a category");
+                setValidationError("Select a category first");
                 return;
               }
               if (!newItemName.trim()) {
@@ -337,23 +346,33 @@ export default function WeeklyOrder({
                 setValidationError("Quantity must be greater than 0");
                 return;
               }
+              if (isNaN(priceVal) || priceVal < 0) {
+                setValidationError("Price must be 0 or greater");
+                return;
+              }
               if (!newItemUnit.trim()) {
                 setValidationError("Please select a unit");
                 return;
               }
-              const entry = addWeeklyProduct({
-                name: newItemName.trim(),
-                defaultQty: qty,
-                unit: newItemUnit.trim() || "pc",
-                category: selectedCategory,
-              }, activeWeekLabel);
-              setOrder((prev) => ({
-                ...prev,
-                [entry.id]: { selected: true, qty: entry.defaultQty },
-              }));
-              setAllProducts(getWeeklyProducts(activeWeekLabel));
+              const handleAddCustom = async () => {
+                const entry = await addWeeklyProduct({
+                  name: newItemName.trim(),
+                  defaultQty: qty,
+                  unit: newItemUnit.trim() || "pc",
+                  price: priceVal,
+                  category: selectedCategory,
+                }, activeWeekLabel);
+                setOrder((prev) => ({
+                  ...prev,
+                  [entry.id]: { selected: true, qty: entry.defaultQty },
+                }));
+                const updatedList = await getWeeklyProducts(activeWeekLabel);
+                setAllProducts(updatedList);
+              };
+              handleAddCustom();
               setNewItemName("");
               setNewItemQty("");
+              setNewItemPrice("");
               setNewItemUnit("");
               setValidationError("");
             }}
@@ -473,13 +492,24 @@ export default function WeeklyOrder({
         )}
 
         {!submitted && selectedItems.length > 0 && (
-          <button
-            onClick={resetToDefault}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 sm:py-3"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset to default quantities
-          </button>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Grand Total:</span>
+                <span className="text-xl font-extrabold text-emerald-700">
+                  ₱{grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={resetToDefault}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 sm:py-3"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset to default quantities
+            </button>
+          </div>
         )}
       </div>
 

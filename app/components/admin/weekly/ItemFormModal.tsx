@@ -1,27 +1,28 @@
 "use client";
 
 import { X } from "lucide-react";
-import { orderRoleLabels, orderRoles } from "../../order/roles";
+import { orderRoleLabels, orderRoles, isCategoryAllowed } from "../../order/roles";
 import type { WeeklyProduct } from "../../order/products";
 
-const units = ["kg", "g", "dozen", "packs", "225g", "pcs", "liters", "reams"];
+const units = ["kg", "g", "dozen", "packs", "225g", "pcs", "liters", "reams", "pc", "tray", "liter", "bottle", "gallon", "pack", "tub", "roll", "can", "box", "sack", "unit"];
 
 export type ItemFormData = {
   name: string;
   category: WeeklyProduct["category"];
   defaultQty: string;
   unit: string;
-  note: string;
+  price: string;
 };
 
 type ItemFormModalProps = {
   open: boolean;
   editing: WeeklyProduct | null;
+  allowedCategories?: string[];
   onClose: () => void;
   onSave: (data: ItemFormData) => void;
 };
 
-export default function ItemFormModal({ open, editing, onClose, onSave }: ItemFormModalProps) {
+export default function ItemFormModal({ open, editing, allowedCategories, onClose, onSave }: ItemFormModalProps) {
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -32,7 +33,7 @@ export default function ItemFormModal({ open, editing, onClose, onSave }: ItemFo
       category: String(fd.get("category") ?? "pantry") as WeeklyProduct["category"],
       defaultQty: String(fd.get("defaultQty") ?? ""),
       unit: String(fd.get("unit") ?? "kg"),
-      note: String(fd.get("note") ?? ""),
+      price: String(fd.get("price") ?? "0"),
     });
   }
 
@@ -73,14 +74,16 @@ export default function ItemFormModal({ open, editing, onClose, onSave }: ItemFo
               <select
                 name="category"
                 required
-                defaultValue={editing?.category ?? "pantry"}
+                defaultValue={editing?.category ?? (orderRoles.filter((cat) => isCategoryAllowed(cat, allowedCategories))[0] ?? "vegetables_fruits")}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
               >
-                {orderRoles.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {orderRoleLabels[cat]}
-                  </option>
-                ))}
+                {orderRoles
+                  .filter((cat) => isCategoryAllowed(cat, allowedCategories))
+                  .map((cat) => (
+                    <option key={cat} value={cat}>
+                      {orderRoleLabels[cat]}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -101,33 +104,40 @@ export default function ItemFormModal({ open, editing, onClose, onSave }: ItemFo
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              Unit <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="unit"
-              required
-              defaultValue={editing?.unit ?? "kg"}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            >
-              {units.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Unit <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="unit"
+                required
+                defaultValue={editing?.unit ?? "kg"}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              >
+                {units.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Notes</label>
-            <textarea
-              name="note"
-              rows={3}
-              defaultValue={editing?.note ?? ""}
-              placeholder="Optional notes..."
-              className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Price (₱) <span className="text-red-500">*</span>
+              </label>
+              <input
+                name="price"
+                type="number"
+                min="0"
+                step="any"
+                required
+                defaultValue={editing?.price ?? ""}
+                placeholder="e.g. 150.00"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">

@@ -22,8 +22,9 @@ export default function SignupPage() {
     password: string,
     role: UserRole,
     schoolName?: string,
+    categories?: string[],
   ) => {
-    await signUp(email, password, role, schoolName);
+    await signUp(email, password, role, schoolName, categories);
     router.refresh();
     router.push("/dashboard");
   };

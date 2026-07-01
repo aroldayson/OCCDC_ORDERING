@@ -24,7 +24,7 @@ export default function ClientSelectField({
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
 
-  const selected = clients.find((c) => c.id === selectedClientId) ?? null;
+
 
   function handleClientChange(clientId: string) {
     const client = clients.find((c) => c.id === clientId) ?? null;
@@ -73,16 +73,7 @@ export default function ClientSelectField({
         </select>
       </div>
 
-      {selected && (
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
-          <p className="text-xs text-slate-500">Ordering for</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800">
-              {selected.name}
-            </span>
-          </p>
-        </div>
-      )}
+
     </div>
   );
 }
