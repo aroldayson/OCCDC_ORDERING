@@ -66,7 +66,8 @@ export default function WeeklyOrderView({
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);
   const [placeOrderClient, setPlaceOrderClient] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(!isAdmin);
 
@@ -161,15 +162,7 @@ export default function WeeklyOrderView({
     setTab("order");
   }
 
-  function handleFilterToggle() {
-    cycleFilter();
-  }
 
-  function cycleFilter() {
-    const order: StatusFilter[] = ["all", "pending", "accepted", "processing"];
-    const idx = order.indexOf(statusFilter);
-    setStatusFilter(order[(idx + 1) % order.length]);
-  }
 
 
 
@@ -243,8 +236,8 @@ export default function WeeklyOrderView({
         <ModuleHeader
           weekLabel={selectedWeek.weekLabel}
           pendingCount={pendingCount}
-          onFilter={handleFilterToggle}
-          filterActive={statusFilter !== "all"}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={setCategoryFilter}
         />
       )}
 
@@ -500,6 +493,7 @@ export default function WeeklyOrderView({
             onAddOrder={handleAddOrder}
             onAddClient={handleAddClient}
             statusFilter={statusFilter}
+            categoryFilter={categoryFilter}
             weekLabel={selectedWeek.weekLabel}
             isAdmin={isAdmin}
           />

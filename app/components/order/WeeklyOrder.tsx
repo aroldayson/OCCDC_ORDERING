@@ -65,7 +65,7 @@ export default function WeeklyOrder({
   const [newItemName, setNewItemName] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("");
-  const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemSize, setNewItemSize] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [lastOrders, setLastOrders] = useState<WeeklyOrderRecord[]>([]);
   const [validationError, setValidationError] = useState("");
@@ -90,6 +90,34 @@ export default function WeeklyOrder({
     return () =>
       window.removeEventListener("occdc-weekly-products-updated", syncProducts);
   }, [syncProducts]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (
+      selectedCategory === "vegetables" ||
+      selectedCategory === "meat" ||
+      selectedCategory === "fruits" ||
+      selectedCategory === "fish"
+    ) {
+      setNewItemUnit("kg");
+      setNewItemSize("");
+      setNewItemName("");
+    } else if (selectedCategory === "rice") {
+      setNewItemUnit("sack");
+      setNewItemSize("");
+      setNewItemName("Rice");
+    } else if (selectedCategory === "egg") {
+      setNewItemUnit("tray/30");
+      setNewItemSize("Medium");
+      setNewItemName("Egg");
+    } else {
+      setNewItemUnit("");
+      setNewItemSize("");
+      setNewItemName("");
+    }
+    setValidationError("");
+  }, [selectedCategory]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (allProducts.length === 0) return;
@@ -231,7 +259,7 @@ export default function WeeklyOrder({
   }, [selectedItems, order]);
 
   const leftPanel = (
-    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 self-start">
       {!fixedCategory && (
         <div className="mb-5 sm:mb-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -260,64 +288,118 @@ export default function WeeklyOrder({
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
             Add custom item to {categoryLabel}
           </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-4">
-            <input
-              value={newItemName}
-              onChange={(e) => {
-                setNewItemName(e.target.value);
-                setValidationError("");
-              }}
-              placeholder="Item name"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none sm:col-span-1"
-            />
-            <input
-              value={newItemQty}
-              onChange={(e) => {
-                setNewItemQty(e.target.value);
-                setValidationError("");
-              }}
-              placeholder="Qty"
-              type="number"
-              min="0"
-              step="0.1"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            />
-            <input
-              value={newItemPrice}
-              onChange={(e) => {
-                setNewItemPrice(e.target.value);
-                setValidationError("");
-              }}
-              placeholder="Price (₱)"
-              type="number"
-              min="0"
-              step="0.01"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            />
-            <select
-              value={newItemUnit}
-              onChange={(e) => {
-                setNewItemUnit(e.target.value);
-                setValidationError("");
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            >
-              <option value="">Select unit</option>
-              <option value="kg">kg</option>
-              <option value="sack">sack</option>
-              <option value="pcs">pcs</option>
-              <option value="pc">pc</option>
-              <option value="liter">liter</option>
-              <option value="bottle">bottle</option>
-              <option value="tray">tray</option>
-              <option value="gallon">gallon</option>
-              <option value="pack">pack</option>
-              <option value="tub">tub</option>
-              <option value="roll">roll</option>
-              <option value="can">can</option>
-              <option value="box">box</option>
-              <option value="unit">unit</option>
-            </select>
+          <div className="mt-3 space-y-2">
+            {/* Row 1: Item Name */}
+            <div>
+              <input
+                value={newItemName}
+                onChange={(e) => {
+                  setNewItemName(e.target.value);
+                  setValidationError("");
+                }}
+                disabled={selectedCategory === "egg" || selectedCategory === "rice"}
+                placeholder="Item name"
+                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${
+                  selectedCategory === "egg" || selectedCategory === "rice"
+                    ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                    : "border-slate-200 bg-white"
+                }`}
+              />
+            </div>
+
+            {/* Row 2: Qty, Unit, and (optional) Size */}
+            <div className={`grid gap-2 ${selectedCategory === "egg" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+              <div>
+                <input
+                  value={newItemQty}
+                  onChange={(e) => {
+                    setNewItemQty(e.target.value);
+                    setValidationError("");
+                  }}
+                  placeholder="Qty"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                />
+              </div>
+              <div>
+                {/* Conditional Unit Selector */}
+                {selectedCategory === "rice" ? (
+                  <select
+                    value={newItemUnit}
+                    disabled
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
+                  >
+                    <option value="sack">sack</option>
+                  </select>
+                ) : selectedCategory === "vegetables" ||
+                selectedCategory === "meat" ||
+                selectedCategory === "fruits" ||
+                selectedCategory === "fish" ? (
+                  <select
+                    value={newItemUnit}
+                    disabled
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
+                  >
+                    <option value="kg">kg</option>
+                  </select>
+                ) : selectedCategory === "egg" ? (
+                  <select
+                    value={newItemUnit}
+                    onChange={(e) => {
+                      setNewItemUnit(e.target.value);
+                      setValidationError("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="tray/12">tray/12</option>
+                    <option value="tray/30">tray/30</option>
+                  </select>
+                ) : (
+                  <select
+                    value={newItemUnit}
+                    onChange={(e) => {
+                      setNewItemUnit(e.target.value);
+                      setValidationError("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="">Select unit</option>
+                    <option value="kg">kg</option>
+                    <option value="sack">sack</option>
+                    <option value="pcs">pcs</option>
+                    <option value="pc">pc</option>
+                    <option value="liter">liter</option>
+                    <option value="bottle">bottle</option>
+                    <option value="tray">tray</option>
+                    <option value="gallon">gallon</option>
+                    <option value="pack">pack</option>
+                    <option value="tub">tub</option>
+                    <option value="roll">roll</option>
+                    <option value="can">can</option>
+                    <option value="box">box</option>
+                    <option value="unit">unit</option>
+                  </select>
+                )}
+              </div>
+              {selectedCategory === "egg" && (
+                <div>
+                  <select
+                    value={newItemSize}
+                    onChange={(e) => {
+                      setNewItemSize(e.target.value);
+                      setValidationError("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="">Select size</option>
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
           {validationError && (
             <p className="mt-2 text-xs text-red-600">{validationError}</p>
@@ -328,12 +410,11 @@ export default function WeeklyOrder({
               !selectedCategory ||
               !newItemName.trim() ||
               !newItemQty.trim() ||
-              !newItemPrice.trim() ||
-              !newItemUnit.trim()
+              !newItemUnit.trim() ||
+              (selectedCategory === "egg" && !newItemSize.trim())
             }
             onClick={() => {
               const qty = parseFloat(newItemQty);
-              const priceVal = parseFloat(newItemPrice);
               if (!selectedCategory) {
                 setValidationError("Select a category first");
                 return;
@@ -346,20 +427,32 @@ export default function WeeklyOrder({
                 setValidationError("Quantity must be greater than 0");
                 return;
               }
-              if (isNaN(priceVal) || priceVal < 0) {
-                setValidationError("Price must be 0 or greater");
-                return;
-              }
               if (!newItemUnit.trim()) {
                 setValidationError("Please select a unit");
                 return;
               }
+              if (selectedCategory === "egg" && !newItemSize.trim()) {
+                setValidationError("Please select an egg size");
+                return;
+              }
               const handleAddCustom = async () => {
+                let finalName = newItemName.trim();
+                if (selectedCategory === "egg") {
+                  const sizeSuffix = `(${newItemSize.trim()})`;
+                  if (finalName.toLowerCase().includes("egg")) {
+                    if (!finalName.includes(sizeSuffix)) {
+                      finalName = `${finalName} ${sizeSuffix}`;
+                    }
+                  } else {
+                    finalName = `${finalName} Egg ${sizeSuffix}`;
+                  }
+                }
+
                 const entry = await addWeeklyProduct({
-                  name: newItemName.trim(),
+                  name: finalName,
                   defaultQty: qty,
                   unit: newItemUnit.trim() || "pc",
-                  price: priceVal,
+                  price: 0,
                   category: selectedCategory,
                 }, activeWeekLabel);
                 setOrder((prev) => ({
@@ -370,10 +463,27 @@ export default function WeeklyOrder({
                 setAllProducts(updatedList);
               };
               handleAddCustom();
-              setNewItemName("");
+              setNewItemName(
+                selectedCategory === "egg"
+                  ? "Egg"
+                  : selectedCategory === "rice"
+                  ? "Rice"
+                  : ""
+              );
               setNewItemQty("");
-              setNewItemPrice("");
-              setNewItemUnit("");
+              setNewItemUnit(
+                selectedCategory === "vegetables" ||
+                selectedCategory === "meat" ||
+                selectedCategory === "fruits" ||
+                selectedCategory === "fish"
+                  ? "kg"
+                  : selectedCategory === "rice"
+                  ? "sack"
+                  : selectedCategory === "egg"
+                  ? "tray/30"
+                  : ""
+              );
+              setNewItemSize(selectedCategory === "egg" ? "Medium" : "");
               setValidationError("");
             }}
             className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -386,7 +496,7 @@ export default function WeeklyOrder({
   );
 
   const rightPanel = (
-    <div className="space-y-4">
+    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 space-y-4">
       {submitted ? (
         <div className="space-y-3">
           <OrderSuccessBanner
@@ -441,7 +551,7 @@ export default function WeeklyOrder({
       <div
         className={
           embedded
-            ? "min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pr-1"
+            ? "min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pr-1 max-h-[500px]"
             : "contents"
         }
       >

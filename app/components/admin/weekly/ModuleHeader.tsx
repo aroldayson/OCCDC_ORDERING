@@ -1,17 +1,18 @@
 import { Filter } from "lucide-react";
+import { orderRoleLabels, orderRoles } from "../../order/roles";
 
 type ModuleHeaderProps = {
   weekLabel: string;
   pendingCount: number;
-  onFilter: () => void;
-  filterActive?: boolean;
+  categoryFilter: string;
+  onCategoryFilterChange: (cat: string) => void;
 };
 
 export default function ModuleHeader({
   weekLabel,
   pendingCount,
-  onFilter,
-  filterActive,
+  categoryFilter,
+  onCategoryFilterChange,
 }: ModuleHeaderProps) {
   return (
     <div className="flex shrink-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -26,17 +27,21 @@ export default function ModuleHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <button
-          onClick={onFilter}
-          className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
-            filterActive
-              ? "border-blue-300 bg-blue-50 text-blue-700"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <Filter className="h-4 w-4" />
-          Filter
-        </button>
+        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <select
+            value={categoryFilter}
+            onChange={(e) => onCategoryFilterChange(e.target.value)}
+            className="bg-transparent outline-none cursor-pointer text-slate-700 font-semibold"
+          >
+            <option value="all">All Categories</option>
+            {orderRoles.map((role) => (
+              <option key={role} value={role}>
+                {orderRoleLabels[role]}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );

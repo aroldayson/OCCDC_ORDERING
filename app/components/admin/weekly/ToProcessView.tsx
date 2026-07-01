@@ -18,6 +18,7 @@ type ToProcessViewProps = {
   onAddOrder: (clientName?: string) => void;
   onAddClient: () => void;
   statusFilter: StatusFilter;
+  categoryFilter: string;
   weekLabel?: string;
   isAdmin?: boolean;
 };
@@ -28,6 +29,7 @@ export default function ToProcessView({
   onAddOrder,
   onAddClient,
   statusFilter,
+  categoryFilter,
   weekLabel,
   isAdmin = false,
 }: ToProcessViewProps) {
@@ -45,10 +47,15 @@ export default function ToProcessView({
   }, []);
 
   const filteredOrders = useMemo(() => {
-    const base = orders.filter((o) => o.status === "pending" || o.status === "accepted" || o.status === "processing");
-    if (statusFilter === "all") return base;
-    return base.filter((o) => o.status === statusFilter);
-  }, [orders, statusFilter]);
+    let base = orders.filter((o) => o.status === "pending" || o.status === "accepted" || o.status === "processing");
+    if (statusFilter !== "all") {
+      base = base.filter((o) => o.status === statusFilter);
+    }
+    if (categoryFilter !== "all") {
+      base = base.filter((o) => o.clientRole === categoryFilter);
+    }
+    return base;
+  }, [orders, statusFilter, categoryFilter]);
 
   const clients = useMemo(() => {
     const groups = buildClientGroups(filteredOrders, registeredClients);

@@ -49,6 +49,8 @@ export default function TopDishes({ orders }: TopDishesProps) {
         return "🍳";
       case "groceries":
         return "🥫";
+      case "rice":
+        return "🌾";
       default:
         return "📦";
     }

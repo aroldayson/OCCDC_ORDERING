@@ -181,8 +181,13 @@ function OrderAccordion({
         >
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="font-semibold text-slate-800 whitespace-nowrap">
-                Order ID: {order.id}
+              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}>
+                  {orderRoleLabels[order.clientRole] || order.clientRole}
+                </span>
+                <span className="font-semibold text-slate-800">
+                  Order ID: {order.id}
+                </span>
               </span>
               <span className="text-slate-500">
                 Order Date: {formatOrderDate(order.createdAt)}
@@ -380,11 +385,11 @@ export default function OrderDetailsPanel({
           <>
             <CategorySummary orders={orders} categories={categories} onAddItem={setAddItemCategory} />
             <div className="space-y-3">
-              {orders.map((order, i) => (
+              {orders.map((order) => (
                 <OrderAccordion
                   key={order.id}
                   order={order}
-                  defaultOpen={i === 0}
+                  defaultOpen={false}
                   onUpdated={onUpdated}
                   onView={onViewOrder}
                 />

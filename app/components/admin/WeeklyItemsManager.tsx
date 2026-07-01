@@ -62,6 +62,7 @@ const categoryLabels: Record<string, string> = {
   egg: "Egg",
   meat: "Meat",
   groceries: "Groceries",
+  rice: "Rice",
   other_order: "Other Orders",
 };
 

@@ -93,6 +93,7 @@ export default function AdminDashboard() {
         fish: "Fish Orders",
         egg: "Egg Orders",
         groceries: "Groceries Orders",
+        rice: "Rice Orders",
         other_order: "Other Orders",
       };
       meta[activeView] = {

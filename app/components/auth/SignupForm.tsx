@@ -26,7 +26,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(loading);
 
-  const availableCategories = ["fruits", "vegetables", "egg", "meat", "fish", "groceries"];
+  const availableCategories = ["fruits", "vegetables", "egg", "meat", "fish", "groceries", "rice"];
 
   useEffect(() => {
     getClients().then(setSchools);

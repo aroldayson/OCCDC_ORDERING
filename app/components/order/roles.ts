@@ -5,6 +5,7 @@ export type OrderRole =
   | "egg"
   | "meat"
   | "groceries"
+  | "rice"
   | "other_order";
 
 export const orderRoles: OrderRole[] = [
@@ -14,6 +15,7 @@ export const orderRoles: OrderRole[] = [
   "egg",
   "meat",
   "groceries",
+  "rice",
   "other_order",
 ];
 
@@ -24,6 +26,7 @@ export const orderRoleLabels: Record<OrderRole, string> = {
   egg: "Egg",
   meat: "Meat",
   groceries: "Groceries",
+  rice: "Rice",
   other_order: "Other Order",
 };
 
@@ -34,6 +37,7 @@ export const orderRoleColors: Record<OrderRole, string> = {
   egg: "bg-blue-100 text-blue-700",
   meat: "bg-rose-100 text-rose-700",
   groceries: "bg-amber-100 text-amber-700",
+  rice: "bg-orange-50 text-orange-700",
   other_order: "bg-indigo-100 text-indigo-700",
 };
 

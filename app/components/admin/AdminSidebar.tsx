@@ -84,7 +84,7 @@ function SidebarInner({
 
     const cats = user?.categories && user.categories.length > 0
       ? user.categories
-      : ["vegetables", "fruits", "fish", "egg", "meat", "groceries", "other_order"];
+      : ["vegetables", "fruits", "fish", "egg", "meat", "groceries", "rice", "other_order"];
 
     const labels: Record<string, string> = {
       vegetables: "Vegetables Orders",
@@ -93,6 +93,7 @@ function SidebarInner({
       fish: "Fish Orders",
       egg: "Egg Orders",
       groceries: "Groceries Orders",
+      rice: "Rice Orders",
       other_order: "Other Orders",
     };
 
