@@ -29,7 +29,7 @@ export default function SignupPage() {
     categories?: string[],
     schoolAddress?: string,
   ) => {
-    await signUp(email, password, role, schoolName, categories, schoolAddress);
+    await signUp(email, password, role, schoolName, categories);
     if (role === "client" && schoolName && schoolAddress) {
       await updateClientAddress(schoolName, schoolAddress);
     }
