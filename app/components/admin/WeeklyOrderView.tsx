@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ClipboardList, Package, PlusCircle, X, Eye, EyeOff, Printer, Clock, CheckCircle, Search } from "lucide-react";
+import { ClipboardList, Package, PlusCircle, X, Eye, EyeOff, Printer, Clock, CheckCircle, Search, ChevronDown, ChevronUp } from "lucide-react";
 import type { WeeklyProduct } from "../order/products";
 import { addWeeklyProduct, updateWeeklyProduct } from "../order/weeklyProductStorage";
 import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
@@ -17,9 +17,9 @@ import WeekSelector from "./weekly/WeekSelector";
 import { addClient } from "../order/clientStorage";
 import AddClientModal from "./weekly/AddClientModal";
 import type { AdminView } from "./AdminSidebar";
-import type { OrderRole } from "../order/roles";
+import { orderRoleLabels, type OrderRole } from "../order/roles";
 import { updateOrderStatus } from "../order/orderStorage";
-import { printOrderForm } from "./printOrder";
+import { printOrderForm, printAllOrders, printClientSummary } from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -46,6 +46,160 @@ type WeeklyOrderViewProps = {
   onViewChange?: (view: AdminView) => void;
   fixedCategory?: OrderRole;
 };
+
+function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printOrderForm, setSelectedOrderDetail }: any) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:shadow-md mb-6">
+      <div 
+        className="bg-slate-50 border-b border-slate-200 px-5 py-4 cursor-pointer hover:bg-slate-100 flex justify-between items-center transition"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div>
+          <h3 className="text-lg font-bold text-slate-800">{clientName}</h3>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{clientOrders.length} Order{clientOrders.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const itemsMap: Record<string, any> = {};
+              clientOrders.forEach((o: any) => o.items.forEach((i: any) => {
+                const k = `${i.productId}-${i.price}`;
+                if(!itemsMap[k]) itemsMap[k] = {...i};
+                else itemsMap[k].qty += i.qty;
+              }));
+              printClientSummary(clientName, clientOrders[0]?.weekLabel || "", Object.values(itemsMap), clientOrders);
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <Printer className="h-4 w-4" />
+            <span className="hidden sm:inline">Print School Orders</span>
+          </button>
+          <div className="shrink-0 p-2 rounded-full bg-white shadow-sm border border-slate-200 text-slate-500">
+            {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="flex flex-col bg-white">
+          {clientOrders.map((order: any, idx: number) => {
+            const isAdditional = idx > 0;
+            return (
+              <div key={order.id} className={`p-5 ${idx > 0 ? 'border-t border-slate-200 border-dashed' : ''}`}>
+                {isAdditional && (
+                  <div className="text-[10px] font-bold text-amber-600 bg-amber-50 inline-block px-2 py-1 rounded-md mb-3 border border-amber-200 uppercase tracking-wider">
+                    Additional Order #{idx}
+                  </div>
+                )}
+                
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${order.status === "completed"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : order.status === "pending"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-blue-50 text-blue-700"
+                        }`}>
+                        {order.status === "pending" ? "Pending Approval" : order.status}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">ID: <span className="font-semibold text-slate-600">{order.id}</span></span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium mt-1">
+                      Submitted: {new Date(order.createdAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <div className="text-lg font-extrabold text-slate-800">{order.items.length} Items</div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Other Order Type</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-4 space-y-4">
+                  <div className="space-y-2">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-slate-50">
+                      Order Items
+                    </div>
+                    {order.items.map((item: any) => (
+                      <div key={item.productId} className="flex justify-between text-sm py-1 border-b border-slate-100/60 last:border-0 last:pb-0">
+                        <span className="font-medium text-slate-700">{item.name}</span>
+                        <span className="text-slate-600 font-bold">{item.qty} {item.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-3 flex justify-between items-center text-xs">
+                    <span className="font-bold text-emerald-800 uppercase tracking-wider">
+                      Order Total
+                    </span>
+                    <span className="font-extrabold text-emerald-800 text-sm">
+                      ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      Change Status
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {["pending", "accepted", "processing", "completed"].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleStatusChange(order.id, status)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === status
+                            ? statusStyles[status as OrderStatus]
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => printOrderForm(order)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+                    >
+                      <Printer className="h-4 w-4 text-slate-500" />
+                      Print Order
+                    </button>
+                    <button
+                      onClick={() => setSelectedOrderDetail(order)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+                    >
+                      <Eye className="h-4 w-4 text-slate-500" />
+                      View JSON Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {clientOrders.length > 1 && (
+            <div className="bg-slate-800 text-white px-5 py-4 flex justify-between items-center rounded-b-xl">
+              <span className="font-bold">Grand Total ({clientOrders.length} Orders)</span>
+              <span className="text-lg font-black">
+                ₱{clientOrders.reduce((sum: number, o: any) => sum + (o.totalPrice || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function WeeklyOrderView({
   orders,
@@ -95,7 +249,7 @@ export default function WeeklyOrderView({
   }, [scopedOrders, fixedCategory]);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryStatusFilter, setCategoryStatusFilter] = useState<string>("all");
+  const [categoryStatusFilter, setCategoryStatusFilter] = useState<string>("pending");
 
   const categoryPendingCount = useMemo(() => {
     return categoryOrders.filter((o) => o.status === "pending").length;
@@ -137,7 +291,21 @@ export default function WeeklyOrderView({
     return list;
   }, [categoryOrders, categoryStatusFilter, searchQuery]);
 
+  const groupedCategoryOrders = useMemo(() => {
+    const groups = new Map<string, WeeklyOrderRecord[]>();
+    filteredCategoryOrders.forEach((o) => {
+      if (!groups.has(o.clientName)) {
+        groups.set(o.clientName, []);
+      }
+      groups.get(o.clientName)!.push(o);
+    });
 
+    Array.from(groups.values()).forEach((group) => {
+      group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filteredCategoryOrders]);
 
   const handleStatusChange = async (id: string, status: OrderStatus) => {
     await updateOrderStatus(id, status);
@@ -217,8 +385,8 @@ export default function WeeklyOrderView({
                 key={id}
                 onClick={() => setTab(id)}
                 className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${tab === id
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
                   }`}
               >
                 <Icon className="h-4 w-4" />
@@ -266,7 +434,14 @@ export default function WeeklyOrderView({
         {tab === "order" && (
           <div className="space-y-8">
             {isAdmin && fixedCategory !== "other_order" && (
-              <div className="flex justify-end">
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  onClick={() => printAllOrders(orderRoleLabels[fixedCategory!], selectedWeek.weekLabel, categoryOrders)}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                >
+                  <Printer className="h-4 w-4 text-slate-500" />
+                  Print All Orders
+                </button>
                 <button
                   onClick={() => setShowOrderForm(!showOrderForm)}
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
@@ -313,8 +488,8 @@ export default function WeeklyOrderView({
                   <div
                     onClick={() => setCategoryStatusFilter("pending")}
                     className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "pending"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
@@ -328,8 +503,8 @@ export default function WeeklyOrderView({
                   <div
                     onClick={() => setCategoryStatusFilter("approved")}
                     className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "approved"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
@@ -343,8 +518,8 @@ export default function WeeklyOrderView({
                   <div
                     onClick={() => setCategoryStatusFilter("completed")}
                     className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "completed"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
@@ -374,8 +549,8 @@ export default function WeeklyOrderView({
                         key={filter}
                         onClick={() => setCategoryStatusFilter(filter)}
                         className={`rounded-full px-3 py-1.5 capitalize transition ${categoryStatusFilter === filter
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                       >
                         {filter}
@@ -386,106 +561,20 @@ export default function WeeklyOrderView({
 
                 {/* Approval Block Card List */}
                 <div className="space-y-4">
-                  {filteredCategoryOrders.length === 0 ? (
+                  {groupedCategoryOrders.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
                       No other orders found for the selected filter.
                     </div>
                   ) : (
-                    filteredCategoryOrders.map((order) => (
-                      <div key={order.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:shadow-md">
-                        {/* Block Header */}
-                        <div className="border-b border-slate-100 px-5 py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-bold text-slate-800 text-base">{order.clientName}</h3>
-                              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${order.status === "completed"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : order.status === "pending"
-                                    ? "bg-amber-50 text-amber-700"
-                                    : "bg-blue-50 text-blue-700"
-                                }`}>
-                                {order.status === "pending" ? "Pending Approval" : order.status}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-400 font-medium mt-1">
-                              ID: <span className="font-semibold text-slate-600">{order.id}</span> · Submitted: {new Date(order.createdAt).toLocaleDateString("en-PH", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })}
-                            </p>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <div className="text-lg font-extrabold text-slate-800">{order.items.length} Items</div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Other Order Type</p>
-                          </div>
-                        </div>
-
-                        {/* Details content */}
-                        <div className="px-5 py-4 bg-slate-50/30 space-y-4">
-                          <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-2.5 shadow-sm">
-                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-slate-50">
-                              Order Items
-                            </div>
-                            {order.items.map((item) => (
-                              <div key={item.productId} className="flex justify-between text-sm py-1 border-b border-slate-100/60 last:border-0 last:pb-0">
-                                <span className="font-medium text-slate-700">{item.name}</span>
-                                <span className="text-slate-600 font-bold">{item.qty} {item.unit}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-3 flex justify-between items-center text-xs">
-                            <span className="font-bold text-emerald-800 uppercase tracking-wider">
-                              Order Total
-                            </span>
-                            <span className="font-extrabold text-emerald-800 text-sm">
-                              ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-
-                          {/* Status control tracker */}
-                          <div className="border-t border-slate-100 pt-3">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                              Change Status
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {["pending", "accepted", "processing", "completed"].map((status) => (
-                                <button
-                                  key={status}
-                                  onClick={() => handleStatusChange(order.id, status as OrderStatus)}
-                                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === status
-                                      ? statusStyles[status as OrderStatus]
-                                      : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
-                                    }`}
-                                >
-                                  {status}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Action controls */}
-                          <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
-                            <button
-                              onClick={() => printOrderForm(order)}
-                              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
-                            >
-                              <Printer className="h-4 w-4 text-slate-500" />
-                              Print Order
-                            </button>
-                            <button
-                              onClick={() => setSelectedOrderDetail(order)}
-                              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
-                            >
-                              <Eye className="h-4 w-4 text-slate-500" />
-                              View JSON Details
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                    groupedCategoryOrders.map(([clientName, clientOrders]) => (
+                      <SchoolGroupBlock
+                        key={clientName}
+                        clientName={clientName}
+                        clientOrders={clientOrders}
+                        handleStatusChange={handleStatusChange}
+                        printOrderForm={printOrderForm}
+                        setSelectedOrderDetail={setSelectedOrderDetail}
+                      />
                     ))
                   )}
                 </div>

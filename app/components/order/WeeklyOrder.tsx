@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Printer } from "lucide-react";
 import { weekLabel, type WeeklyProduct } from "./products";
-import { buildOrderItems, createOrderId, saveOrder } from "./orderStorage";
+import { buildOrderItems, createOrderId, saveOrder, getOrders } from "./orderStorage";
 import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
+import { filterOrdersForSchool, filterOrdersForWeek } from "./orderAccess";
 import { getClients, resolveClientBySchoolName } from "./clientStorage";
 import type { ClientRecord } from "./clientStorage";
 import { orderRoleLabels, orderRoles } from "./roles";
@@ -172,6 +173,12 @@ export default function WeeklyOrder({
     if (selectedItems.length === 0 || !selectedClient)
       return;
 
+    const allOrders = await getOrders();
+    const existingSchoolOrders = filterOrdersForSchool(allOrders, selectedClient.name);
+    const currentWeekOrders = filterOrdersForWeek(existingSchoolOrders, activeWeekLabel);
+    const isAdditionalOrder = currentWeekOrders.length > 0;
+    let hasAppliedDeliveryFee = false;
+
     const itemsByCategory: Record<string, typeof selectedItems> = {};
     selectedItems.forEach((item) => {
       const cat = item.category;
@@ -188,10 +195,21 @@ export default function WeeklyOrder({
         catItems.map((p) => [p.id, order[p.id].qty]),
       );
 
-      const totalPrice = catItems.reduce((sum, item) => {
-        const qty = quantities[item.id] ?? 0;
-        return sum + (qty * item.price);
-      }, 0);
+      const items = buildOrderItems(catItems, quantities);
+
+      if (isAdditionalOrder && !hasAppliedDeliveryFee) {
+        items.push({
+          productId: `delivery-fee-${Date.now()}`,
+          name: "Delivery Fee (Additional Order)",
+          qty: 1,
+          unit: "trip",
+          price: 50,
+          category: cat
+        });
+        hasAppliedDeliveryFee = true;
+      }
+
+      const totalPrice = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
 
       const orderId = createOrderId();
       const orderRecord: WeeklyOrderRecord = {
@@ -200,9 +218,9 @@ export default function WeeklyOrder({
         clientRole: cat as OrderRole,
         weekLabel: activeWeekLabel,
         status: "pending",
-        itemCount: catItems.length,
+        itemCount: items.length,
         createdAt: new Date().toISOString(),
-        items: buildOrderItems(catItems, quantities),
+        items,
         totalPrice,
       };
 

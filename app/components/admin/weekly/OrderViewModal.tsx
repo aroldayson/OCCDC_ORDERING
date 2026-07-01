@@ -49,8 +49,8 @@ export default function OrderViewModal({ order, onClose, onUpdated }: OrderViewM
                 key={s}
                 onClick={() => handleStatus(s)}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${order.status === s
-                    ? "border-blue-300 bg-blue-50 text-blue-700"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "border-blue-300 bg-blue-50 text-blue-700"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
               >
                 {s}

@@ -135,10 +135,10 @@ export default function OrderDetailPanel({
               disabled={!isAdmin}
               onClick={() => handleStatusChange(s)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${order.status === s
-                  ? statusStyles[s]
-                  : isAdmin
-                    ? "border-slate-200 text-slate-500 hover:border-slate-300"
-                    : "border-slate-100 text-slate-300 opacity-40"
+                ? statusStyles[s]
+                : isAdmin
+                  ? "border-slate-200 text-slate-500 hover:border-slate-300"
+                  : "border-slate-100 text-slate-300 opacity-40"
                 }`}
             >
               {s}

@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import type { OrderRole } from "../../order/roles";
 import { orderRoleLabels } from "../../order/roles";
+import { getWeeklyProducts } from "../../order/weeklyProductStorage";
+import type { WeeklyProduct } from "../../order/products";
 
 type AddOrderItemModalProps = {
   open: boolean;
@@ -16,6 +18,7 @@ type AddOrderItemModalProps = {
 export default function AddOrderItemModal({
   open,
   category,
+  weekLabel,
   onClose,
   onAdd,
 }: AddOrderItemModalProps) {
@@ -23,6 +26,22 @@ export default function AddOrderItemModal({
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("kg");
   const [price, setPrice] = useState("");
+  const [catalogProducts, setCatalogProducts] = useState<WeeklyProduct[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>("custom");
+
+  useEffect(() => {
+    if (open && category) {
+      getWeeklyProducts(weekLabel).then((prods) => {
+        setCatalogProducts(prods.filter((p) => p.category === category));
+      });
+      // Reset form
+      setProductName("");
+      setQty("");
+      setUnit("kg");
+      setPrice("");
+      setSelectedProductId("custom");
+    }
+  }, [open, category, weekLabel]);
 
   if (!open || !category) return null;
 
@@ -36,6 +55,25 @@ export default function AddOrderItemModal({
 
     onAdd(finalName, finalQty, unit.trim(), finalPrice);
     onClose();
+  };
+
+  const handleProductSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedProductId(val);
+    if (val === "custom") {
+      setProductName("");
+      setPrice("");
+      setUnit("kg");
+      setQty("");
+    } else {
+      const p = catalogProducts.find((prod) => prod.id === val);
+      if (p) {
+        setProductName(p.name);
+        setPrice(p.price.toString());
+        setUnit(p.unit);
+        setQty(p.defaultQty.toString());
+      }
+    }
   };
 
   return (
@@ -58,16 +96,36 @@ export default function AddOrderItemModal({
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">
-              Product Name <span className="text-red-500">*</span>
+              Select Product <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              required
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder="e.g. All Purpose Flour"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
+            <select
+              value={selectedProductId}
+              onChange={handleProductSelect}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 mb-3"
+            >
+              <option value="custom">-- Custom Product --</option>
+              {catalogProducts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (₱{p.price}/{p.unit})
+                </option>
+              ))}
+            </select>
+
+            {selectedProductId === "custom" && (
+              <>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="e.g. All Purpose Flour"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
