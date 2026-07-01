@@ -1,6 +1,8 @@
 export type ClientRecord = {
   id: string;
   name: string;
+  address?: string;
+  delivery_price?: number;
 };
 
 
@@ -47,6 +49,8 @@ async function readClients(): Promise<ClientRecord[]> {
     return data.map((row) => ({
       id: row.id,
       name: row.name,
+      address: row.address || undefined,
+      delivery_price: row.delivery_price ? Number(row.delivery_price) : undefined,
     }));
   } catch (err) {
     const error = err as Error;
@@ -100,4 +104,40 @@ export async function addClient(name: string): Promise<ClientRecord> {
   }
   
   return entry;
+}
+
+export async function updateClientAddress(schoolName: string, address: string): Promise<void> {
+  const clients = await readClients();
+  const existing = clients.find((c) => c.name.toLowerCase() === schoolName.trim().toLowerCase());
+  if (existing) {
+    if (existing.address !== address) {
+      try {
+        const { error } = await supabase.from("schools").update({ address }).eq("id", existing.id);
+        if (error) throw error;
+        notify();
+      } catch (err) {
+        console.error("Error updating school address:", err);
+      }
+    }
+  } else {
+    // If it doesn't exist, we add it with the address
+    const entry = { id: `school-${Date.now()}`, name: schoolName.trim(), address };
+    try {
+      const { error } = await supabase.from("schools").insert([entry]);
+      if (error) throw error;
+      notify();
+    } catch (err) {
+      console.error("Error saving new school with address:", err);
+    }
+  }
+}
+
+export async function updateClientDeliveryPrice(schoolId: string, deliveryPrice: number): Promise<void> {
+  try {
+    const { error } = await supabase.from("schools").update({ delivery_price: deliveryPrice }).eq("id", schoolId);
+    if (error) throw error;
+    notify();
+  } catch (err) {
+    console.error("Error updating delivery price:", err);
+  }
 }

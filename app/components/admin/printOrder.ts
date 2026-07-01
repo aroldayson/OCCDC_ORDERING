@@ -1,5 +1,6 @@
 import type { WeeklyOrderRecord } from "../order/types";
 import type { WeeklyProduct } from "../order/products";
+import { ClientRecord } from "../order/clientStorage";
 
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
@@ -12,12 +13,12 @@ const categoryLabels: Record<string, string> = {
   other_order: "Other Order",
 };
 
-export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
+export function printCatalog(weekLabel: string, rows: any[]) {
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Product Catalog - ${weekLabel}</title>
+      <title>Pricing Update - ${weekLabel}</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; padding: 40px; background-color: #f5f5f5; }
@@ -37,8 +38,8 @@ export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
     <body>
       <div class="container">
         <div class="header">
-          <div class="form-title">Weekly Product Catalog</div>
-          <div>Manage and view products for the selected week</div>
+          <div class="form-title">Pricing Update</div>
+          <div>Manage and view pricing for the selected week</div>
         </div>
         <div class="form-info">
           <div><strong>WEEK :</strong> ${weekLabel}</div>
@@ -47,7 +48,7 @@ export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
         <table>
           <thead>
             <tr>
-              <th>PRODUCT ID</th>
+              <th>SCHOOL NAME</th>
               <th>ITEM</th>
               <th>CATEGORY</th>
               <th>DEFAULT QTY</th>
@@ -56,14 +57,14 @@ export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
             </tr>
           </thead>
           <tbody>
-            ${products.map(p => `
+            ${rows.map(row => `
               <tr>
-                <td>${p.id}</td>
-                <td>${p.name}</td>
-                <td>${categoryLabels[p.category] ?? p.category}</td>
-                <td>${p.defaultQty}</td>
-                <td>${p.unit}</td>
-                <td>₱${(p.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td>${row.schoolName === "Z_NO_ORDERS" ? "<i>No Orders</i>" : row.schoolName}</td>
+                <td>${row.product.name}</td>
+                <td>${categoryLabels[row.product.category] ?? row.product.category}</td>
+                <td>${row.product.defaultQty}</td>
+                <td>${row.product.unit}</td>
+                <td>₱${(row.product.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -81,12 +82,15 @@ export function printCatalog(weekLabel: string, products: WeeklyProduct[]) {
 }
 
 
-export function printOrderForm(order: WeeklyOrderRecord) {
+export function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?: ClientRecord) {
+  const address = client?.address || "Address not provided";
+  const deliveryPrice = client?.delivery_price || 0;
+
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Purchase Request - ${order.clientName}</title>
+      <title>Purchase Request Form - ${order.clientName}</title>
       <style>
         * {
           margin: 0;
@@ -100,7 +104,7 @@ export function printOrderForm(order: WeeklyOrderRecord) {
         }
         .container {
           background: white;
-          max-width: 900px;
+          max-width: 800px;
           margin: 0 auto;
           padding: 40px;
           border: 3px solid #001f3f;
@@ -112,36 +116,35 @@ export function printOrderForm(order: WeeklyOrderRecord) {
           padding-bottom: 20px;
         }
         .school-name {
-          font-size: 18px;
+          font-size: 24px;
           font-weight: bold;
           text-transform: uppercase;
           margin-bottom: 5px;
         }
         .school-address {
-          font-size: 12px;
-          color: #666;
-          margin-bottom: 20px;
+          font-size: 14px;
+          color: #333;
         }
         .form-title {
-          font-size: 24px;
+          text-align: center;
+          font-size: 20px;
           font-weight: bold;
-          text-transform: uppercase;
           margin-bottom: 20px;
+          text-decoration: underline;
         }
         .form-info {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 20px;
+          gap: 15px;
           margin-bottom: 30px;
-          font-size: 13px;
+          font-size: 12px;
         }
         .form-info-item {
           display: flex;
-          gap: 10px;
         }
         .form-info-label {
           font-weight: bold;
-          min-width: 80px;
+          width: 120px;
         }
         table {
           width: 100%;
@@ -169,15 +172,6 @@ export function printOrderForm(order: WeeklyOrderRecord) {
         td.total {
           text-align: right;
           font-weight: bold;
-        }
-        .empty-row {
-          height: 30px;
-        }
-        .grand-total {
-          text-align: right;
-          font-weight: bold;
-          padding-top: 10px;
-          border-top: 2px solid #999;
         }
         .signature-section {
           display: grid;
@@ -225,7 +219,7 @@ export function printOrderForm(order: WeeklyOrderRecord) {
       <div class="container">
         <div class="header">
           <div class="school-name">${order.clientName}</div>
-          <div class="school-address">Block 19, Long Road, Gordon Heights, Olongapo City</div>
+          <div class="school-address">${address}</div>
         </div>
 
         <div class="form-title">Purchase Request Form</div>
@@ -271,8 +265,8 @@ export function printOrderForm(order: WeeklyOrderRecord) {
           </thead>
           <tbody>
             ${order.items
-              .map(
-                (item, index) => `
+      .map(
+        (item, index) => `
               <tr>
                 <td class="number-col">${index + 1}</td>
                 <td>${item.name}</td>
@@ -283,13 +277,20 @@ export function printOrderForm(order: WeeklyOrderRecord) {
                 <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td class="number-col"></td>
+                <td colspan="5" style="text-align: right; font-weight: bold;">Delivery Fee</td>
+                <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
           </tbody>
         </table>
 
         <div style="text-align: right; font-weight: bold; margin-bottom: 30px;">
-          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${((order.totalPrice || 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
         <div class="signature-section">
@@ -321,8 +322,12 @@ export function printClientSummary(
   clientName: string,
   weekLabel: string,
   items: { name: string; qty: number; unit: string; category: string; price?: number }[],
-  orders: { status: string }[]
+  orders: { status: string }[],
+  clientRecord?: ClientRecord
 ) {
+  const address = clientRecord?.address || "Address not provided";
+  const deliveryPrice = clientRecord?.delivery_price || 0;
+
   const ordersCount = orders.length;
   const statusSummary = (() => {
     const counts: Record<string, number> = {};
@@ -363,36 +368,35 @@ export function printClientSummary(
           padding-bottom: 20px;
         }
         .school-name {
-          font-size: 18px;
+          font-size: 24px;
           font-weight: bold;
           text-transform: uppercase;
           margin-bottom: 5px;
         }
         .school-address {
-          font-size: 12px;
-          color: #666;
-          margin-bottom: 20px;
+          font-size: 14px;
+          color: #333;
         }
         .form-title {
-          font-size: 24px;
+          text-align: center;
+          font-size: 20px;
           font-weight: bold;
-          text-transform: uppercase;
           margin-bottom: 20px;
+          text-decoration: underline;
         }
         .form-info {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 20px;
+          gap: 15px;
           margin-bottom: 30px;
-          font-size: 13px;
+          font-size: 12px;
         }
         .form-info-item {
           display: flex;
-          gap: 10px;
         }
         .form-info-label {
           font-weight: bold;
-          min-width: 80px;
+          width: 120px;
         }
         table {
           width: 100%;
@@ -453,7 +457,7 @@ export function printClientSummary(
       <div class="container">
         <div class="header">
           <div class="school-name">${clientName}</div>
-          <div class="school-address">Block 19, Long Road, Gordon Heights, Olongapo City</div>
+          <div class="school-address">${address}</div>
         </div>
 
         <div class="form-title">Purchase Request Form (Summary)</div>
@@ -499,8 +503,8 @@ export function printClientSummary(
           </thead>
           <tbody>
             ${items
-              .map(
-                (item, index) => `
+      .map(
+        (item, index) => `
               <tr>
                 <td class="number-col">${index + 1}</td>
                 <td>${item.name}</td>
@@ -511,13 +515,20 @@ export function printClientSummary(
                 <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td class="number-col"></td>
+                <td colspan="5" style="text-align: right; font-weight: bold;">Delivery Fee</td>
+                <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
           </tbody>
         </table>
 
         <div style="text-align: right; font-weight: bold; margin-bottom: 30px;">
-          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${items.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          Grand Total: <span style="border-bottom: 1px solid #333; padding: 0 20px;">₱${(items.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
         <div class="signature-section">
@@ -551,7 +562,7 @@ export function printAllOrders(
   orders: WeeklyOrderRecord[]
 ) {
   const itemsMap: Record<string, { name: string; qty: number; unit: string; category: string; price?: number }> = {};
-  
+
   orders.forEach(order => {
     order.items.forEach(item => {
       const key = `${item.productId}-${item.price}`;

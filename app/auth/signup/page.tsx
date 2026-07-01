@@ -7,7 +7,9 @@ import { useEffect } from "react";
 import { SignupForm } from "@/app/components/auth/SignupForm";
 import type { UserRole } from "@/lib/supabase";
 
-import { LeftAuthPanel } from "@/app/components/auth/LeftAuthPanel";
+import { LeftAuthPanel } from "../../components/auth/LeftAuthPanel";
+
+import { updateClientAddress } from "@/app/components/order/clientStorage";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -25,8 +27,12 @@ export default function SignupPage() {
     role: UserRole,
     schoolName?: string,
     categories?: string[],
+    schoolAddress?: string,
   ) => {
-    await signUp(email, password, role, schoolName, categories);
+    await signUp(email, password, role, schoolName, categories, schoolAddress);
+    if (role === "client" && schoolName && schoolAddress) {
+      await updateClientAddress(schoolName, schoolAddress);
+    }
     router.refresh();
     router.push("/dashboard");
   };

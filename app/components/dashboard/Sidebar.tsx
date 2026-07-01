@@ -28,8 +28,8 @@ export default function Sidebar({ onNavigate, showClose, onClose }: SidebarProps
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
   const roleLabel =
     user?.role === "admin"
-      ? "Super Admin"
-      : user?.role
+      ? "Supplier"
+      : user?.role === "client"
         ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
         : "User";
 
