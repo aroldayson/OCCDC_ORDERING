@@ -14,6 +14,7 @@ import RestaurantDashboard from "./overview/RestaurantDashboard";
 import OrdersTable from "./OrdersTable";
 import OrderDetailPanel from "./OrderDetailPanel";
 import ProductCatalogManager from "./ProductCatalogManager";
+import DeliveryFeeManager from "./DeliveryFeeManager";
 import { isCategoryAllowed, type OrderRole } from "../order/roles";
 
 const viewMeta: Record<AdminView, { title: string; subtitle?: string }> = {
@@ -27,7 +28,8 @@ const viewMeta: Record<AdminView, { title: string; subtitle?: string }> = {
     subtitle: "Submit special or miscellaneous orders",
   },
   orders: { title: "Order Summary", subtitle: "Manage client orders" },
-  products: { title: "Product Catalog", subtitle: "Manage weekly catalog products" },
+  products: { title: "Pricing Update", subtitle: "Manage weekly catalog pricing and products" },
+  "delivery-fees": { title: "Delivery Fees", subtitle: "Manage delivery fees for all schools" },
 };
 
 export default function AdminDashboard() {
@@ -193,6 +195,10 @@ export default function AdminDashboard() {
 
           {activeView === "products" && (
             <ProductCatalogManager orders={visibleOrders} />
+          )}
+
+          {activeView === "delivery-fees" && (
+            <DeliveryFeeManager />
           )}
 
           {activeView === "orders" && (

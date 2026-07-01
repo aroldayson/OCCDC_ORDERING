@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth } from "../../providers/AuthProvider";
 import { useEffect } from "react";
 
-import { LeftAuthPanel } from "@/app/components/auth/LeftAuthPanel";
+import { LeftAuthPanel } from "../../components/auth/LeftAuthPanel";
 
 export default function LoginPage() {
   const router = useRouter();

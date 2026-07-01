@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { X, Printer, Eye, Edit, Trash2 } from "lucide-react";
 import { updateOrderStatus } from "../order/orderStorage";
 import { printOrderForm } from "./printOrder";
@@ -38,6 +39,20 @@ export default function OrderDetailPanel({
 }: OrderDetailPanelProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [clientRecord, setClientRecord] = useState<any>(null);
+  const [isEditingDelivery, setIsEditingDelivery] = useState(false);
+  const [tempDeliveryPrice, setTempDeliveryPrice] = useState("0");
+
+  useEffect(() => {
+    if (order?.clientName) {
+      import("../order/clientStorage").then(({ resolveClientBySchoolName }) => {
+        resolveClientBySchoolName(order.clientName).then(record => {
+          setClientRecord(record);
+          setTempDeliveryPrice((record.delivery_price || 0).toString());
+        });
+      });
+    }
+  }, [order?.clientName]);
 
   if (!order) return null;
 
@@ -45,6 +60,16 @@ export default function OrderDetailPanel({
     if (!isAdmin) return;
     await updateOrderStatus(order!.id, status);
     onStatusChange();
+  }
+
+  async function handleSaveDeliveryPrice() {
+    if (!clientRecord) return;
+    const price = parseFloat(tempDeliveryPrice) || 0;
+    import("../order/clientStorage").then(async ({ updateClientDeliveryPrice }) => {
+      await updateClientDeliveryPrice(clientRecord.id, price);
+      setClientRecord({ ...clientRecord, delivery_price: price });
+      setIsEditingDelivery(false);
+    });
   }
 
   const grouped = order.items.reduce<Record<string, typeof order.items>>(
@@ -71,6 +96,49 @@ export default function OrderDetailPanel({
               Order Date: {formatDate(order.createdAt)} · Items:{" "}
               {order.itemCount}
             </p>
+            {clientRecord && isAdmin && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span className="font-medium text-slate-600">Delivery Price:</span>
+                {isEditingDelivery ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-400">₱</span>
+                    <input
+                      type="number"
+                      value={tempDeliveryPrice}
+                      onChange={(e) => setTempDeliveryPrice(e.target.value)}
+                      className="w-20 rounded border border-slate-300 px-2 py-0.5 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleSaveDeliveryPrice}
+                      className="rounded bg-blue-600 px-2 py-1 font-semibold text-white hover:bg-blue-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingDelivery(false);
+                        setTempDeliveryPrice((clientRecord.delivery_price || 0).toString());
+                      }}
+                      className="rounded bg-slate-100 px-2 py-1 text-slate-600 hover:bg-slate-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-700 font-semibold">
+                      ₱{(clientRecord.delivery_price || 0).toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => setIsEditingDelivery(true)}
+                      className="text-blue-600 hover:text-blue-700 underline text-[10px]"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex gap-1 shrink-0 sm:gap-2">
             <button
@@ -115,7 +183,7 @@ export default function OrderDetailPanel({
           <div className="flex gap-1 items-center text-xs font-medium text-slate-500 sm:gap-2">
             <span className="hidden sm:inline">Actions</span>
             <button
-              onClick={() => printOrderForm(order)}
+              onClick={() => printOrderForm(order, undefined, clientRecord)}
               className="rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition sm:p-1.5"
               title="Print order"
             >

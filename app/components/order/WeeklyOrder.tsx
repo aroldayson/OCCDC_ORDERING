@@ -243,13 +243,14 @@ export default function WeeklyOrder({
 
       const items = buildOrderItems(catItems, quantities);
 
-      if (isAdditionalOrder && !hasAppliedDeliveryFee) {
+      const deliveryPrice = selectedClient.delivery_price || 0;
+      if (deliveryPrice > 0 && !hasAppliedDeliveryFee) {
         items.push({
           productId: `delivery-fee-${Date.now()}`,
-          name: "Delivery Fee (Additional Order)",
+          name: "Delivery Fee",
           qty: 1,
           unit: "trip",
-          price: 50,
+          price: deliveryPrice,
           category: cat
         });
         hasAppliedDeliveryFee = true;
@@ -288,11 +289,13 @@ export default function WeeklyOrder({
   const readyToOrder = !!selectedClient && !!selectedCategory;
 
   const grandTotal = useMemo(() => {
-    return selectedItems.reduce((sum, item) => {
+    const itemsTotal = selectedItems.reduce((sum, item) => {
       const qty = order[item.id]?.qty ?? 0;
       return sum + (qty * item.price);
     }, 0);
-  }, [selectedItems, order]);
+    const deliveryFee = selectedClient?.delivery_price || 0;
+    return itemsTotal > 0 ? itemsTotal + deliveryFee : 0;
+  }, [selectedItems, order, selectedClient]);
 
   const leftPanel = (
     <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 self-start">

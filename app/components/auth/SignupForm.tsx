@@ -11,6 +11,7 @@ interface SignupFormProps {
     role: UserRole,
     schoolName?: string,
     categories?: string[],
+    schoolAddress?: string,
   ) => Promise<void>;
   loading?: boolean;
 }
@@ -21,6 +22,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<UserRole>("client");
   const [schoolName, setSchoolName] = useState("");
+  const [schoolAddress, setSchoolAddress] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState("");
@@ -67,13 +69,11 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     setIsLoading(true);
 
     try {
-      await onSubmit(
-        email,
-        password,
-        role,
-        role === "client" ? schoolName.trim() : undefined,
-        role === "admin" ? selectedCategories : undefined,
-      );
+      if (role === "admin") {
+        await onSubmit(email, password, role, undefined, selectedCategories);
+      } else {
+        await onSubmit(email, password, role, schoolName.trim(), undefined, schoolAddress.trim());
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sign up";
 
@@ -198,32 +198,55 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       )}
 
       {role !== "admin" && (
-        <div className="space-y-1.5">
-          <label
-            htmlFor="schoolName"
-            className="text-sm font-semibold text-slate-700"
-          >
-            School
-          </label>
-          <select
-            id="schoolName"
-            value={schoolName}
-            onChange={(e) => setSchoolName(e.target.value)}
-            disabled={isLoading}
-            required
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
-          >
-            <option value="">Select your school...</option>
-            {schools.map((school) => (
-              <option key={school.id} value={school.name}>
-                {school.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-slate-500">
-            Ito ang school na naka-fix sa order form pagkatapos mag-login
-          </p>
-        </div>
+        <>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="schoolName"
+              className="text-sm font-semibold text-slate-700"
+            >
+              School
+            </label>
+            <select
+              id="schoolName"
+              value={schoolName}
+              onChange={(e) => setSchoolName(e.target.value)}
+              disabled={isLoading}
+              required
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
+            >
+              <option value="">Select your school...</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.name}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">
+              Ito ang school na naka-fix sa order form pagkatapos mag-login
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="schoolAddress"
+              className="text-sm font-semibold text-slate-700"
+            >
+              School Address
+            </label>
+            <input
+              type="text"
+              id="schoolAddress"
+              value={schoolAddress}
+              onChange={(e) => setSchoolAddress(e.target.value)}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
+              placeholder="123 Main St, Olongapo City"
+            />
+            <p className="text-xs text-slate-500">
+              Address of the school for delivery and invoices
+            </p>
+          </div>
+        </>
       )}
 
       <div className="space-y-1.5">

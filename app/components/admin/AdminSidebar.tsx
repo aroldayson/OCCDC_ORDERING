@@ -29,6 +29,7 @@ const navItems: {
   { id: "other-order", icon: FileText, label: "Other Order", adminOnly: true },
   { id: "orders", icon: ClipboardList, label: "Order Summary", clientOnly: true },
   { id: "products", icon: Package, label: "Product", adminOnly: true },
+  { id: "delivery-fees", icon: ClipboardList, label: "Delivery Fees", adminOnly: true },
 ];
 
 type AdminSidebarProps = {
@@ -70,7 +71,7 @@ function SidebarInner({
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
   const roleLabel =
     user?.role === "admin"
-      ? "Super Admin"
+      ? "Supplier"
       : user?.role === "client"
         ? "School Client"
         : user?.role
@@ -108,7 +109,7 @@ function SidebarInner({
       }
     });
 
-    list.push({ id: "products", icon: Package, label: "Product" });
+    list.push({ id: "products", icon: Package, label: "Pricing Update" });
     return list;
   };
 

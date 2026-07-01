@@ -80,7 +80,7 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
               const itemsMap: Record<string, { name: string; qty: number; unit: string; category: string; price: number }> = {};
               clientOrders.forEach((o) => o.items.forEach((i) => {
@@ -88,7 +88,9 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
                 if(!itemsMap[k]) itemsMap[k] = {...i};
                 else itemsMap[k].qty += i.qty;
               }));
-              printClientSummary(clientName, clientOrders[0]?.weekLabel || "", Object.values(itemsMap), clientOrders);
+              const { resolveClientBySchoolName } = await import("../order/clientStorage");
+              const clientRecord = await resolveClientBySchoolName(clientName);
+              printClientSummary(clientName, clientOrders[0]?.weekLabel || "", Object.values(itemsMap), clientOrders, clientRecord);
             }}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
@@ -193,7 +195,11 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, printO
 
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
                     <button
-                      onClick={() => printOrderForm(order)}
+                      onClick={async () => {
+                        const { resolveClientBySchoolName } = await import("../order/clientStorage");
+                        const clientRecord = await resolveClientBySchoolName(clientName);
+                        printOrderForm(order, undefined, clientRecord);
+                      }}
                       className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
                     >
                       <Printer className="h-4 w-4 text-slate-500" />
