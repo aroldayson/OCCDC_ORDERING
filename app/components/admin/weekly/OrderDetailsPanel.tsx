@@ -295,9 +295,9 @@ export default function OrderDetailsPanel({
     );
   }
 
-  async function handleAddItem(productName: string, qty: number, unit: string, price: number) {
+  async function handleAddItem(productName: string, qty: number, unit: string, price: number, orderId: string) {
     if (!addItemCategory) return;
-    const catOrder = orders.find((o) => o.clientRole === addItemCategory);
+    const catOrder = orders.find((o) => o.id === orderId);
     if (!catOrder) return;
 
     const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "item";
@@ -405,6 +405,7 @@ export default function OrderDetailsPanel({
           open={addItemCategory !== null}
           category={addItemCategory}
           weekLabel={weekLabel}
+          orders={orders.filter(o => o.clientRole === addItemCategory)}
           onClose={() => setAddItemCategory(null)}
           onAdd={handleAddItem}
         />

@@ -47,11 +47,12 @@ export default function OrderViewModal({ order, onClose, onUpdated }: OrderViewM
             {statusOptions.map((s) => (
               <button
                 key={s}
+                disabled
                 onClick={() => handleStatus(s)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${order.status === s
+                className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-opacity ${order.status === s
                   ? "border-blue-300 bg-blue-50 text-blue-700"
                   : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {s}
               </button>

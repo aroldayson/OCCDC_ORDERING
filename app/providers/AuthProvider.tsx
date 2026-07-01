@@ -158,50 +158,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const trimmedSchool = schoolName?.trim() || undefined;
 
     try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          role,
-          schoolName: trimmedSchool,
-          categories,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Server-side signup failed");
-      }
-
-      const {
-        data: { user: authUser, session },
-        error: signInError,
-      } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            role,
+            schoolName: trimmedSchool,
+            categories,
+          },
+        },
       });
 
-      if (signInError) {
-        throw signInError;
+      if (error) {
+        throw error;
       }
 
-      if (session) {
-        setSession(session);
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        throw new Error("This email is already registered. Please sign in instead.");
       }
 
-      if (authUser) {
+      if (!data.session) {
+        // Email confirmation is required
+        throw new Error("verification_required");
+      }
+
+      setSession(data.session);
+
+      if (data.user) {
         const { data: profile } = await supabase
           .from("user_profiles")
           .select("*")
-          .eq("id", authUser.id)
+          .eq("id", data.user.id)
           .maybeSingle();
 
         if (profile) {
-          setUser(mergeProfileWithAuth(profile as UserProfile, authUser));
+          setUser(mergeProfileWithAuth(profile as UserProfile, data.user));
         } else {
-          setUser(buildFallbackProfile(authUser, role, trimmedSchool, categories));
+          setUser(buildFallbackProfile(data.user, role, trimmedSchool, categories));
         }
       }
     } catch (error) {
