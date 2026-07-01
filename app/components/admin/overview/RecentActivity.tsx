@@ -4,6 +4,7 @@ import { orderRoleLabels } from "../../order/roles";
 
 type RecentActivityProps = {
   orders: WeeklyOrderRecord[];
+
 };
 
 export default function RecentActivity({ orders }: RecentActivityProps) {
