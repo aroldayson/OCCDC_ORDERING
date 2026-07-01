@@ -665,7 +665,7 @@ export default function WeeklyOrder({
 
   if (embedded) {
     return (
-      <div className="mx-auto h-full min-h-0 w-full max-w-6xl overflow-hidden">
+      <div className="mx-auto h-auto lg:h-full lg:min-h-0 w-full max-w-6xl lg:overflow-hidden overflow-y-auto">
         {content}
       </div>
     );

@@ -171,7 +171,7 @@ export default function AdminDashboard() {
 
         <main
           className={`min-h-0 flex-1 p-4 sm:p-6 ${activeView === "place-order" || activeView.startsWith("other-order") || activeView === "orders" || activeView === "products"
-            ? "flex flex-col overflow-hidden"
+            ? "flex flex-col lg:overflow-hidden overflow-y-auto"
             : "overflow-y-auto"
             }`}
         >

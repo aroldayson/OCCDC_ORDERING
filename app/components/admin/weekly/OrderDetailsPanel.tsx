@@ -266,6 +266,7 @@ type OrderDetailsPanelProps = {
   clientName: string | null;
   categories: OrderRole[];
   orders: WeeklyOrderRecord[];
+  categoryFilter: string;
   onUpdated: () => void;
   onAddOrder: () => void;
   onViewSummary: () => void;
@@ -278,6 +279,7 @@ export default function OrderDetailsPanel({
   clientName,
   categories,
   orders,
+  categoryFilter,
   onUpdated,
   onAddOrder,
   onViewSummary,
@@ -385,11 +387,11 @@ export default function OrderDetailsPanel({
           <>
             <CategorySummary orders={orders} categories={categories} onAddItem={setAddItemCategory} />
             <div className="space-y-3">
-              {orders.map((order, i) => (
+              {orders.map((order) => (
                 <OrderAccordion
-                  key={order.id}
+                  key={order.id + "-" + categoryFilter}
                   order={order}
-                  defaultOpen={i === 0}
+                  defaultOpen={categoryFilter !== "all" && order.clientRole === categoryFilter}
                   onUpdated={onUpdated}
                   onView={onViewOrder}
                 />
