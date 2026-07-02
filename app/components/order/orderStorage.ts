@@ -600,6 +600,10 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       }
     }
 
+    // Strip items that still have price=0 after merge — these were deleted from the catalog
+    // NOTE: We do NOT strip them — they stay visible so clients/admins can see the order
+    // with a "Waiting for pricing" indicator. Only filter them from the client order FORM.
+
     return records;
 
   } catch (err) {
@@ -624,6 +628,9 @@ export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
     const { error } = await supabase.from("orders").insert(dbOrder);
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "new_order", orderId: order.id, clientName: order.clientName, category: order.clientRole },
+    }));
   } catch (err) {
     console.error("Error saving order to Supabase:", err);
   }
@@ -637,6 +644,9 @@ export async function updateOrderStatus(id: string, status: WeeklyOrderRecord["s
       .eq("id", id);
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "status_change", orderId: id, status },
+    }));
   } catch (err) {
     console.error("Error updating order status in Supabase:", err);
   }
@@ -650,6 +660,9 @@ export async function deleteOrder(id: string): Promise<void> {
       .eq("id", id);
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "deleted", orderId: id },
+    }));
   } catch (err) {
     console.error("Error deleting order from Supabase:", err);
   }
@@ -672,6 +685,9 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       .eq("id", updated.id);
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "items_updated", orderId: updated.id, clientName: updated.clientName },
+    }));
   } catch (err) {
     console.error("Error updating order in Supabase:", err);
   }

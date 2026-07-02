@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Printer, CalendarOff } from "lucide-react";
 import { weekLabel, type WeeklyProduct } from "./products";
-import { buildOrderItems, createOrderId, saveOrder, getOrders } from "./orderStorage";
+import {
+  buildOrderItems,
+  createOrderId,
+  saveOrder,
+  getOrders,
+} from "./orderStorage";
 import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
 import { filterOrdersForSchool, filterOrdersForWeek } from "./orderAccess";
 import { getClients, resolveClientBySchoolName } from "./clientStorage";
@@ -13,7 +18,6 @@ import type { OrderRole } from "./roles";
 import type { OrderState } from "./types";
 import OrderHeader from "./OrderHeader";
 // import { useAuth } from "@/app/providers/AuthProvider";
-
 
 import ProductRow from "./ProductRow";
 import OrderSuccessBanner from "./OrderSuccessBanner";
@@ -66,10 +70,12 @@ export default function WeeklyOrder({
   );
   const [, setSelectedClientId] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<OrderRole | "">(
-    fixedCategory ?? ""
+    fixedCategory ?? "",
   );
 
-  const [prevFixedCategory, setPrevFixedCategory] = useState<OrderRole | undefined>(fixedCategory);
+  const [prevFixedCategory, setPrevFixedCategory] = useState<
+    OrderRole | undefined
+  >(fixedCategory);
   if (fixedCategory !== prevFixedCategory) {
     setPrevFixedCategory(fixedCategory);
     setSelectedCategory(fixedCategory ?? "");
@@ -96,7 +102,10 @@ export default function WeeklyOrder({
   );
 
   const syncProducts = useCallback(() => {
-    getWeeklyProducts(activeWeekLabel).then(setAllProducts);
+    getWeeklyProducts(activeWeekLabel).then((fetched) => {
+      // Only show products that have a price set — items deleted from pricing don't appear
+      setAllProducts(fetched.filter((p) => p.price > 0));
+    });
   }, [activeWeekLabel]);
 
   useEffect(() => {
@@ -140,7 +149,7 @@ export default function WeeklyOrder({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrder(buildInitialState(allProducts));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProducts]);
 
   useEffect(() => {
@@ -162,7 +171,7 @@ export default function WeeklyOrder({
         setClientName(client.name);
       }
     }
-    
+
     initClient();
   }, [defaultClientName, fixedClientName]);
 
@@ -216,12 +225,17 @@ export default function WeeklyOrder({
       alert("Ordering is closed today (Wednesday).");
       return;
     }
-    if (selectedItems.length === 0 || !selectedClient)
-      return;
+    if (selectedItems.length === 0 || !selectedClient) return;
 
     const allOrders = await getOrders();
-    const existingSchoolOrders = filterOrdersForSchool(allOrders, selectedClient.name);
-    const currentWeekOrders = filterOrdersForWeek(existingSchoolOrders, activeWeekLabel);
+    const existingSchoolOrders = filterOrdersForSchool(
+      allOrders,
+      selectedClient.name,
+    );
+    const currentWeekOrders = filterOrdersForWeek(
+      existingSchoolOrders,
+      activeWeekLabel,
+    );
     const isAdditionalOrder = currentWeekOrders.length > 0;
     let hasAppliedDeliveryFee = false;
 
@@ -251,12 +265,15 @@ export default function WeeklyOrder({
           qty: 1,
           unit: "trip",
           price: deliveryPrice,
-          category: cat
+          category: cat,
         });
         hasAppliedDeliveryFee = true;
       }
 
-      const totalPrice = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+      const totalPrice = items.reduce(
+        (sum, item) => sum + item.qty * item.price,
+        0,
+      );
 
       const orderId = createOrderId();
       const orderRecord: WeeklyOrderRecord = {
@@ -291,7 +308,7 @@ export default function WeeklyOrder({
   const grandTotal = useMemo(() => {
     const itemsTotal = selectedItems.reduce((sum, item) => {
       const qty = order[item.id]?.qty ?? 0;
-      return sum + (qty * item.price);
+      return sum + qty * item.price;
     }, 0);
     const deliveryFee = selectedClient?.delivery_price || 0;
     return itemsTotal > 0 ? itemsTotal + deliveryFee : 0;
@@ -336,7 +353,9 @@ export default function WeeklyOrder({
                   setNewItemName(e.target.value);
                   setValidationError("");
                 }}
-                disabled={selectedCategory === "egg" || selectedCategory === "rice"}
+                disabled={
+                  selectedCategory === "egg" || selectedCategory === "rice"
+                }
                 placeholder="Item name"
                 className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${
                   selectedCategory === "egg" || selectedCategory === "rice"
@@ -347,7 +366,9 @@ export default function WeeklyOrder({
             </div>
 
             {/* Row 2: Qty, Unit, and (optional) Size */}
-            <div className={`grid gap-2 ${selectedCategory === "egg" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            <div
+              className={`grid gap-2 ${selectedCategory === "egg" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+            >
               <div>
                 <input
                   value={newItemQty}
@@ -373,9 +394,9 @@ export default function WeeklyOrder({
                     <option value="sack">sack</option>
                   </select>
                 ) : selectedCategory === "vegetables" ||
-                selectedCategory === "meat" ||
-                selectedCategory === "fruits" ||
-                selectedCategory === "fish" ? (
+                  selectedCategory === "meat" ||
+                  selectedCategory === "fruits" ||
+                  selectedCategory === "fish" ? (
                   <select
                     value={newItemUnit}
                     disabled
@@ -487,13 +508,16 @@ export default function WeeklyOrder({
                   }
                 }
 
-                const entry = await addWeeklyProduct({
-                  name: finalName,
-                  defaultQty: qty,
-                  unit: newItemUnit.trim() || "pc",
-                  price: 0,
-                  category: selectedCategory,
-                }, activeWeekLabel);
+                const entry = await addWeeklyProduct(
+                  {
+                    name: finalName,
+                    defaultQty: qty,
+                    unit: newItemUnit.trim() || "pc",
+                    price: 0,
+                    category: selectedCategory,
+                  },
+                  activeWeekLabel,
+                );
                 setOrder((prev) => ({
                   ...prev,
                   [entry.id]: { selected: true, qty: entry.defaultQty },
@@ -506,21 +530,21 @@ export default function WeeklyOrder({
                 selectedCategory === "egg"
                   ? "Egg"
                   : selectedCategory === "rice"
-                  ? "Rice"
-                  : ""
+                    ? "Rice"
+                    : "",
               );
               setNewItemQty("");
               setNewItemUnit(
                 selectedCategory === "vegetables" ||
-                selectedCategory === "meat" ||
-                selectedCategory === "fruits" ||
-                selectedCategory === "fish"
+                  selectedCategory === "meat" ||
+                  selectedCategory === "fruits" ||
+                  selectedCategory === "fish"
                   ? "kg"
                   : selectedCategory === "rice"
-                  ? "sack"
-                  : selectedCategory === "egg"
-                  ? "tray/30"
-                  : ""
+                    ? "sack"
+                    : selectedCategory === "egg"
+                      ? "tray/30"
+                      : "",
               );
               setNewItemSize(selectedCategory === "egg" ? "Medium" : "");
               setValidationError("");
@@ -537,13 +561,18 @@ export default function WeeklyOrder({
   const noticeCard = (
     <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex gap-3">
-        <span className="text-xl shrink-0" role="img" aria-label="megaphone">📢</span>
+        <span className="text-xl shrink-0" role="img" aria-label="megaphone">
+          📢
+        </span>
         <div>
           <h4 className="text-sm font-bold text-slate-800">
             Important Order Notice
           </h4>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Please note that we are closed for ordering every Wednesday as our suppliers compile our weekly shipments. Final pricing for all orders will be updated and sent out every Thursday. Thank you for planning ahead with us!
+            Please note that we are closed for ordering every Wednesday as our
+            suppliers compile our weekly shipments. Final pricing for all orders
+            will be updated and sent out every Thursday. Thank you for planning
+            ahead with us!
           </p>
         </div>
       </div>
@@ -667,9 +696,15 @@ export default function WeeklyOrder({
           <div className="space-y-3">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">Grand Total:</span>
+                <span className="text-sm font-bold text-slate-600 uppercase tracking-wider">
+                  Grand Total:
+                </span>
                 <span className="text-xl font-extrabold text-emerald-700">
-                  ₱{grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₱
+                  {grandTotal.toLocaleString("en-PH", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               </div>
             </div>
@@ -702,26 +737,31 @@ export default function WeeklyOrder({
           <CalendarOff className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Ordering is Closed Today</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            Ordering is Closed Today
+          </h2>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Ordering is disabled every Tuesday for system maintenance and weekly order processing. Please place your orders on other days of the week.
+            Ordering is disabled every Tuesday for system maintenance and weekly
+            order processing. Please place your orders on other days of the
+            week.
           </p>
         </div>
       </div>
     );
 
     if (embedded) {
-      return (
-        <div className="mx-auto w-full max-w-6xl p-4">
-          {closedCard}
-        </div>
-      );
+      return <div className="mx-auto w-full max-w-6xl p-4">{closedCard}</div>;
     }
 
     return (
       <div className="min-h-dvh bg-slate-50 pb-28">
-        <OrderHeader clientName={clientName} onClientNameChange={setClientName} />
-        <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">{closedCard}</main>
+        <OrderHeader
+          clientName={clientName}
+          onClientNameChange={setClientName}
+        />
+        <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+          {closedCard}
+        </main>
       </div>
     );
   }

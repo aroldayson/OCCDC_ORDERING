@@ -1,8 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown, Printer } from "lucide-react";
-import { getWeeklyProducts, addWeeklyProduct, updateWeeklyProduct, removeWeeklyProduct } from "../order/weeklyProductStorage";
+import {
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Printer,
+} from "lucide-react";
+import {
+  getWeeklyProducts,
+  addWeeklyProduct,
+  updateWeeklyProduct,
+  removeWeeklyProduct,
+} from "../order/weeklyProductStorage";
 import type { WeeklyProduct } from "../order/products";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
 import WeekSelector from "./weekly/WeekSelector";
@@ -23,7 +37,7 @@ function formatProductId(id: string) {
     hash = (hash << 5) - hash + id.charCodeAt(i);
     hash |= 0;
   }
-  return `PRD-${Math.abs(hash).toString().slice(0, 4).padStart(4, '0')}`;
+  return `PRD-${Math.abs(hash).toString().slice(0, 4).padStart(4, "0")}`;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -49,7 +63,11 @@ const statusStyles: Record<OrderStatus, string> = {
   cancelled: "bg-red-50 text-red-700 border-red-200",
 };
 
-export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrderRecord[] }) {
+export default function ProductCatalogManager({
+  orders,
+}: {
+  orders?: WeeklyOrderRecord[];
+}) {
   const { user } = useAuth();
   const [weekOffset, setWeekOffset] = useState<WeekOffset>(0);
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
@@ -62,7 +80,7 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(groupId)) next.delete(groupId);
       else next.add(groupId);
@@ -72,7 +90,11 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
 
   const handleDeleteMultiple = async () => {
     if (selectedIds.size === 0) return;
-    if (confirm(`Are you sure you want to delete ${selectedIds.size} selected product(s) from the catalog?`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete ${selectedIds.size} selected product(s) from the catalog?`,
+      )
+    ) {
       for (const id of selectedIds) {
         await removeWeeklyProduct(id, selectedWeek?.weekLabel);
       }
@@ -95,7 +117,7 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
   useEffect(() => {
     loadProducts();
     window.addEventListener("occdc-weekly-products-updated", loadProducts);
-    
+
     const channel = supabase
       .channel("realtime-products")
       .on(
@@ -103,7 +125,7 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
         { event: "*", schema: "public", table: "weekly_products" },
         () => {
           loadProducts();
-        }
+        },
       )
       .subscribe();
 
@@ -115,11 +137,18 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
 
   const allowedProducts = useMemo(() => {
     if (!user) return products;
-    return products.filter((p) => isCategoryAllowed(p.category, user.categories));
+    return products.filter((p) =>
+      isCategoryAllowed(p.category, user.categories),
+    );
   }, [products, user]);
 
   const rowItems = useMemo(() => {
-    const list: { id: string; product: WeeklyProduct; order?: WeeklyOrderRecord; schoolName: string }[] = [];
+    const list: {
+      id: string;
+      product: WeeklyProduct;
+      order?: WeeklyOrderRecord;
+      schoolName: string;
+    }[] = [];
     const productsWithOrders = new Set<string>();
 
     if (orders) {
@@ -168,14 +197,19 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
 
     return rowItems.filter(
       (row) =>
-        (row.schoolName !== "Z_NO_ORDERS" && row.schoolName.toLowerCase().includes(q)) ||
+        (row.schoolName !== "Z_NO_ORDERS" &&
+          row.schoolName.toLowerCase().includes(q)) ||
         formatProductId(row.product.id).toLowerCase().includes(q) ||
         row.product.name.toLowerCase().includes(q) ||
-        (categoryLabels[row.product.category] ?? row.product.category).toLowerCase().includes(q) ||
+        (categoryLabels[row.product.category] ?? row.product.category)
+          .toLowerCase()
+          .includes(q) ||
         row.product.defaultQty.toString().includes(q) ||
         row.product.unit.toLowerCase().includes(q) ||
         row.product.price.toString().includes(q) ||
-        row.product.price.toLocaleString("en-PH", { minimumFractionDigits: 2 }).includes(q)
+        row.product.price
+          .toLocaleString("en-PH", { minimumFractionDigits: 2 })
+          .includes(q),
     );
   }, [rowItems, search]);
 
@@ -188,7 +222,14 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
   const handleSaveItem = async (data: ItemFormData) => {
     const qty = parseFloat(data.defaultQty);
     const priceVal = parseFloat(data.price);
-    if (!data.name.trim() || isNaN(qty) || qty <= 0 || isNaN(priceVal) || priceVal < 0) return;
+    if (
+      !data.name.trim() ||
+      isNaN(qty) ||
+      qty <= 0 ||
+      isNaN(priceVal) ||
+      priceVal < 0
+    )
+      return;
 
     const payload = {
       name: data.name.trim(),
@@ -199,7 +240,11 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
     };
 
     if (editingItem) {
-      await updateWeeklyProduct(editingItem.id, payload, selectedWeek.weekLabel);
+      await updateWeeklyProduct(
+        editingItem.id,
+        payload,
+        selectedWeek.weekLabel,
+      );
     } else {
       await addWeeklyProduct(payload, selectedWeek.weekLabel);
     }
@@ -208,7 +253,11 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
   };
 
   const handleDeleteItem = async (id: string) => {
-    if (confirm("Are you sure you want to delete this product from the weekly catalog?")) {
+    if (
+      confirm(
+        "Are you sure you want to delete this product from the weekly catalog?",
+      )
+    ) {
       await removeWeeklyProduct(id, selectedWeek.weekLabel);
     }
   };
@@ -239,7 +288,9 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
 
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
-          <h2 className="text-sm font-semibold text-slate-800">Weekly Product Catalog</h2>
+          <h2 className="text-sm font-semibold text-slate-800">
+            Weekly Product Catalog
+          </h2>
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -263,12 +314,19 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                   <input
                     type="checkbox"
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    checked={paged.length > 0 && paged.every((row) => selectedIds.has(row.product.id))}
+                    checked={
+                      paged.length > 0 &&
+                      paged.every((row) => selectedIds.has(row.product.id))
+                    }
                     onChange={() => {
                       const newSelected = new Set(selectedIds);
-                      const allSelected = paged.length > 0 && paged.every((row) => selectedIds.has(row.product.id));
+                      const allSelected =
+                        paged.length > 0 &&
+                        paged.every((row) => selectedIds.has(row.product.id));
                       if (allSelected) {
-                        paged.forEach((row) => newSelected.delete(row.product.id));
+                        paged.forEach((row) =>
+                          newSelected.delete(row.product.id),
+                        );
                       } else {
                         paged.forEach((row) => newSelected.add(row.product.id));
                       }
@@ -287,7 +345,10 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
+                  <td
+                    colSpan={7}
+                    className="px-5 py-10 text-center text-sm text-slate-500"
+                  >
                     No products found in catalog.
                   </td>
                 </tr>
@@ -297,18 +358,26 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                   let currentGroupId: string | null = null;
 
                   paged.forEach((row) => {
-                    const groupId = row.order ? row.order.id : `no-order-${row.schoolName}`;
+                    const groupId = row.order
+                      ? row.order.id
+                      : `no-order-${row.schoolName}`;
                     if (groupId !== currentGroupId) {
                       currentGroupId = groupId;
-                      const schoolLabel = row.schoolName === "Z_NO_ORDERS" ? "No Orders" : row.schoolName;
+                      const schoolLabel =
+                        row.schoolName === "Z_NO_ORDERS"
+                          ? "No Orders"
+                          : row.schoolName;
                       const isExpanded = expandedGroups.has(groupId);
                       rows.push(
-                        <tr 
-                          key={`group-${groupId}`} 
+                        <tr
+                          key={`group-${groupId}`}
                           className="bg-slate-100/60 cursor-pointer hover:bg-slate-100/90 transition-colors"
                           onClick={() => toggleGroup(groupId)}
                         >
-                          <td colSpan={7} className="px-4 py-3 border-y border-slate-200">
+                          <td
+                            colSpan={7}
+                            className="px-4 py-3 border-y border-slate-200"
+                          >
                             <div className="flex items-center gap-3">
                               {isExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-slate-500" />
@@ -320,15 +389,19 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                               </span>
                               {row.order && (
                                 <div className="inline-flex items-center gap-2">
-                                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusStyles[row.order.status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusStyles[row.order.status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}
+                                  >
                                     {row.order.status}
                                   </span>
-                                  <span className="font-semibold text-slate-500 text-[10px]">ID: {row.order.id}</span>
+                                  <span className="font-semibold text-slate-500 text-[10px]">
+                                    ID: {row.order.id}
+                                  </span>
                                 </div>
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </tr>,
                       );
                     }
 
@@ -337,7 +410,10 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                     }
 
                     rows.push(
-                      <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/80">
+                      <tr
+                        key={row.id}
+                        className="border-b border-slate-50 hover:bg-slate-50/80"
+                      >
                         <td className="px-4 py-3 sm:px-5">
                           <input
                             type="checkbox"
@@ -354,16 +430,44 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                             }}
                           />
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-800 sm:px-5">{row.product.name}</td>
+                        <td className="px-4 py-3 sm:px-5">
+                          <span
+                            className={`font-medium ${
+                              !row.product.price || row.product.price === 0
+                                ? "text-red-600 underline decoration-red-500 decoration-2"
+                                : "text-slate-800"
+                            }`}
+                          >
+                            {row.product.name}
+                          </span>
+                          {(!row.product.price || row.product.price === 0) && (
+                            <span className="ml-2 text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-wider">
+                              No Price
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-slate-600 sm:px-5">
-                          {categoryLabels[row.product.category] ?? row.product.category}
+                          {categoryLabels[row.product.category] ??
+                            row.product.category}
                         </td>
                         <td className="px-4 py-3 font-semibold text-slate-800 sm:px-5">
                           {row.product.defaultQty}
                         </td>
-                        <td className="px-4 py-3 text-slate-600 sm:px-5">{row.product.unit}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-800 sm:px-5">
-                          ₱{row.product.price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <td className="px-4 py-3 text-slate-600 sm:px-5">
+                          {row.product.unit}
+                        </td>
+                        <td
+                          className={`px-4 py-3 font-semibold sm:px-5 ${
+                            !row.product.price || row.product.price === 0
+                              ? "text-red-500"
+                              : "text-slate-800"
+                          }`}
+                        >
+                          ₱
+                          {row.product.price.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-3 sm:px-5">
                           <div className="flex items-center justify-end gap-1">
@@ -379,14 +483,22 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
                             </button>
                             <button
                               onClick={() => handleDeleteItem(row.product.id)}
-                              className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                              disabled={
+                                !row.product.price || row.product.price === 0
+                              }
+                              title={
+                                !row.product.price || row.product.price === 0
+                                  ? "Set a price before deleting"
+                                  : `Delete ${row.product.name}`
+                              }
+                              className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                               aria-label={`Delete ${row.product.name}`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </tr>,
                     );
                   });
                   return rows;
@@ -424,7 +536,9 @@ export default function ProductCatalogManager({ orders }: { orders?: WeeklyOrder
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="min-w-[2rem] text-center font-medium text-slate-700">{safePage}</span>
+              <span className="min-w-[2rem] text-center font-medium text-slate-700">
+                {safePage}
+              </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}

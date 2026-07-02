@@ -14,6 +14,7 @@ interface AuthContextType {
     role: UserRole,
     schoolName?: string,
     categories?: string[],
+    schoolAddress?: string,
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -22,7 +23,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function schoolFromMetadata(metadata?: Record<string, unknown>): string | undefined {
+function schoolFromMetadata(
+  metadata?: Record<string, unknown>,
+): string | undefined {
   const value = metadata?.schoolName ?? metadata?.school_name;
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -36,6 +39,7 @@ function buildFallbackProfile(
   role: UserRole = "user",
   schoolName?: string,
   categories?: string[],
+  schoolAddress?: string,
 ): UserProfile {
   return {
     id: authUser.id,
@@ -43,7 +47,13 @@ function buildFallbackProfile(
     role,
     school_name:
       schoolName ?? schoolFromMetadata(authUser.user_metadata) ?? undefined,
-    categories: categories ?? (authUser.user_metadata?.categories as string[]) ?? undefined,
+    categories:
+      categories ??
+      (authUser.user_metadata?.categories as string[]) ??
+      undefined,
+    school_address:
+      schoolAddress ??
+      (authUser.user_metadata?.schoolAddress as string | undefined),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -61,6 +71,7 @@ function mergeProfileWithAuth(
   const schoolFromMeta = schoolFromMetadata(metadata);
   const roleFromMeta = metadata.role as UserRole | undefined;
   const categoriesFromMeta = metadata.categories as string[] | undefined;
+  const schoolAddressFromMeta = metadata.schoolAddress as string | undefined;
 
   if (profile) {
     return {
@@ -69,10 +80,18 @@ function mergeProfileWithAuth(
       role: (profile.role as UserRole) || roleFromMeta || "user",
       school_name: profile.school_name?.trim() || schoolFromMeta || undefined,
       categories: profile.categories || categoriesFromMeta || undefined,
+      school_address:
+        profile.school_address || schoolAddressFromMeta || undefined,
     };
   }
 
-  return buildFallbackProfile(authUser, roleFromMeta ?? "user", schoolFromMeta, categoriesFromMeta);
+  return buildFallbackProfile(
+    authUser,
+    roleFromMeta ?? "user",
+    schoolFromMeta,
+    categoriesFromMeta,
+    schoolAddressFromMeta,
+  );
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -154,32 +173,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: UserRole,
     schoolName?: string,
     categories?: string[],
+    schoolAddress?: string,
   ) => {
     const trimmedSchool = schoolName?.trim() || undefined;
+    const trimmedAddress = schoolAddress?.trim() || undefined;
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role,
-            schoolName: trimmedSchool,
-            categories,
-          },
-        },
+      // Use the Admin API route to bypass Supabase client-side rate limits
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          schoolName: trimmedSchool,
+          categories,
+          schoolAddress: trimmedAddress,
+        }),
       });
 
-      if (error) {
-        throw error;
+      const json = await res.json();
+
+      if (!res.ok) {
+        const msg: string = json?.error ?? "Sign up failed";
+        if (
+          msg.toLowerCase().includes("already registered") ||
+          msg.toLowerCase().includes("already exists")
+        ) {
+          throw new Error(
+            "This email is already registered. Please sign in instead.",
+          );
+        }
+        throw new Error(msg);
       }
 
-      if (data.user && data.user.identities && data.user.identities.length === 0) {
-        throw new Error("This email is already registered. Please sign in instead.");
+      // Sign in immediately after account creation to get a session
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (signInError) {
+        throw new Error(signInError.message);
       }
 
       if (!data.session) {
-        // Email confirmation is required
         throw new Error("verification_required");
       }
 
@@ -195,7 +235,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (profile) {
           setUser(mergeProfileWithAuth(profile as UserProfile, data.user));
         } else {
-          setUser(buildFallbackProfile(data.user, role, trimmedSchool, categories));
+          setUser(
+            buildFallbackProfile(
+              data.user,
+              role,
+              trimmedSchool,
+              categories,
+              trimmedAddress,
+            ),
+          );
         }
       }
     } catch (error) {

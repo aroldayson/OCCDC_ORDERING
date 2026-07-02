@@ -1,11 +1,31 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ClipboardList, Package, PlusCircle, X, Eye, EyeOff, Printer, Clock, CheckCircle, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ClipboardList,
+  Package,
+  PlusCircle,
+  X,
+  Eye,
+  EyeOff,
+  Printer,
+  Clock,
+  CheckCircle,
+  Search,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import type { WeeklyProduct } from "../order/products";
-import { addWeeklyProduct, updateWeeklyProduct } from "../order/weeklyProductStorage";
+import {
+  getWeeklyProducts,
+  addWeeklyProduct,
+  updateWeeklyProduct,
+} from "../order/weeklyProductStorage";
 import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
-import { filterOrdersForSchool, filterOrdersForWeek } from "../order/orderAccess";
+import {
+  filterOrdersForSchool,
+  filterOrdersForWeek,
+} from "../order/orderAccess";
 import { getWeekInfo, type WeekOffset } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import WeeklyOrder from "../order/WeeklyOrder";
@@ -19,7 +39,11 @@ import AddClientModal from "./weekly/AddClientModal";
 import type { AdminView } from "./AdminSidebar";
 import { orderRoleLabels, type OrderRole } from "../order/roles";
 import { updateOrderStatus } from "../order/orderStorage";
-import { printOrderForm, printAllOrders, printClientSummary } from "./printOrder";
+import {
+  printOrderForm,
+  printAllOrders,
+  printClientSummary,
+} from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -38,8 +62,6 @@ const adminTabs: { id: Tab; label: string; icon: typeof Package }[] = [
   { id: "items", label: "Weekly Items", icon: PlusCircle },
 ];
 
-
-
 type WeeklyOrderViewProps = {
   orders: WeeklyOrderRecord[];
   onOrdersUpdated: () => void;
@@ -53,14 +75,21 @@ interface SchoolGroupBlockProps {
   clientOrders: WeeklyOrderRecord[];
   handleStatusChange: (id: string, status: OrderStatus) => Promise<void>;
   setSelectedOrderDetail: (order: WeeklyOrderRecord | null) => void;
+  weeklyProducts: WeeklyProduct[];
 }
 
-function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSelectedOrderDetail }: SchoolGroupBlockProps) {
+function SchoolGroupBlock({
+  clientName,
+  clientOrders,
+  handleStatusChange,
+  setSelectedOrderDetail,
+  weeklyProducts,
+}: SchoolGroupBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:shadow-md mb-6">
-      <div 
+      <div
         className="bg-slate-50 border-b border-slate-200 px-5 py-4 cursor-pointer hover:bg-slate-100 flex justify-between items-center transition"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -68,28 +97,53 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
             <h3 className="text-lg font-bold text-slate-800">{clientName}</h3>
             <div className="flex flex-wrap gap-1.5">
-               {Array.from(new Set(clientOrders.map((o: any) => o.status))).map((status: any) => (
-                  <span key={status} className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${statusStyles[status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}>
-                     {status === "pending" ? "Pending Approval" : status}
+              {Array.from(new Set(clientOrders.map((o: any) => o.status))).map(
+                (status: any) => (
+                  <span
+                    key={status}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${statusStyles[status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}
+                  >
+                    {status === "pending" ? "Pending Approval" : status}
                   </span>
-               ))}
+                ),
+              )}
             </div>
           </div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1 sm:mt-0.5">{clientOrders.length} Order{clientOrders.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1 sm:mt-0.5">
+            {clientOrders.length} Order{clientOrders.length !== 1 ? "s" : ""}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={async (e) => {
               e.stopPropagation();
-              const itemsMap: Record<string, { name: string; qty: number; unit: string; category: string; price: number }> = {};
-              clientOrders.forEach((o) => o.items.forEach((i) => {
-                const k = `${i.productId}-${i.price}`;
-                if(!itemsMap[k]) itemsMap[k] = {...i};
-                else itemsMap[k].qty += i.qty;
-              }));
-              const { resolveClientBySchoolName } = await import("../order/clientStorage");
+              const itemsMap: Record<
+                string,
+                {
+                  name: string;
+                  qty: number;
+                  unit: string;
+                  category: string;
+                  price: number;
+                }
+              > = {};
+              clientOrders.forEach((o) =>
+                o.items.forEach((i) => {
+                  const k = `${i.productId}-${i.price}`;
+                  if (!itemsMap[k]) itemsMap[k] = { ...i };
+                  else itemsMap[k].qty += i.qty;
+                }),
+              );
+              const { resolveClientBySchoolName } =
+                await import("../order/clientStorage");
               const clientRecord = await resolveClientBySchoolName(clientName);
-              printClientSummary(clientName, clientOrders[0]?.weekLabel || "", Object.values(itemsMap), clientOrders, clientRecord);
+              printClientSummary(
+                clientName,
+                clientOrders[0]?.weekLabel || "",
+                Object.values(itemsMap),
+                clientOrders,
+                clientRecord,
+              );
             }}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
           >
@@ -97,7 +151,11 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
             <span className="hidden sm:inline">Print School Orders</span>
           </button>
           <div className="shrink-0 p-2 rounded-full bg-white shadow-sm border border-slate-200 text-slate-500">
-            {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
           </div>
         </div>
       </div>
@@ -107,39 +165,57 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
           {clientOrders.map((order, idx: number) => {
             const isAdditional = idx > 0;
             return (
-              <div key={order.id} className={`p-5 ${idx > 0 ? 'border-t border-slate-200 border-dashed' : ''}`}>
+              <div
+                key={order.id}
+                className={`p-5 ${idx > 0 ? "border-t border-slate-200 border-dashed" : ""}`}
+              >
                 {isAdditional && (
                   <div className="text-[10px] font-bold text-amber-600 bg-amber-50 inline-block px-2 py-1 rounded-md mb-3 border border-amber-200 uppercase tracking-wider">
                     Additional Order #{idx}
                   </div>
                 )}
-                
+
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${order.status === "completed"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : order.status === "pending"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-blue-50 text-blue-700"
-                        }`}>
-                        {order.status === "pending" ? "Pending Approval" : order.status}
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          order.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : order.status === "pending"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-blue-50 text-blue-700"
+                        }`}
+                      >
+                        {order.status === "pending"
+                          ? "Pending Approval"
+                          : order.status}
                       </span>
-                      <span className="text-xs text-slate-400 font-medium">ID: <span className="font-semibold text-slate-600">{order.id}</span></span>
+                      <span className="text-xs text-slate-400 font-medium">
+                        ID:{" "}
+                        <span className="font-semibold text-slate-600">
+                          {order.id}
+                        </span>
+                      </span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-medium mt-1">
-                      Submitted: {new Date(order.createdAt).toLocaleDateString("en-PH", {
+                      Submitted:{" "}
+                      {new Date(order.createdAt).toLocaleDateString("en-PH", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
                         hour: "2-digit",
-                        minute: "2-digit"
+                        minute: "2-digit",
                       })}
                     </p>
                   </div>
                   <div className="text-left sm:text-right">
-                    <div className="text-lg font-extrabold text-slate-800">{order.items.length} Items</div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Other Order Type</p>
+                    <div className="text-lg font-extrabold text-slate-800">
+                      {order.items.length} Items
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                      Other Order Type
+                    </p>
                   </div>
                 </div>
 
@@ -148,19 +224,55 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 px-3 border-b border-slate-50">
                       Order Items
                     </div>
-                    {order.items.map((item: any) => (
-                      <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 px-3 border-b border-slate-100/60 last:border-0 last:pb-0 gap-1 sm:gap-0">
-                        <span className="font-medium text-slate-700">{item.name}</span>
-                        <div className="flex items-center justify-between sm:justify-end sm:gap-4 text-slate-600">
-                          <span className="text-xs text-slate-400 font-medium">
-                            {item.qty} {item.unit} × ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                          </span>
-                          <span className="font-bold text-slate-700 min-w-[70px] text-right">
-                            ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                          </span>
+                    {order.items.map((item: any) => {
+                      const isDeleted = item.deleted === true;
+                      const isUnpriced =
+                        !isDeleted && (!item.price || item.price === 0);
+                      return (
+                        <div
+                          key={item.productId}
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 px-3 border-b border-slate-100/60 last:border-0 last:pb-0 gap-1 sm:gap-0 ${isDeleted ? "bg-red-50/30" : ""}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-medium ${isDeleted ? "text-red-600 line-through decoration-red-500 decoration-2" : isUnpriced ? "text-blue-600 underline decoration-blue-500 decoration-2" : "text-slate-700"}`}
+                            >
+                              {item.name}
+                            </span>
+                            {isDeleted && (
+                              <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
+                                Deleted
+                              </span>
+                            )}
+                            {isUnpriced && (
+                              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
+                                No Price
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end sm:gap-4 text-slate-600">
+                            <span
+                              className={`text-xs font-medium ${isDeleted ? "text-red-400" : isUnpriced ? "text-blue-400" : "text-slate-400"}`}
+                            >
+                              {item.qty} {item.unit} × ₱
+                              {(item.price || 0).toLocaleString("en-PH", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </span>
+                            <span
+                              className={`font-bold min-w-[70px] text-right ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-500" : "text-slate-700"}`}
+                            >
+                              ₱
+                              {(
+                                (item.qty || 0) * (item.price || 0)
+                              ).toLocaleString("en-PH", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-3 flex justify-between items-center text-xs">
@@ -168,7 +280,10 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
                       Order Total
                     </span>
                     <span className="font-extrabold text-emerald-800 text-sm">
-                      ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                      ₱
+                      {(order.totalPrice || 0).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
 
@@ -177,14 +292,23 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
                       Change Status
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {["pending", "accepted", "processing", "completed", "cancelled"].map((status) => (
+                      {[
+                        "pending",
+                        "accepted",
+                        "processing",
+                        "completed",
+                        "cancelled",
+                      ].map((status) => (
                         <button
                           key={status}
-                          onClick={() => handleStatusChange(order.id, status as OrderStatus)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === status
-                            ? statusStyles[status as OrderStatus]
-                            : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
-                            }`}
+                          onClick={() =>
+                            handleStatusChange(order.id, status as OrderStatus)
+                          }
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
+                            order.status === status
+                              ? statusStyles[status as OrderStatus]
+                              : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
+                          }`}
                         >
                           {status}
                         </button>
@@ -195,8 +319,10 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
                     <button
                       onClick={async () => {
-                        const { resolveClientBySchoolName } = await import("../order/clientStorage");
-                        const clientRecord = await resolveClientBySchoolName(clientName);
+                        const { resolveClientBySchoolName } =
+                          await import("../order/clientStorage");
+                        const clientRecord =
+                          await resolveClientBySchoolName(clientName);
                         printOrderForm(order, undefined, clientRecord);
                       }}
                       className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
@@ -219,9 +345,18 @@ function SchoolGroupBlock({ clientName, clientOrders, handleStatusChange, setSel
 
           {clientOrders.length > 1 && (
             <div className="bg-slate-800 text-white px-5 py-4 flex justify-between items-center rounded-b-xl">
-              <span className="font-bold">Grand Total ({clientOrders.length} Orders)</span>
+              <span className="font-bold">
+                Grand Total ({clientOrders.length} Orders)
+              </span>
               <span className="text-lg font-black">
-                ₱{clientOrders.reduce((sum: number, o: WeeklyOrderRecord) => sum + (o.totalPrice || 0), 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                ₱
+                {clientOrders
+                  .reduce(
+                    (sum: number, o: WeeklyOrderRecord) =>
+                      sum + (o.totalPrice || 0),
+                    0,
+                  )
+                  .toLocaleString("en-PH", { minimumFractionDigits: 2 })}
               </span>
             </div>
           )}
@@ -254,8 +389,13 @@ export default function WeeklyOrderView({
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(!isAdmin);
+  const [weeklyProducts, setWeeklyProducts] = useState<WeeklyProduct[]>([]);
 
   const selectedWeek = useMemo(() => getWeekInfo(weekOffset), [weekOffset]);
+
+  useEffect(() => {
+    getWeeklyProducts(selectedWeek.weekLabel).then(setWeeklyProducts);
+  }, [selectedWeek.weekLabel]);
 
   const scopedOrders = useMemo(() => {
     const byWeek = filterOrdersForWeek(orders, selectedWeek.weekLabel);
@@ -263,14 +403,18 @@ export default function WeeklyOrderView({
     return filterOrdersForSchool(byWeek, schoolName);
   }, [orders, selectedWeek.weekLabel, isAdmin, schoolName]);
 
-  const [selectedOrderDetail, setSelectedOrderDetail] = useState<WeeklyOrderRecord | null>(null);
+  const [selectedOrderDetail, setSelectedOrderDetail] =
+    useState<WeeklyOrderRecord | null>(null);
 
   const pendingCount = useMemo(() => {
     const list = fixedCategory
       ? scopedOrders.filter((o) => o.clientRole === fixedCategory)
       : scopedOrders;
     return list.filter(
-      (o) => o.status === "pending" || o.status === "accepted" || o.status === "processing",
+      (o) =>
+        o.status === "pending" ||
+        o.status === "accepted" ||
+        o.status === "processing",
     ).length;
   }, [scopedOrders, fixedCategory]);
 
@@ -280,14 +424,17 @@ export default function WeeklyOrderView({
   }, [scopedOrders, fixedCategory]);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryStatusFilter, setCategoryStatusFilter] = useState<string>("pending");
+  const [categoryStatusFilter, setCategoryStatusFilter] =
+    useState<string>("pending");
 
   const categoryPendingCount = useMemo(() => {
     return categoryOrders.filter((o) => o.status === "pending").length;
   }, [categoryOrders]);
 
   const categoryApprovedCount = useMemo(() => {
-    return categoryOrders.filter((o) => o.status === "accepted" || o.status === "processing").length;
+    return categoryOrders.filter(
+      (o) => o.status === "accepted" || o.status === "processing",
+    ).length;
   }, [categoryOrders]);
 
   const categoryCompletedCount = useMemo(() => {
@@ -302,7 +449,9 @@ export default function WeeklyOrderView({
       if (categoryStatusFilter === "pending") {
         list = list.filter((o) => o.status === "pending");
       } else if (categoryStatusFilter === "approved") {
-        list = list.filter((o) => o.status === "accepted" || o.status === "processing");
+        list = list.filter(
+          (o) => o.status === "accepted" || o.status === "processing",
+        );
       } else if (categoryStatusFilter === "completed") {
         list = list.filter((o) => o.status === "completed");
       } else if (categoryStatusFilter === "cancelled") {
@@ -317,7 +466,7 @@ export default function WeeklyOrderView({
         (o) =>
           o.id.toLowerCase().includes(q) ||
           o.clientName.toLowerCase().includes(q) ||
-          o.items.some((i) => i.name.toLowerCase().includes(q))
+          o.items.some((i) => i.name.toLowerCase().includes(q)),
       );
     }
 
@@ -334,10 +483,15 @@ export default function WeeklyOrderView({
     });
 
     Array.from(groups.values()).forEach((group) => {
-      group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      group.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
     });
 
-    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(groups.entries()).sort((a, b) =>
+      a[0].localeCompare(b[0]),
+    );
   }, [filteredCategoryOrders]);
 
   const handleStatusChange = async (id: string, status: OrderStatus) => {
@@ -362,16 +516,17 @@ export default function WeeklyOrderView({
     setTab("order");
   }
 
-
-
-
-
-
-
   function handleSaveItem(data: ItemFormData) {
     const qty = parseFloat(data.defaultQty);
     const priceVal = parseFloat(data.price);
-    if (!data.name.trim() || isNaN(qty) || qty <= 0 || isNaN(priceVal) || priceVal < 0) return;
+    if (
+      !data.name.trim() ||
+      isNaN(qty) ||
+      qty <= 0 ||
+      isNaN(priceVal) ||
+      priceVal < 0
+    )
+      return;
 
     const payload = {
       name: data.name.trim(),
@@ -409,17 +564,21 @@ export default function WeeklyOrderView({
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${tab === id
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
+                  tab === id
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
                 {id === "process" && pendingCount > 0 && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${tab === id ? "bg-white/20 text-white" : "bg-blue-100 text-blue-700"
-                      }`}
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      tab === id
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
                   >
                     {pendingCount}
                   </span>
@@ -444,7 +603,8 @@ export default function WeeklyOrderView({
       {!isAdmin && tab === "order" && schoolName && (
         <div className="shrink-0 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           Ordering for <strong>{schoolName}</strong> ·{" "}
-          {weekOffset === 0 ? "This Week" : "Next Week"} ({selectedWeek.dateRange})
+          {weekOffset === 0 ? "This Week" : "Next Week"} (
+          {selectedWeek.dateRange})
         </div>
       )}
 
@@ -455,13 +615,21 @@ export default function WeeklyOrderView({
         </div>
       )}
 
-      <div className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : "lg:overflow-hidden overflow-y-auto"}`}>
+      <div
+        className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : "lg:overflow-hidden overflow-y-auto"}`}
+      >
         {tab === "order" && (
           <div className="space-y-8">
             {isAdmin && fixedCategory !== "other_order" && (
               <div className="flex flex-wrap justify-end gap-3">
                 <button
-                  onClick={() => printAllOrders(orderRoleLabels[fixedCategory!], selectedWeek.weekLabel, categoryOrders)}
+                  onClick={() =>
+                    printAllOrders(
+                      orderRoleLabels[fixedCategory!],
+                      selectedWeek.weekLabel,
+                      categoryOrders,
+                    )
+                  }
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
                 >
                   <Printer className="h-4 w-4 text-slate-500" />
@@ -512,46 +680,55 @@ export default function WeeklyOrderView({
                   {/* Card 1: Pending */}
                   <div
                     onClick={() => setCategoryStatusFilter("pending")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "pending"
-                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
+                      categoryStatusFilter === "pending"
+                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <Clock className="h-4 w-4 text-blue-500" />
                       Pending
                     </div>
-                    <div className="mt-2 text-2xl font-bold text-slate-800">{categoryPendingCount}</div>
+                    <div className="mt-2 text-2xl font-bold text-slate-800">
+                      {categoryPendingCount}
+                    </div>
                   </div>
 
                   {/* Card 2: Approved */}
                   <div
                     onClick={() => setCategoryStatusFilter("approved")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "approved"
-                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
+                      categoryStatusFilter === "approved"
+                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
                       Approved
                     </div>
-                    <div className="mt-2 text-2xl font-bold text-slate-800">{categoryApprovedCount}</div>
+                    <div className="mt-2 text-2xl font-bold text-slate-800">
+                      {categoryApprovedCount}
+                    </div>
                   </div>
 
                   {/* Card 3: Completed */}
                   <div
                     onClick={() => setCategoryStatusFilter("completed")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "completed"
-                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
+                      categoryStatusFilter === "completed"
+                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <CheckCircle className="h-4 w-4 text-slate-400" />
                       Completed
                     </div>
-                    <div className="mt-2 text-2xl font-bold text-slate-800">{categoryCompletedCount}</div>
+                    <div className="mt-2 text-2xl font-bold text-slate-800">
+                      {categoryCompletedCount}
+                    </div>
                   </div>
                 </div>
 
@@ -569,14 +746,21 @@ export default function WeeklyOrderView({
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                    {["all", "pending", "approved", "completed", "cancelled"].map((filter) => (
+                    {[
+                      "all",
+                      "pending",
+                      "approved",
+                      "completed",
+                      "cancelled",
+                    ].map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setCategoryStatusFilter(filter)}
-                        className={`rounded-full px-3 py-1.5 capitalize transition ${categoryStatusFilter === filter
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                          }`}
+                        className={`rounded-full px-3 py-1.5 capitalize transition ${
+                          categoryStatusFilter === filter
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
                       >
                         {filter}
                       </button>
@@ -598,6 +782,7 @@ export default function WeeklyOrderView({
                         clientOrders={clientOrders}
                         handleStatusChange={handleStatusChange}
                         setSelectedOrderDetail={setSelectedOrderDetail}
+                        weeklyProducts={weeklyProducts}
                       />
                     ))
                   )}
@@ -644,7 +829,10 @@ export default function WeeklyOrderView({
 
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)} />
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setSelectedOrderDetail(null)}
+          />
           <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between">
               <div>
@@ -665,14 +853,26 @@ export default function WeeklyOrderView({
 
             <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-2">
               {selectedOrderDetail.items.map((item) => (
-                <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-slate-200/60 last:border-0 gap-1 sm:gap-0">
-                  <span className="font-medium text-slate-700">{item.name}</span>
+                <div
+                  key={item.productId}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 border-b border-slate-200/60 last:border-0 gap-1 sm:gap-0"
+                >
+                  <span className="font-medium text-slate-700">
+                    {item.name}
+                  </span>
                   <div className="flex items-center justify-between sm:justify-end sm:gap-4">
                     <span className="text-xs text-slate-400 font-medium">
-                      {item.qty} {item.unit} × ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                      {item.qty} {item.unit} × ₱
+                      {(item.price || 0).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                     <span className="font-bold text-slate-700 min-w-[70px] text-right">
-                      ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                      ₱
+                      {((item.qty || 0) * (item.price || 0)).toLocaleString(
+                        "en-PH",
+                        { minimumFractionDigits: 2 },
+                      )}
                     </span>
                   </div>
                 </div>
@@ -680,9 +880,14 @@ export default function WeeklyOrderView({
             </div>
 
             <div className="mt-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Price</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Total Price
+              </p>
               <p className="mt-1 text-sm font-bold text-slate-800">
-                ₱{(selectedOrderDetail.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                ₱
+                {(selectedOrderDetail.totalPrice || 0).toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                })}
               </p>
             </div>
           </div>

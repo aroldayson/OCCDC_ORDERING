@@ -80,6 +80,9 @@ export async function addWeeklyProduct(
     const { error } = await supabase.from("weekly_products").insert(entry);
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-weekly-products-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "product_added", productName: product.name, category: product.category },
+    }));
   } catch (err) {
     console.error("Error adding weekly product to Supabase:", err);
   }
@@ -156,6 +159,15 @@ export async function updateWeeklyProduct(
 
     window.dispatchEvent(new Event("occdc-weekly-products-updated"));
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    if (data.price !== undefined) {
+      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+        detail: { type: "pricing_updated", productId: id, newPrice: data.price },
+      }));
+    } else {
+      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+        detail: { type: "product_updated", productId: id },
+      }));
+    }
   } catch (err) {
     console.error("Error updating weekly product in Supabase:", err);
   }
@@ -171,7 +183,51 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
       .eq("week_label", activeWeek);
 
     if (error) throw error;
+
+    // Mark all order items referencing this product as deleted, then cancel the order
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("id, items, total_price, status");
+
+    if (orders) {
+      for (const order of orders) {
+        const items = order.items as Array<{
+          productId: string;
+          price?: number;
+          qty: number;
+          deleted?: boolean;
+          [key: string]: unknown;
+        }> | null;
+        if (!Array.isArray(items)) continue;
+
+        const hasProduct = items.some((it) => it.productId === id);
+        if (!hasProduct) continue;
+
+        // Only mark the specific deleted product as deleted — leave order status and other items unchanged
+        const updatedItems = items.map((it) =>
+          it.productId === id ? { ...it, deleted: true, price: 0 } : it
+        );
+        const totalPrice = updatedItems.reduce(
+          (sum, it) => sum + (it.qty || 0) * (it.deleted ? 0 : (it.price ?? 0)),
+          0
+        );
+
+        await supabase
+          .from("orders")
+          .update({
+            items: updatedItems,
+            total_price: totalPrice,
+            // Keep the existing order status — do NOT cancel the order
+          })
+          .eq("id", order.id);
+      }
+    }
+
     window.dispatchEvent(new Event("occdc-weekly-products-updated"));
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      detail: { type: "product_removed", productId: id },
+    }));
   } catch (err) {
     console.error("Error removing weekly product in Supabase:", err);
   }

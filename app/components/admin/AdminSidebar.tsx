@@ -14,8 +14,15 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { SidebarToggleButton } from "./SidebarToggle";
+import type { WeeklyOrderRecord } from "../order/types";
 
-export type AdminView = "overview" | "place-order" | "orders" | "products" | "other-order" | string;
+export type AdminView =
+  | "overview"
+  | "place-order"
+  | "orders"
+  | "products"
+  | "other-order"
+  | string;
 
 const navItems: {
   id: AdminView;
@@ -24,12 +31,33 @@ const navItems: {
   adminOnly?: boolean;
   clientOnly?: boolean;
 }[] = [
-  { id: "overview", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
-  { id: "place-order", icon: ShoppingBag, label: "Weekly Order", clientOnly: true },
+  {
+    id: "overview",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    adminOnly: true,
+  },
+  {
+    id: "place-order",
+    icon: ShoppingBag,
+    label: "Weekly Order",
+    clientOnly: true,
+  },
   { id: "other-order", icon: FileText, label: "Other Order", adminOnly: true },
-  { id: "orders", icon: ClipboardList, label: "Order Summary", clientOnly: true },
+  {
+    id: "orders",
+    icon: ClipboardList,
+    label: "Order Summary",
+    clientOnly: true,
+  },
+  { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "products", icon: Package, label: "Product", adminOnly: true },
-  { id: "delivery-fees", icon: ClipboardList, label: "Delivery Fees", adminOnly: true },
+  {
+    id: "delivery-fees",
+    icon: ClipboardList,
+    label: "Delivery Fees",
+    adminOnly: true,
+  },
 ];
 
 type AdminSidebarProps = {
@@ -40,6 +68,8 @@ type AdminSidebarProps = {
   onMobileClose: () => void;
   onToggleSidebar: () => void;
   isAdmin?: boolean;
+  orders?: WeeklyOrderRecord[];
+  readOrderIds?: string[];
 };
 
 function SidebarInner({
@@ -48,12 +78,16 @@ function SidebarInner({
   onNavigate,
   onToggleSidebar,
   isAdmin = true,
+  orders = [],
+  readOrderIds = [],
 }: {
   activeView: AdminView;
   onViewChange: (view: AdminView) => void;
   onNavigate?: () => void;
   onToggleSidebar?: () => void;
   isAdmin?: boolean;
+  orders?: WeeklyOrderRecord[];
+  readOrderIds?: string[];
 }) {
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -80,12 +114,23 @@ function SidebarInner({
 
   const getSupplierNavItems = () => {
     const list = [
-      { id: "overview", icon: LayoutDashboard, label: "Dashboard" }
+      { id: "overview", icon: LayoutDashboard, label: "Dashboard" },
+      { id: "notifications", icon: Bell, label: "Notifications" },
     ];
 
-    const cats = user?.categories && user.categories.length > 0
-      ? user.categories
-      : ["vegetables", "fruits", "fish", "egg", "meat", "groceries", "rice", "other_order"];
+    const cats =
+      user?.categories && user.categories.length > 0
+        ? user.categories
+        : [
+            "vegetables",
+            "fruits",
+            "fish",
+            "egg",
+            "meat",
+            "groceries",
+            "rice",
+            "other_order",
+          ];
 
     const labels: Record<string, string> = {
       vegetables: "Vegetables Orders",
@@ -100,7 +145,7 @@ function SidebarInner({
 
     cats.forEach((cat) => {
       const id = cat === "other_order" ? "other-order" : `other-order-${cat}`;
-      if (!list.some(item => item.id === id)) {
+      if (!list.some((item) => item.id === id)) {
         list.push({
           id,
           icon: FileText,
@@ -117,6 +162,32 @@ function SidebarInner({
     ? getSupplierNavItems()
     : navItems.filter((item) => !item.adminOnly);
 
+  const getPendingCountForId = (id: string) => {
+    if (id === "notifications") {
+      return orders.filter(
+        (o) => o.status === "pending" && !readOrderIds.includes(o.id),
+      ).length;
+    }
+    if (id.startsWith("other-order-")) {
+      const cat = id.replace("other-order-", "");
+      return orders.filter(
+        (o) =>
+          o.clientRole === cat &&
+          o.status === "pending" &&
+          !readOrderIds.includes(o.id),
+      ).length;
+    }
+    if (id === "other-order") {
+      return orders.filter(
+        (o) =>
+          o.clientRole === "other_order" &&
+          o.status === "pending" &&
+          !readOrderIds.includes(o.id),
+      ).length;
+    }
+    return 0;
+  };
+
   return (
     <>
       <div className="flex items-center justify-between px-4 pb-4 pt-5">
@@ -128,7 +199,9 @@ function SidebarInner({
             <p className="text-xs font-bold uppercase tracking-wide text-white">
               Olongapo City
             </p>
-            <p className="text-sm font-medium text-[#82caff]/80">Cooperative Council</p>
+            <p className="text-sm font-medium text-[#82caff]/80">
+              Cooperative Council
+            </p>
           </div>
         </div>
         {onToggleSidebar && (
@@ -168,7 +241,12 @@ function SidebarInner({
                     className={`h-4 w-4 shrink-0 ${isActive ? "text-sidebar-active-text" : "text-white/90"}`}
                     strokeWidth={2}
                   />
-                  {item.label}
+                  <span>{item.label}</span>
+                  {getPendingCountForId(item.id) > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white ring-2 ring-white/10 animate-pulse">
+                      {getPendingCountForId(item.id)}
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -225,6 +303,8 @@ export default function AdminSidebar({
   onMobileClose,
   onToggleSidebar,
   isAdmin = true,
+  orders = [],
+  readOrderIds = [],
 }: AdminSidebarProps) {
   return (
     <>
@@ -239,13 +319,17 @@ export default function AdminSidebar({
             onViewChange={onViewChange}
             onToggleSidebar={onToggleSidebar}
             isAdmin={isAdmin}
+            orders={orders}
+            readOrderIds={readOrderIds}
           />
         </aside>
       </div>
 
       <div
         className={`fixed inset-0 z-50 bg-[#050a18]/80 lg:hidden transition-opacity duration-300 ${
-          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          mobileOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         }`}
       >
         <div className="absolute inset-0" onClick={onMobileClose} />
@@ -266,6 +350,8 @@ export default function AdminSidebar({
             onViewChange={onViewChange}
             onNavigate={onMobileClose}
             isAdmin={isAdmin}
+            orders={orders}
+            readOrderIds={readOrderIds}
           />
         </aside>
       </div>

@@ -28,7 +28,15 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(loading);
 
-  const availableCategories = ["fruits", "vegetables", "egg", "meat", "fish", "groceries", "rice"];
+  const availableCategories = [
+    "fruits",
+    "vegetables",
+    "egg",
+    "meat",
+    "fish",
+    "groceries",
+    "rice",
+  ];
 
   useEffect(() => {
     getClients().then(setSchools);
@@ -61,6 +69,11 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       return;
     }
 
+    if (role === "client" && !schoolAddress.trim()) {
+      setError("Please enter your school address");
+      return;
+    }
+
     if (role === "admin" && selectedCategories.length === 0) {
       setError("Please select at least one product category you supply");
       return;
@@ -72,13 +85,23 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       if (role === "admin") {
         await onSubmit(email, password, role, undefined, selectedCategories);
       } else {
-        await onSubmit(email, password, role, schoolName.trim(), undefined, schoolAddress.trim());
+        await onSubmit(
+          email,
+          password,
+          role,
+          schoolName.trim(),
+          undefined,
+          schoolAddress.trim(),
+        );
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to sign up";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to sign up";
 
       if (errorMessage === "verification_required") {
-        setError("🎉 Success! Please check your Gmail account to verify your email address before signing in.");
+        setError(
+          "🎉 Success! Please check your Gmail account to verify your email address before signing in.",
+        );
         // We leave isLoading as false so they can read the message, or they can navigate to login.
       } else if (
         errorMessage.includes("rate limit") ||
@@ -108,21 +131,28 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className={`rounded-xl border px-4 py-3 text-sm space-y-1 ${error.includes('Success!') ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-600'}`}>
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm space-y-1 ${error.includes("Success!") ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600"}`}
+        >
           <p>{error}</p>
-          {(error.includes("Too many signup attempts") || error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("rate_limit")) && (
+          {(error.includes("Too many signup attempts") ||
+            error.toLowerCase().includes("rate limit") ||
+            error.toLowerCase().includes("rate_limit")) && (
             <p className="mt-1.5 text-xs text-red-500 font-medium">
-              💡 <strong>Developer Tip:</strong> Supabase has a default limit of 3 signups per hour. To increase/disable this, go to your <strong>Supabase Dashboard &gt; Project Settings &gt; Auth</strong>, scroll down to <strong>Rate Limits</strong>, and increase the <strong>Signups (per hour)</strong> configuration.
+              💡 <strong>Developer Tip:</strong> Supabase has a default limit of
+              3 signups per hour. To increase/disable this, go to your{" "}
+              <strong>
+                Supabase Dashboard &gt; Project Settings &gt; Auth
+              </strong>
+              , scroll down to <strong>Rate Limits</strong>, and increase the{" "}
+              <strong>Signups (per hour)</strong> configuration.
             </p>
           )}
         </div>
       )}
 
       <div className="space-y-1.5">
-        <label
-          htmlFor="email"
-          className="text-sm font-semibold text-slate-700"
-        >
+        <label htmlFor="email" className="text-sm font-semibold text-slate-700">
           Email
         </label>
         <input
@@ -138,10 +168,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <label
-          htmlFor="role"
-          className="text-sm font-semibold text-slate-700"
-        >
+        <label htmlFor="role" className="text-sm font-semibold text-slate-700">
           Account Type
         </label>
         <select
@@ -179,9 +206,14 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
                     disabled={isLoading}
                     onChange={() => {
                       if (isChecked) {
-                        setSelectedCategories(selectedCategories.filter((c) => c !== category));
+                        setSelectedCategories(
+                          selectedCategories.filter((c) => c !== category),
+                        );
                       } else {
-                        setSelectedCategories([...selectedCategories, category]);
+                        setSelectedCategories([
+                          ...selectedCategories,
+                          category,
+                        ]);
                       }
                     }}
                     className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"

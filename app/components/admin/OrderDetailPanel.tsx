@@ -5,7 +5,13 @@ import { printOrderForm } from "./printOrder";
 import { useAuth } from "@/app/providers/AuthProvider";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 
-const statusOptions: OrderStatus[] = ["pending", "accepted", "processing", "completed", "cancelled"];
+const statusOptions: OrderStatus[] = [
+  "pending",
+  "accepted",
+  "processing",
+  "completed",
+  "cancelled",
+];
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -46,7 +52,7 @@ export default function OrderDetailPanel({
   useEffect(() => {
     if (order?.clientName) {
       import("../order/clientStorage").then(({ resolveClientBySchoolName }) => {
-        resolveClientBySchoolName(order.clientName).then(record => {
+        resolveClientBySchoolName(order.clientName).then((record) => {
           setClientRecord(record);
           setTempDeliveryPrice((record.delivery_price || 0).toString());
         });
@@ -65,11 +71,13 @@ export default function OrderDetailPanel({
   async function handleSaveDeliveryPrice() {
     if (!clientRecord) return;
     const price = parseFloat(tempDeliveryPrice) || 0;
-    import("../order/clientStorage").then(async ({ updateClientDeliveryPrice }) => {
-      await updateClientDeliveryPrice(clientRecord.id, price);
-      setClientRecord({ ...clientRecord, delivery_price: price });
-      setIsEditingDelivery(false);
-    });
+    import("../order/clientStorage").then(
+      async ({ updateClientDeliveryPrice }) => {
+        await updateClientDeliveryPrice(clientRecord.id, price);
+        setClientRecord({ ...clientRecord, delivery_price: price });
+        setIsEditingDelivery(false);
+      },
+    );
   }
 
   const grouped = order.items.reduce<Record<string, typeof order.items>>(
@@ -98,7 +106,9 @@ export default function OrderDetailPanel({
             </p>
             {clientRecord && isAdmin && (
               <div className="mt-2 flex items-center gap-2 text-xs">
-                <span className="font-medium text-slate-600">Delivery Price:</span>
+                <span className="font-medium text-slate-600">
+                  Delivery Price:
+                </span>
                 {isEditingDelivery ? (
                   <div className="flex items-center gap-1">
                     <span className="text-slate-400">₱</span>
@@ -117,7 +127,9 @@ export default function OrderDetailPanel({
                     <button
                       onClick={() => {
                         setIsEditingDelivery(false);
-                        setTempDeliveryPrice((clientRecord.delivery_price || 0).toString());
+                        setTempDeliveryPrice(
+                          (clientRecord.delivery_price || 0).toString(),
+                        );
                       }}
                       className="rounded bg-slate-100 px-2 py-1 text-slate-600 hover:bg-slate-200"
                     >
@@ -142,21 +154,21 @@ export default function OrderDetailPanel({
           </div>
           <div className="flex gap-1 shrink-0 sm:gap-2">
             <button
-              onClick={() => { }}
+              onClick={() => {}}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
               title="View order"
             >
               <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
-              onClick={() => { }}
+              onClick={() => {}}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
               title="Edit order"
             >
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <button
-              onClick={() => { }}
+              onClick={() => {}}
               className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition sm:p-1.5"
               title="Delete order"
             >
@@ -203,12 +215,13 @@ export default function OrderDetailPanel({
               key={s}
               disabled={!isAdmin}
               onClick={() => handleStatusChange(s)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${order.status === s
-                ? statusStyles[s]
-                : isAdmin
-                  ? "border-slate-200 text-slate-500 hover:border-slate-300"
-                  : "border-slate-100 text-slate-300 opacity-40"
-                }`}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${
+                order.status === s
+                  ? statusStyles[s]
+                  : isAdmin
+                    ? "border-slate-200 text-slate-500 hover:border-slate-300"
+                    : "border-slate-100 text-slate-300 opacity-40"
+              }`}
             >
               {s}
             </button>
@@ -218,9 +231,15 @@ export default function OrderDetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 flex justify-between items-center">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Grand Total:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Grand Total:
+          </span>
           <span className="text-base font-extrabold text-emerald-700">
-            ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ₱
+            {(order.totalPrice || 0).toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </span>
         </div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -232,29 +251,68 @@ export default function OrderDetailPanel({
               {category}
             </p>
             <ul className="space-y-2">
-              {items.map((item) => (
-                <li
-                  key={item.productId}
-                  className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2.5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800">
-                      {item.name}
-                    </p>
-                    <p className="text-xs text-slate-500 font-semibold">
-                      ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })} / {item.unit}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-bold text-blue-700 block">
-                      {item.qty} {item.unit}
-                    </span>
-                    <span className="text-xs font-bold text-emerald-700">
-                      ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </li>
-              ))}
+              {items.map((item) => {
+                const isDeleted = item.deleted === true;
+                const isUnpriced =
+                  !isDeleted && (!item.price || item.price === 0);
+                return (
+                  <li
+                    key={item.productId}
+                    className={`flex items-start justify-between gap-2 rounded-xl px-3 py-2.5 ${isDeleted ? "bg-red-50/40" : "bg-slate-50"}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p
+                          className={`text-sm font-medium ${
+                            isDeleted
+                              ? "text-red-600 line-through decoration-red-500 decoration-2"
+                              : isUnpriced
+                                ? "text-blue-600 underline decoration-blue-500 decoration-2"
+                                : "text-slate-800"
+                          }`}
+                        >
+                          {item.name}
+                        </p>
+                        {isDeleted && (
+                          <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
+                            Deleted
+                          </span>
+                        )}
+                        {isUnpriced && (
+                          <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
+                            No Price
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`text-xs font-semibold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-400" : "text-slate-500"}`}
+                      >
+                        ₱
+                        {(item.price || 0).toLocaleString("en-PH", {
+                          minimumFractionDigits: 2,
+                        })}{" "}
+                        / {item.unit}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`text-sm font-bold block ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-500" : "text-blue-700"}`}
+                      >
+                        {item.qty} {item.unit}
+                      </span>
+                      <span
+                        className={`text-xs font-bold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : "text-emerald-700"}`}
+                      >
+                        ₱
+                        {((item.qty || 0) * (item.price || 0)).toLocaleString(
+                          "en-PH",
+                          { minimumFractionDigits: 2 },
+                        )}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

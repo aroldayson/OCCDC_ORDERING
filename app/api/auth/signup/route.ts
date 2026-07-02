@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { email, password, role, schoolName, categories } = await request.json();
+    const { email, password, role, schoolName, categories, schoolAddress } = await request.json();
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       user_metadata: {
         role,
         schoolName,
+        schoolAddress,
       },
     });
 
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
         email,
         role,
         school_name: schoolName || null,
+        school_address: schoolAddress || null,
         categories: categories || null,
         updated_at: new Date().toISOString(),
       },
@@ -57,6 +59,26 @@ export async function POST(request: Request) {
 
     if (profileError) {
       console.error("Profile upsert error in API:", profileError);
+    }
+
+    // If client role with school name and address, update the schools table server-side
+    // (bypasses RLS since we're using the service role key)
+    if (role === "client" && schoolName && schoolAddress) {
+      const { data: schools } = await supabase
+        .from("schools")
+        .select("id, address")
+        .ilike("name", schoolName.trim())
+        .limit(1);
+
+      if (schools && schools.length > 0) {
+        const school = schools[0];
+        if (school.address !== schoolAddress.trim()) {
+          await supabase
+            .from("schools")
+            .update({ address: schoolAddress.trim() })
+            .eq("id", school.id);
+        }
+      }
     }
 
     return NextResponse.json({ success: true, userId: authData.user.id });

@@ -7,6 +7,7 @@ export type OrderItem = {
   unit: string;
   price: number;
   category: string;
+  deleted?: true;
 };
 
 export type OrderStatus = "pending" | "accepted" | "processing" | "completed" | "cancelled";

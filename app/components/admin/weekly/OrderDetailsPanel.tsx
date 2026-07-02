@@ -11,13 +11,19 @@ import {
   Printer,
   Trash2,
   User,
+  Check,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { deleteOrder, updateOrder } from "../../order/orderStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import { printOrderForm } from "../printOrder";
 import type { OrderRole } from "../../order/roles";
-import type { OrderStatus, OrderItem, WeeklyOrderRecord } from "../../order/types";
+import type {
+  OrderStatus,
+  OrderItem,
+  WeeklyOrderRecord,
+} from "../../order/types";
 import { formatOrderDate, getCategoryDisplayFromItem } from "./utils";
 import AddOrderItemModal from "./AddOrderItemModal";
 
@@ -79,15 +85,72 @@ function CategorySummary({
 }
 
 function OrderItemsTable({
-  items,
+  order,
   expanded,
   onToggleAll,
+  onUpdated,
 }: {
-  items: OrderItem[];
+  order: WeeklyOrderRecord;
   expanded: boolean;
   onToggleAll: () => void;
+  onUpdated: () => void;
 }) {
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+
+  const items = order.items;
   const shown = expanded ? items : items.slice(0, PREVIEW_COUNT);
+
+  async function handleUpdateQty(productId: string, newQty: number) {
+    if (newQty <= 0) {
+      alert(
+        "Quantity must be greater than zero. If you want to remove this item, click the delete button.",
+      );
+      return;
+    }
+    const updatedItems = order.items.map((item) =>
+      item.productId === productId ? { ...item, qty: newQty } : item,
+    );
+    const updatedTotalPrice = updatedItems.reduce(
+      (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+      0,
+    );
+    const updatedOrder = {
+      ...order,
+      items: updatedItems,
+      itemCount: updatedItems.length,
+      totalPrice: updatedTotalPrice,
+    };
+    await updateOrder(updatedOrder);
+    onUpdated();
+  }
+
+  async function handleDeleteItem(productId: string) {
+    if (order.items.length <= 1) {
+      alert(
+        "An order must have at least one item. To delete the entire order, use the delete order button at the top-right of the order card.",
+      );
+      return;
+    }
+    if (!confirm("Are you sure you want to remove this item from the order?")) {
+      return;
+    }
+    const updatedItems = order.items.filter(
+      (item) => item.productId !== productId,
+    );
+    const updatedTotalPrice = updatedItems.reduce(
+      (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+      0,
+    );
+    const updatedOrder = {
+      ...order,
+      items: updatedItems,
+      itemCount: updatedItems.length,
+      totalPrice: updatedTotalPrice,
+    };
+    await updateOrder(updatedOrder);
+    onUpdated();
+  }
 
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-slate-100">
@@ -97,7 +160,7 @@ function OrderItemsTable({
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
+        <table className="w-full min-w-[620px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <th className="px-4 py-2.5">Product</th>
@@ -106,32 +169,134 @@ function OrderItemsTable({
               <th className="px-4 py-2.5">Unit</th>
               <th className="px-4 py-2.5 text-right">Price</th>
               <th className="px-4 py-2.5 text-right">Subtotal</th>
+              <th className="px-4 py-2.5 text-center w-24">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {shown.map((item) => (
-              <tr
-                key={item.productId}
-                className="border-b border-slate-50 last:border-0"
-              >
-                <td className="px-4 py-2.5">
-                  <p className="font-medium text-slate-800">{item.name}</p>
-                </td>
-                <td className="px-4 py-2.5 text-slate-600">
-                  {getCategoryDisplayFromItem(item)}
-                </td>
-                <td className="px-4 py-2.5 font-medium text-slate-800">
-                  {item.qty}
-                </td>
-                <td className="px-4 py-2.5 text-slate-600">{item.unit}</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-slate-700">
-                  ₱{(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-4 py-2.5 text-right font-bold text-emerald-700">
-                  ₱{((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                </td>
-              </tr>
-            ))}
+            {shown.map((item) => {
+              const isEditing = editingProductId === item.productId;
+              const isDeleted = item.deleted === true;
+              const isUnpriced =
+                !isDeleted && (!item.price || item.price === 0);
+              return (
+                <tr
+                  key={item.productId}
+                  className={`border-b border-slate-50 last:border-0 ${isDeleted ? "bg-red-50/30" : ""}`}
+                >
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <p
+                        className={`font-medium ${
+                          isDeleted
+                            ? "text-red-600 line-through decoration-red-500 decoration-2"
+                            : isUnpriced
+                              ? "text-blue-600 underline decoration-blue-500 decoration-2"
+                              : "text-slate-800"
+                        }`}
+                      >
+                        {item.name}
+                      </p>
+                      {isDeleted && (
+                        <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
+                          Deleted
+                        </span>
+                      )}
+                      {isUnpriced && (
+                        <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
+                          No Price
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-600">
+                    {getCategoryDisplayFromItem(item)}
+                  </td>
+                  <td
+                    className={`px-4 py-2.5 font-medium ${isDeleted || isUnpriced ? "text-slate-400" : "text-slate-800"}`}
+                  >
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editQty}
+                        onChange={(e) =>
+                          setEditQty(parseFloat(e.target.value) || 0)
+                        }
+                        step="any"
+                        min="0.01"
+                        className="w-20 rounded border border-slate-300 px-1.5 py-0.5 text-sm font-medium text-slate-800 focus:border-blue-500 focus:outline-none"
+                      />
+                    ) : (
+                      item.qty
+                    )}
+                  </td>
+                  <td
+                    className={`px-4 py-2.5 ${isDeleted || isUnpriced ? "text-slate-400" : "text-slate-600"}`}
+                  >
+                    {item.unit}
+                  </td>
+                  <td
+                    className={`px-4 py-2.5 text-right font-semibold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-500" : "text-slate-700"}`}
+                  >
+                    ₱
+                    {(item.price || 0).toLocaleString("en-PH", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td
+                    className={`px-4 py-2.5 text-right font-bold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : "text-emerald-700"}`}
+                  >
+                    ₱
+                    {((item.qty || 0) * (item.price || 0)).toLocaleString(
+                      "en-PH",
+                      { minimumFractionDigits: 2 },
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {isEditing ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => {
+                            handleUpdateQty(item.productId, editQty);
+                            setEditingProductId(null);
+                          }}
+                          className="rounded p-1 text-emerald-600 hover:bg-emerald-50 transition"
+                          title="Save quantity"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingProductId(null)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 transition"
+                          title="Cancel editing"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingProductId(item.productId);
+                            setEditQty(item.qty);
+                          }}
+                          className="rounded p-1 text-blue-600 hover:bg-blue-50 transition"
+                          title="Edit quantity"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.productId)}
+                          className="rounded p-1 text-red-500 hover:bg-red-50 transition"
+                          title="Delete item"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -173,7 +338,13 @@ function OrderAccordion({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div
+      className={`overflow-hidden rounded-xl border bg-white ${
+        order.status === "cancelled"
+          ? "border-red-200 bg-red-50/20"
+          : "border-slate-200"
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
         <button
           type="button"
@@ -183,20 +354,37 @@ function OrderAccordion({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}
+                >
                   {orderRoleLabels[order.clientRole] || order.clientRole}
                 </span>
-                <span className="font-semibold text-slate-800">
+                <span
+                  className={`font-semibold ${order.status === "cancelled" ? "text-red-600 underline decoration-red-500 decoration-2" : "text-slate-800"}`}
+                >
                   Order ID: {order.id}
                 </span>
               </span>
               <span className="text-slate-500">
                 Order Date: {formatOrderDate(order.createdAt)}
               </span>
-              <span className="text-slate-500">Items: {order.itemCount}</span>
-              <span className="font-semibold text-emerald-700">
-                Total: ₱{(order.totalPrice || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-slate-500">
+                Items: {order.items.length}
               </span>
+              <span
+                className={`font-semibold ${order.items.some((i) => !i.price || i.price === 0) ? "text-amber-600" : "text-emerald-700"}`}
+              >
+                Total: ₱
+                {(order.totalPrice || 0).toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              {order.items.some((i) => !i.price || i.price === 0) && (
+                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  ⏳ Waiting for supplier pricing
+                </span>
+              )}
             </div>
           </div>
           <span
@@ -253,9 +441,10 @@ function OrderAccordion({
       {open && (
         <div className="border-t border-slate-100 px-4 pb-4 sm:px-5">
           <OrderItemsTable
-            items={order.items}
+            order={order}
             expanded={itemsExpanded}
             onToggleAll={() => setItemsExpanded((v) => !v)}
+            onUpdated={onUpdated}
           />
         </div>
       )}
@@ -288,7 +477,9 @@ export default function OrderDetailsPanel({
   onBack,
   weekLabel,
 }: OrderDetailsPanelProps) {
-  const [addItemCategory, setAddItemCategory] = useState<OrderRole | null>(null);
+  const [addItemCategory, setAddItemCategory] = useState<OrderRole | null>(
+    null,
+  );
 
   if (!clientName) {
     return (
@@ -298,12 +489,22 @@ export default function OrderDetailsPanel({
     );
   }
 
-  async function handleAddItem(productName: string, qty: number, unit: string, price: number, orderId: string) {
+  async function handleAddItem(
+    productName: string,
+    qty: number,
+    unit: string,
+    price: number,
+    orderId: string,
+  ) {
     if (!addItemCategory) return;
     const catOrder = orders.find((o) => o.id === orderId);
     if (!catOrder) return;
 
-    const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "item";
+    const slug =
+      productName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || "item";
     const productId = `${addItemCategory}-${slug}-${Date.now()}`;
 
     const newItem: OrderItem = {
@@ -316,7 +517,10 @@ export default function OrderDetailsPanel({
     };
 
     const updatedItems = [...catOrder.items, newItem];
-    const totalPrice = updatedItems.reduce((sum, it) => sum + (it.qty * it.price), 0);
+    const totalPrice = updatedItems.reduce(
+      (sum, it) => sum + it.qty * it.price,
+      0,
+    );
     const updatedOrder = {
       ...catOrder,
       items: updatedItems,
@@ -386,13 +590,20 @@ export default function OrderDetailsPanel({
           </p>
         ) : (
           <>
-            <CategorySummary orders={orders} categories={categories} onAddItem={setAddItemCategory} />
+            <CategorySummary
+              orders={orders}
+              categories={categories}
+              onAddItem={setAddItemCategory}
+            />
             <div className="space-y-3">
               {orders.map((order) => (
                 <OrderAccordion
                   key={order.id + "-" + categoryFilter}
                   order={order}
-                  defaultOpen={categoryFilter !== "all" && order.clientRole === categoryFilter}
+                  defaultOpen={
+                    categoryFilter !== "all" &&
+                    order.clientRole === categoryFilter
+                  }
                   onUpdated={onUpdated}
                   onView={onViewOrder}
                 />
@@ -408,7 +619,7 @@ export default function OrderDetailsPanel({
           open={addItemCategory !== null}
           category={addItemCategory}
           weekLabel={weekLabel}
-          orders={orders.filter(o => o.clientRole === addItemCategory)}
+          orders={orders.filter((o) => o.clientRole === addItemCategory)}
           onClose={() => setAddItemCategory(null)}
           onAdd={handleAddItem}
         />
