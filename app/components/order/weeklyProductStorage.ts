@@ -118,13 +118,31 @@ export async function updateWeeklyProduct(
   if (data.category !== undefined) payload.category = data.category;
 
   try {
-    const { error } = await supabase
+    const { data: updatedData, error } = await supabase
       .from("weekly_products")
       .update(payload)
       .eq("id", id)
-      .eq("week_label", activeWeek);
+      .eq("week_label", activeWeek)
+      .select();
 
     if (error) throw error;
+
+    if (!updatedData || updatedData.length === 0) {
+      // Row did not exist in weekly_products, let's insert it
+      const insertPayload = {
+        id,
+        week_label: activeWeek,
+        name: data.name ?? "Custom Product",
+        default_qty: data.defaultQty ?? 1,
+        unit: data.unit ?? "pc",
+        category: data.category ?? "vegetables",
+        price: data.price ?? 0,
+      };
+      const { error: insError } = await supabase
+        .from("weekly_products")
+        .insert(insertPayload);
+      if (insError) throw insError;
+    }
 
     // If price changed, cascade to all existing orders that contain this product
     if (data.price !== undefined) {
@@ -203,7 +221,7 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
         const hasProduct = items.some((it) => it.productId === id);
         if (!hasProduct) continue;
 
-        // Only mark the specific deleted product as deleted — leave order status and other items unchanged
+        // Only mark the specific deleted product as deleted
         const updatedItems = items.map((it) =>
           it.productId === id ? { ...it, deleted: true, price: 0 } : it
         );
@@ -212,12 +230,17 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
           0
         );
 
+        const activeItems = updatedItems.filter(
+          (it) => !it.deleted && !it.productId.startsWith("delivery-fee-")
+        );
+        const newStatus = activeItems.length === 0 ? "cancelled" : order.status;
+
         await supabase
           .from("orders")
           .update({
             items: updatedItems,
             total_price: totalPrice,
-            // Keep the existing order status — do NOT cancel the order
+            status: newStatus,
           })
           .eq("id", order.id);
       }
