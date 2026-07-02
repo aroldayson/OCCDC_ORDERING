@@ -154,8 +154,25 @@ export default function ProductCatalogManager({
     if (orders) {
       const weekOrders = filterOrdersForWeek(orders, selectedWeek.weekLabel);
       for (const order of weekOrders) {
+        if (order.status === "cancelled") continue;
         for (const item of order.items) {
-          const product = allowedProducts.find((p) => p.id === item.productId);
+          if (item.deleted || item.productId.startsWith("delivery-fee-")) continue;
+
+          let product = allowedProducts.find((p) => p.id === item.productId);
+          if (!product) {
+            const isAllowed = isCategoryAllowed(item.category || order.clientRole, user?.categories);
+            if (isAllowed) {
+              product = {
+                id: item.productId,
+                name: item.name,
+                defaultQty: item.qty,
+                unit: item.unit || "pc",
+                price: item.price || 0,
+                category: (item.category || order.clientRole) as WeeklyProduct["category"],
+              };
+            }
+          }
+
           if (product) {
             list.push({
               id: `${product.id}-${order.id}`,
@@ -189,7 +206,7 @@ export default function ProductCatalogManager({
       return a.product.name.localeCompare(b.product.name);
     });
     return list;
-  }, [allowedProducts, orders, selectedWeek.weekLabel]);
+  }, [allowedProducts, orders, selectedWeek.weekLabel, user]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

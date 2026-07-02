@@ -126,26 +126,32 @@ function OrderItemsTable({
   }
 
   async function handleDeleteItem(productId: string) {
-    if (order.items.length <= 1) {
-      alert(
-        "An order must have at least one item. To delete the entire order, use the delete order button at the top-right of the order card.",
-      );
-      return;
-    }
-    if (!confirm("Are you sure you want to remove this item from the order?")) {
-      return;
-    }
-    const updatedItems = order.items.filter(
-      (item) => item.productId !== productId,
+    const remainingItems = order.items.filter(
+      (item) => item.productId !== productId
     );
-    const updatedTotalPrice = updatedItems.reduce(
+    const activeItems = remainingItems.filter(
+      (item) => !item.deleted && !item.productId.startsWith("delivery-fee-")
+    );
+
+    const willCancelOrder = activeItems.length === 0;
+    const confirmMessage = willCancelOrder
+      ? "Are you sure you want to remove this item from the order? Since this is the last item, the order will be automatically cancelled."
+      : "Are you sure you want to remove this item from the order?";
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    const updatedTotalPrice = remainingItems.reduce(
       (sum, item) => sum + (item.qty || 0) * (item.price || 0),
-      0,
+      0
     );
+
     const updatedOrder = {
       ...order,
-      items: updatedItems,
-      itemCount: updatedItems.length,
+      status: willCancelOrder ? "cancelled" : order.status,
+      items: remainingItems,
+      itemCount: remainingItems.length,
       totalPrice: updatedTotalPrice,
     };
     await updateOrder(updatedOrder);
