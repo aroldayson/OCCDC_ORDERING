@@ -20,7 +20,11 @@ import {
 import type { WeeklyProduct } from "../order/products";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
 import WeekSelector from "./weekly/WeekSelector";
-import { getWeekInfo, type WeekOffset } from "../order/weekUtils";
+import {
+  getWeekOptions,
+  getJuneAugustWeeks,
+  getCurrentPeriodWeek,
+} from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
 import { supabase } from "@/lib/supabase";
@@ -69,7 +73,12 @@ export default function ProductCatalogManager({
   orders?: WeeklyOrderRecord[];
 }) {
   const { user } = useAuth();
-  const [weekOffset, setWeekOffset] = useState<WeekOffset>(0);
+  const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(() => {
+    const periodWeek = getCurrentPeriodWeek();
+    if (periodWeek !== null)
+      return getJuneAugustWeeks()[periodWeek - 1].weekLabel;
+    return getWeekOptions()[0].weekLabel;
+  });
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -96,23 +105,21 @@ export default function ProductCatalogManager({
       )
     ) {
       for (const id of selectedIds) {
-        await removeWeeklyProduct(id, selectedWeek?.weekLabel);
+        await removeWeeklyProduct(id, selectedWeekLabel);
       }
       setSelectedIds(new Set());
     }
   };
 
-  const selectedWeek = useMemo(() => getWeekInfo(weekOffset), [weekOffset]);
-
   const hasCompletedOrders = useMemo(() => {
     if (!orders) return false;
-    const weekOrders = filterOrdersForWeek(orders, selectedWeek.weekLabel);
+    const weekOrders = filterOrdersForWeek(orders, selectedWeekLabel);
     return weekOrders.some((o) => o.status === "completed");
-  }, [orders, selectedWeek.weekLabel]);
+  }, [orders, selectedWeekLabel]);
 
   const loadProducts = useCallback(() => {
-    getWeeklyProducts(selectedWeek.weekLabel).then(setProducts);
-  }, [selectedWeek.weekLabel]);
+    getWeeklyProducts(selectedWeekLabel).then(setProducts);
+  }, [selectedWeekLabel]);
 
   useEffect(() => {
     loadProducts();
@@ -152,15 +159,19 @@ export default function ProductCatalogManager({
     const productsWithOrders = new Set<string>();
 
     if (orders) {
-      const weekOrders = filterOrdersForWeek(orders, selectedWeek.weekLabel);
+      const weekOrders = filterOrdersForWeek(orders, selectedWeekLabel);
       for (const order of weekOrders) {
         if (order.status === "cancelled") continue;
         for (const item of order.items) {
-          if (item.deleted || item.productId.startsWith("delivery-fee-")) continue;
+          if (item.deleted || item.productId.startsWith("delivery-fee-"))
+            continue;
 
           let product = allowedProducts.find((p) => p.id === item.productId);
           if (!product) {
-            const isAllowed = isCategoryAllowed(item.category || order.clientRole, user?.categories);
+            const isAllowed = isCategoryAllowed(
+              item.category || order.clientRole,
+              user?.categories,
+            );
             if (isAllowed) {
               product = {
                 id: item.productId,
@@ -168,7 +179,8 @@ export default function ProductCatalogManager({
                 defaultQty: item.qty,
                 unit: item.unit || "pc",
                 price: item.price || 0,
-                category: (item.category || order.clientRole) as WeeklyProduct["category"],
+                category: (item.category ||
+                  order.clientRole) as WeeklyProduct["category"],
               };
             }
           }
@@ -206,7 +218,7 @@ export default function ProductCatalogManager({
       return a.product.name.localeCompare(b.product.name);
     });
     return list;
-  }, [allowedProducts, orders, selectedWeek.weekLabel, user]);
+  }, [allowedProducts, orders, selectedWeekLabel, user]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -257,13 +269,9 @@ export default function ProductCatalogManager({
     };
 
     if (editingItem) {
-      await updateWeeklyProduct(
-        editingItem.id,
-        payload,
-        selectedWeek.weekLabel,
-      );
+      await updateWeeklyProduct(editingItem.id, payload, selectedWeekLabel);
     } else {
-      await addWeeklyProduct(payload, selectedWeek.weekLabel);
+      await addWeeklyProduct(payload, selectedWeekLabel);
     }
     setModalOpen(false);
     setEditingItem(null);
@@ -275,14 +283,17 @@ export default function ProductCatalogManager({
         "Are you sure you want to delete this product from the weekly catalog?",
       )
     ) {
-      await removeWeeklyProduct(id, selectedWeek.weekLabel);
+      await removeWeeklyProduct(id, selectedWeekLabel);
     }
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <WeekSelector selectedOffset={weekOffset} onChange={setWeekOffset} />
+        <WeekSelector
+          selectedWeekLabel={selectedWeekLabel}
+          onChange={setSelectedWeekLabel}
+        />
         <div className="flex flex-wrap items-center gap-2">
           {selectedIds.size > 0 && (
             <button
@@ -294,7 +305,7 @@ export default function ProductCatalogManager({
             </button>
           )}
           <button
-            onClick={() => printCatalog(selectedWeek.weekLabel, filtered)}
+            onClick={() => printCatalog(selectedWeekLabel, filtered)}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 self-start sm:self-auto shadow-sm"
           >
             <Printer className="h-4 w-4" />
