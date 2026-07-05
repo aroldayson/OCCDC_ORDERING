@@ -290,6 +290,10 @@ function SidebarInner({
           <LogOut className="h-4 w-4" strokeWidth={2} />
           Logout
         </button>
+
+        <p className="text-center text-[10px] text-white/30 select-none">
+          v1.0.1 &copy; 2026 OCCDC
+        </p>
       </div>
     </>
   );

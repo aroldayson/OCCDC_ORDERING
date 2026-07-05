@@ -1344,3 +1344,71 @@ export async function downloadItemizedTallyExcel(
   const safeWeek = weekLabel.replace(/[^a-z0-9]/gi, "_");
   XLSX.writeFile(wb, `${safeTitle}_${safeWeek}_ItemizedTally.xlsx`);
 }
+
+// ─── Pricing Update Catalog: Download as Excel ───────────────────────────────
+// Mirrors the printCatalog layout: School Name | Item | Category | Default Qty | Unit | Price
+
+export async function exportCatalogExcel(
+  weekLabel: string,
+  rows: {
+    schoolName: string;
+    product: {
+      name: string;
+      category: string;
+      defaultQty: number;
+      unit: string;
+      price: number;
+    };
+    order?: { id: string; status: string };
+  }[],
+) {
+  const XLSX = await import("xlsx");
+
+  const ws: Record<string, unknown> = {};
+  let r = 0;
+
+  // ── Title block ─────────────────────────────────────────────────────────────
+  setCell(ws, r, 0, "PRICING UPDATE"); addMerge(ws, r, r, 0, 5);
+  r++;
+  setCell(ws, r, 0, "Weekly Product Catalog"); addMerge(ws, r, r, 0, 5);
+  r++;
+  r++; // blank
+
+  // ── Meta info ───────────────────────────────────────────────────────────────
+  setCell(ws, r, 0, "WEEK :"); setCell(ws, r, 1, weekLabel); addMerge(ws, r, r, 1, 3);
+  setCell(ws, r, 4, "DATE PRINTED :"); setCell(ws, r, 5, new Date().toLocaleDateString("en-PH"));
+  r++;
+  r++; // blank
+
+  // ── Table header ─────────────────────────────────────────────────────────────
+  const colHeaders = ["SCHOOL NAME", "ITEM", "CATEGORY", "DEFAULT QTY", "UNIT", "PRICE"];
+  colHeaders.forEach((h, c) => setCell(ws, r, c, h));
+  r++;
+
+  // ── Data rows ────────────────────────────────────────────────────────────────
+  rows.forEach((row) => {
+    setCell(ws, r, 0, row.schoolName === "Z_NO_ORDERS" ? "No Orders" : row.schoolName);
+    setCell(ws, r, 1, row.product.name);
+    setCell(ws, r, 2, categoryLabels[row.product.category] ?? row.product.category);
+    setCell(ws, r, 3, row.product.defaultQty, "n");
+    setCell(ws, r, 4, row.product.unit);
+    setCell(ws, r, 5, row.product.price, "n");
+    r++;
+  });
+
+  ws["!ref"] = `A1:${cellAddr(r - 1, 5)}`;
+  ws["!cols"] = [
+    { wch: 30 }, // School Name
+    { wch: 28 }, // Item
+    { wch: 14 }, // Category
+    { wch: 12 }, // Default Qty
+    { wch: 10 }, // Unit
+    { wch: 14 }, // Price
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws as Parameters<typeof XLSX.utils.book_append_sheet>[1], "Catalog");
+
+  const safeWeek = weekLabel.replace(/[^a-z0-9]/gi, "_");
+  XLSX.writeFile(wb, `PricingUpdate_${safeWeek}.xlsx`);
+}

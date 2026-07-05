@@ -625,72 +625,70 @@ export default function WeeklyOrder({
   );
 
   const leftColumnContent = (
-    <div className="flex flex-col gap-6 w-full lg:w-[380px] shrink-0 self-start">
+    <div className="flex flex-col gap-6 w-full lg:w-[380px] shrink-0">
       {leftPanel}
       {noticeCard}
     </div>
   );
 
   const rightPanel = (
-    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 space-y-4">
-      {submitted ? (
-        <div className="space-y-3">
-          <OrderSuccessBanner
-            itemCount={selectedItems.length}
-            onPlaceAnother={resetToDefault}
-          />
-          {lastOrders.map((ord) => (
-            <button
-              key={ord.id}
-              onClick={() => printOrderForm(ord)}
-              className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
-            >
-              <Printer className="h-4 w-4" />
-              Print {orderRoleLabels[ord.clientRole]} Order ({ord.id})
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div
-          className={`shrink-0 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:p-4 ${
-            embedded ? "" : "mb-6"
-          }`}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
-            Order Period
-          </p>
-          <p className="mt-1 text-lg font-bold text-blue-900 sm:text-xl">
-            {activeWeekLabel}
-          </p>
-          {readyToOrder ? (
-            <p className="mt-1 text-sm text-blue-700">
-              Ordering as <strong>{selectedClient?.name}</strong> —{" "}
-              {categoryLabel} items only
+    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 min-h-0 max-h-[85vh] lg:max-h-full overflow-hidden">
+      {/* Top: order period / success banner — shrinks to content */}
+      <div className="shrink-0 space-y-4">
+        {submitted ? (
+          <div className="space-y-3">
+            <OrderSuccessBanner
+              itemCount={selectedItems.length}
+              onPlaceAnother={resetToDefault}
+            />
+            {lastOrders.map((ord) => (
+              <button
+                key={ord.id}
+                onClick={() => printOrderForm(ord)}
+                className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
+              >
+                <Printer className="h-4 w-4" />
+                Print {orderRoleLabels[ord.clientRole]} Order ({ord.id})
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div
+            className={`shrink-0 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:p-4 ${
+              embedded ? "" : "mb-2"
+            }`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
+              Order Period
             </p>
-          ) : (
-            <p className="mt-1 text-sm text-blue-700">
-              Select a school and order category to see available items.
+            <p className="mt-1 text-lg font-bold text-blue-900 sm:text-xl">
+              {activeWeekLabel}
             </p>
-          )}
-        </div>
-      )}
+            {readyToOrder ? (
+              <p className="mt-1 text-sm text-blue-700">
+                Ordering as <strong>{selectedClient?.name}</strong> —{" "}
+                {categoryLabel} items only
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-blue-700">
+                Select a school and order category to see available items.
+              </p>
+            )}
+          </div>
+        )}
 
-      {submitted && lastOrders.length > 0 && (
-        <p className="mb-4 text-center text-sm text-slate-500">
-          Order ID:{" "}
-          <span className="font-semibold text-slate-700">
-            {lastOrders.map((o) => o.id).join(", ")}
-          </span>
-        </p>
-      )}
+        {submitted && lastOrders.length > 0 && (
+          <p className="text-center text-sm text-slate-500">
+            Order ID:{" "}
+            <span className="font-semibold text-slate-700">
+              {lastOrders.map((o) => o.id).join(", ")}
+            </span>
+          </p>
+        )}
+      </div>
 
-      <div
-        className={
-          embedded
-            ? "min-h-0 flex-1 space-y-4 overflow-y-auto py-3 pr-1 max-h-[500px]"
-            : "contents"
-        }
-      >
+      {/* Middle: scrollable items list + grand total */}
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto space-y-4 py-1 pr-1">
         {selectedItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
             {!readyToOrder
@@ -765,13 +763,16 @@ export default function WeeklyOrder({
         )}
       </div>
 
-      <SubmitBar
-        selectedCount={selectedItems.length}
-        totalCount={products.length}
-        disabled={selectedItems.length === 0 || submitted || !readyToOrder}
-        onSubmit={handleSubmit}
-        embedded={embedded}
-      />
+      {/* Bottom: submit bar — always visible */}
+      <div className="shrink-0 pt-3">
+        <SubmitBar
+          selectedCount={selectedItems.length}
+          totalCount={products.length}
+          disabled={selectedItems.length === 0 || submitted || !readyToOrder}
+          onSubmit={handleSubmit}
+          embedded={embedded}
+        />
+      </div>
     </div>
   );
 
@@ -812,14 +813,14 @@ export default function WeeklyOrder({
   }
 
   const content = (
-    <div className="space-y-4 w-full">
+    <div className="w-full">
       {embedded ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:h-full lg:min-h-0">
           {leftColumnContent}
           {rightPanel}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           {leftColumnContent}
           {rightPanel}
         </div>
@@ -828,11 +829,7 @@ export default function WeeklyOrder({
   );
 
   if (embedded) {
-    return (
-      <div className="mx-auto h-auto lg:h-full lg:min-h-0 w-full max-w-6xl lg:overflow-hidden overflow-y-auto">
-        {content}
-      </div>
-    );
+    return <div className="mx-auto w-full max-w-6xl">{content}</div>;
   }
 
   return (
