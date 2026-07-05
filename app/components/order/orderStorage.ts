@@ -513,6 +513,54 @@ function seedOrders(): WeeklyOrderRecord[] {
 
 
 
+/**
+ * Fetch orders from Supabase filtered by category (client_role) and week label.
+ * Used by the print buttons to always pull the latest data at print time.
+ */
+export async function getOrdersByCategoryAndWeek(
+  category: string,
+  weekLabel: string,
+): Promise<WeeklyOrderRecord[]> {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("client_role", category)
+      .eq("week_label", weekLabel)
+      .order("client_name", { ascending: true });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    type DbOrderRow = {
+      id: string;
+      client_name: string;
+      client_role: OrderRole;
+      week_label: string;
+      status: OrderStatus;
+      item_count: number;
+      created_at: string;
+      items: WeeklyOrderRecord["items"];
+      total_price?: number;
+    };
+
+    return (data as DbOrderRow[]).map((row) => ({
+      id: row.id,
+      clientName: row.client_name,
+      clientRole: row.client_role,
+      weekLabel: row.week_label,
+      status: row.status,
+      itemCount: row.item_count,
+      createdAt: row.created_at,
+      items: row.items,
+      totalPrice: row.total_price || 0,
+    }));
+  } catch (err) {
+    console.error("Error fetching orders by category from Supabase:", err);
+    return [];
+  }
+}
+
 export async function getOrders(): Promise<WeeklyOrderRecord[]> {
   try {
     const { data, error } = await supabase

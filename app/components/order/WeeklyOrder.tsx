@@ -10,6 +10,7 @@ import {
   getOrders,
 } from "./orderStorage";
 import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
+import { getItemCatalog, type ItemCatalogEntry } from "./itemCatalogStorage";
 import { filterOrdersForSchool, filterOrdersForWeek } from "./orderAccess";
 import { getClients, resolveClientBySchoolName } from "./clientStorage";
 import type { ClientRecord } from "./clientStorage";
@@ -64,6 +65,7 @@ export default function WeeklyOrder({
   const isOrderingDisabled = false;
 
   const [allProducts, setAllProducts] = useState<WeeklyProduct[]>([]);
+  const [catalogItems, setCatalogItems] = useState<ItemCatalogEntry[]>([]);
   const [order, setOrder] = useState<OrderState>({});
   const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(
     null,
@@ -84,6 +86,7 @@ export default function WeeklyOrder({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [newItemName, setNewItemName] = useState("");
+  const [newItemCustomName, setNewItemCustomName] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemUnit, setNewItemUnit] = useState("");
   const [newItemSize, setNewItemSize] = useState("");
@@ -115,6 +118,15 @@ export default function WeeklyOrder({
       window.removeEventListener("occdc-weekly-products-updated", syncProducts);
   }, [syncProducts]);
 
+  // Refresh catalog items whenever the category changes
+  useEffect(() => {
+    if (!selectedCategory) {
+      setCatalogItems([]);
+      return;
+    }
+    getItemCatalog(selectedCategory).then(setCatalogItems);
+  }, [selectedCategory]);
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
@@ -126,18 +138,22 @@ export default function WeeklyOrder({
       setNewItemUnit("kg");
       setNewItemSize("");
       setNewItemName("");
+      setNewItemCustomName("");
     } else if (selectedCategory === "rice") {
       setNewItemUnit("sack");
       setNewItemSize("");
       setNewItemName("Rice");
+      setNewItemCustomName("");
     } else if (selectedCategory === "egg") {
       setNewItemUnit("tray/30");
       setNewItemSize("Medium");
       setNewItemName("Egg");
+      setNewItemCustomName("");
     } else {
       setNewItemUnit("");
       setNewItemSize("");
       setNewItemName("");
+      setNewItemCustomName("");
     }
     setValidationError("");
   }, [selectedCategory]);
@@ -347,22 +363,44 @@ export default function WeeklyOrder({
           <div className="mt-3 space-y-2">
             {/* Row 1: Item Name */}
             <div>
-              <input
-                value={newItemName}
-                onChange={(e) => {
-                  setNewItemName(e.target.value);
-                  setValidationError("");
-                }}
-                disabled={
-                  selectedCategory === "egg" || selectedCategory === "rice"
-                }
-                placeholder="Item name"
-                className={`w-full rounded-xl border px-3 py-2 text-sm outline-none ${
-                  selectedCategory === "egg" || selectedCategory === "rice"
-                    ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
-                    : "border-slate-200 bg-white"
-                }`}
-              />
+              {selectedCategory === "egg" || selectedCategory === "rice" ? (
+                <input
+                  value={newItemName}
+                  disabled
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
+                />
+              ) : (
+                <>
+                  <select
+                    value={newItemName}
+                    onChange={(e) => {
+                      setNewItemName(e.target.value);
+                      setNewItemCustomName("");
+                      setValidationError("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">Select item</option>
+                    {catalogItems.map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                    <option value="__custom__">+ Type custom name…</option>
+                  </select>
+                  {newItemName === "__custom__" && (
+                    <input
+                      value={newItemCustomName}
+                      onChange={(e) => {
+                        setNewItemCustomName(e.target.value);
+                        setValidationError("");
+                      }}
+                      placeholder="Enter item name"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    />
+                  )}
+                </>
+              )}
             </div>
 
             {/* Row 2: Qty, Unit, and (optional) Size */}
@@ -469,6 +507,7 @@ export default function WeeklyOrder({
             disabled={
               !selectedCategory ||
               !newItemName.trim() ||
+              (newItemName === "__custom__" && !newItemCustomName.trim()) ||
               !newItemQty.trim() ||
               !newItemUnit.trim() ||
               (selectedCategory === "egg" && !newItemSize.trim())
@@ -479,7 +518,10 @@ export default function WeeklyOrder({
                 setValidationError("Select a category first");
                 return;
               }
-              if (!newItemName.trim()) {
+              if (
+                !newItemName.trim() ||
+                (newItemName === "__custom__" && !newItemCustomName.trim())
+              ) {
                 setValidationError("Item name is required");
                 return;
               }
@@ -496,7 +538,9 @@ export default function WeeklyOrder({
                 return;
               }
               const handleAddCustom = async () => {
-                let finalName = newItemName.trim();
+                let finalName = (
+                  newItemName === "__custom__" ? newItemCustomName : newItemName
+                ).trim();
                 if (selectedCategory === "egg") {
                   const sizeSuffix = `(${newItemSize.trim()})`;
                   if (finalName.toLowerCase().includes("egg")) {
@@ -533,6 +577,7 @@ export default function WeeklyOrder({
                     ? "Rice"
                     : "",
               );
+              setNewItemCustomName("");
               setNewItemQty("");
               setNewItemUnit(
                 selectedCategory === "vegetables" ||
