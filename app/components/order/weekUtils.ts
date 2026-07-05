@@ -6,6 +6,14 @@ export type WeekInfo = {
   weekLabel: string;
 };
 
+/** A fixed calendar week within the June–August ordering period. */
+export type FixedWeekInfo = {
+  /** 1-based week number within the period (1–8). */
+  periodWeek: number;
+  dateRange: string;
+  weekLabel: string;
+};
+
 function startOfWeekMonday(date: Date): Date {
   const d = new Date(date);
   d.setHours(12, 0, 0, 0);
@@ -58,4 +66,55 @@ export function getWeekInfo(offset: WeekOffset): WeekInfo {
 
 export function getWeekOptions(): WeekInfo[] {
   return [getWeekInfo(0), getWeekInfo(1)];
+}
+
+// ─── June–August Fixed Weeks ─────────────────────────────────────────────────
+//
+// The ordering period covers 8 Mon–Fri weeks starting June 2, 2026.
+// Dates are fixed to the current school-year period (2026) and can be
+// updated each year by changing PERIOD_START_MONDAY.
+
+const PERIOD_START_MONDAY = new Date(2026, 5, 2); // June 2, 2026 (month is 0-indexed)
+
+function buildFixedWeek(periodWeek: number): FixedWeekInfo {
+  const monday = addDays(PERIOD_START_MONDAY, (periodWeek - 1) * 7);
+  const friday = addDays(monday, 4);
+
+  const dateRange =
+    monday.getMonth() === friday.getMonth()
+      ? `${formatMonthDay(monday)} – ${friday.getDate()}, ${friday.getFullYear()}`
+      : `${formatMonthDay(monday)} – ${formatMonthDay(friday)}, ${friday.getFullYear()}`;
+
+  const startLabel = formatMonthDay(monday);
+  const endLabel =
+    monday.getMonth() === friday.getMonth()
+      ? `${friday.getDate()}`
+      : formatMonthDay(friday);
+  const weekLabelCompact = `${startLabel}-${endLabel}, ${friday.getFullYear()}`;
+
+  return {
+    periodWeek,
+    dateRange,
+    weekLabel: `WEEK ${periodWeek} — ${weekLabelCompact}`,
+  };
+}
+
+/** Returns the 8 fixed Mon–Fri weeks for the June–August ordering period. */
+export function getJuneAugustWeeks(): FixedWeekInfo[] {
+  return Array.from({ length: 8 }, (_, i) => buildFixedWeek(i + 1));
+}
+
+/**
+ * Returns the period-week number (1–8) that contains today's date,
+ * or null if today is outside the period.
+ */
+export function getCurrentPeriodWeek(): number | null {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  for (let w = 1; w <= 8; w++) {
+    const monday = addDays(PERIOD_START_MONDAY, (w - 1) * 7);
+    const friday = addDays(monday, 4);
+    if (today >= monday && today <= friday) return w;
+  }
+  return null;
 }

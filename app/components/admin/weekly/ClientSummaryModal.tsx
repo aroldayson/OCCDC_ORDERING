@@ -1,12 +1,16 @@
 "use client";
 
-import { User, X, Printer } from "lucide-react";
+import { User, X, Printer, FileDown, Sheet } from "lucide-react";
 import { useMemo } from "react";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import type { OrderRole } from "../../order/roles";
 import type { WeeklyOrderRecord } from "../../order/types";
 import { getCategoryDisplayFromItem } from "./utils";
-import { printClientSummary } from "../printOrder";
+import {
+  printClientSummary,
+  downloadClientSummaryPdf,
+  downloadClientSummaryExcel,
+} from "../printOrder";
 
 type ClientSummaryModalProps = {
   open: boolean;
@@ -26,7 +30,16 @@ export default function ClientSummaryModal({
   weekLabel,
 }: ClientSummaryModalProps) {
   const aggregated = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; unit: string; category: string; price: number }>();
+    const map = new Map<
+      string,
+      {
+        name: string;
+        qty: number;
+        unit: string;
+        category: string;
+        price: number;
+      }
+    >();
     for (const order of orders) {
       for (const item of order.items) {
         const key = `${item.productId}-${item.unit}`;
@@ -44,14 +57,19 @@ export default function ClientSummaryModal({
         }
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }, [orders]);
 
   if (!open || !clientName) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative flex h-[85vh] max-h-[640px] w-full max-w-lg flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="flex items-center gap-3">
@@ -75,11 +93,44 @@ export default function ClientSummaryModal({
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => printClientSummary(clientName, weekLabel, aggregated, orders)}
+              onClick={() =>
+                printClientSummary(clientName, weekLabel, aggregated, orders)
+              }
               className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
               aria-label="Print summary"
+              title="Print"
             >
               <Printer className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() =>
+                downloadClientSummaryPdf(
+                  clientName,
+                  weekLabel,
+                  aggregated,
+                  orders,
+                )
+              }
+              className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
+              aria-label="Download PDF"
+              title="Download PDF"
+            >
+              <FileDown className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() =>
+                downloadClientSummaryExcel(
+                  clientName,
+                  weekLabel,
+                  aggregated,
+                  orders,
+                )
+              }
+              className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
+              aria-label="Download Excel"
+              title="Download Excel"
+            >
+              <Sheet className="h-5 w-5" />
             </button>
             <button
               onClick={onClose}
@@ -92,7 +143,8 @@ export default function ClientSummaryModal({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Total items across {orders.length} order{orders.length !== 1 ? "s" : ""}
+            Total items across {orders.length} order
+            {orders.length !== 1 ? "s" : ""}
           </p>
           <ul className="space-y-2">
             {aggregated.map((item) => (

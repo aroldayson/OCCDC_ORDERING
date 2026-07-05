@@ -26,7 +26,11 @@ import {
   filterOrdersForSchool,
   filterOrdersForWeek,
 } from "../order/orderAccess";
-import { getWeekInfo, type WeekOffset } from "../order/weekUtils";
+import {
+  getWeekOptions,
+  getJuneAugustWeeks,
+  getCurrentPeriodWeek,
+} from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import WeeklyOrder from "../order/WeeklyOrder";
 import WeeklyItemsManager from "./WeeklyItemsManager";
@@ -34,15 +38,23 @@ import ModuleHeader from "./weekly/ModuleHeader";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
 import ToProcessView from "./weekly/ToProcessView";
 import WeekSelector from "./weekly/WeekSelector";
+import WeekSummaryTable from "./weekly/WeekSummaryTable";
+import WeeklyProductInputTable from "./weekly/WeeklyProductInputTable";
 import { addClient } from "../order/clientStorage";
 import AddClientModal from "./weekly/AddClientModal";
 import type { AdminView } from "./AdminSidebar";
 import { orderRoleLabels, type OrderRole } from "../order/roles";
-import { updateOrderStatus } from "../order/orderStorage";
+import {
+  updateOrderStatus,
+  getOrdersByCategoryAndWeek,
+} from "../order/orderStorage";
 import {
   printOrderForm,
   printAllOrders,
   printClientSummary,
+  printItemizedTally,
+  downloadAllOrdersExcel,
+  downloadItemizedTallyExcel,
 } from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
@@ -381,7 +393,15 @@ export default function WeeklyOrderView({
 
   const [internalTab, setTab] = useState<Tab>("order");
   const tab = forceTab ?? internalTab;
-  const [weekOffset, setWeekOffset] = useState<WeekOffset>(0);
+  // selectedWeekLabel is the stable key used for filtering.
+  // Auto-select the current period week if today falls within June–August, else "This Week".
+  const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(() => {
+    const periodWeek = getCurrentPeriodWeek();
+    if (periodWeek !== null) {
+      return getJuneAugustWeeks()[periodWeek - 1].weekLabel;
+    }
+    return getWeekOptions()[0].weekLabel;
+  });
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);
   const [placeOrderClient, setPlaceOrderClient] = useState("");
@@ -390,18 +410,19 @@ export default function WeeklyOrderView({
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(!isAdmin);
   const [weeklyProducts, setWeeklyProducts] = useState<WeeklyProduct[]>([]);
-
-  const selectedWeek = useMemo(() => getWeekInfo(weekOffset), [weekOffset]);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [showOverview, setShowOverview] = useState(false);
 
   useEffect(() => {
-    getWeeklyProducts(selectedWeek.weekLabel).then(setWeeklyProducts);
-  }, [selectedWeek.weekLabel]);
+    getWeeklyProducts(selectedWeekLabel).then(setWeeklyProducts);
+  }, [selectedWeekLabel]);
 
   const scopedOrders = useMemo(() => {
-    const byWeek = filterOrdersForWeek(orders, selectedWeek.weekLabel);
+    const byWeek = filterOrdersForWeek(orders, selectedWeekLabel);
     if (isAdmin) return byWeek;
     return filterOrdersForSchool(byWeek, schoolName);
-  }, [orders, selectedWeek.weekLabel, isAdmin, schoolName]);
+  }, [orders, selectedWeekLabel, isAdmin, schoolName]);
 
   const [selectedOrderDetail, setSelectedOrderDetail] =
     useState<WeeklyOrderRecord | null>(null);
@@ -537,9 +558,9 @@ export default function WeeklyOrderView({
     };
 
     if (editingItem) {
-      updateWeeklyProduct(editingItem.id, payload, selectedWeek.weekLabel);
+      updateWeeklyProduct(editingItem.id, payload, selectedWeekLabel);
     } else {
-      addWeeklyProduct(payload, selectedWeek.weekLabel);
+      addWeeklyProduct(payload, selectedWeekLabel);
     }
     setItemModalOpen(false);
     setEditingItem(null);
@@ -588,23 +609,40 @@ export default function WeeklyOrderView({
           </div>
         )}
 
-        <WeekSelector selectedOffset={weekOffset} onChange={setWeekOffset} />
+        <WeekSelector
+          selectedWeekLabel={selectedWeekLabel}
+          onChange={setSelectedWeekLabel}
+        />
       </div>
 
       {tab !== "order" && (
         <ModuleHeader
-          weekLabel={selectedWeek.weekLabel}
+          weekLabel={selectedWeekLabel}
           pendingCount={pendingCount}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={setCategoryFilter}
+          showOverview={showOverview}
+          onToggleOverview={
+            isAdmin ? () => setShowOverview((v) => !v) : undefined
+          }
+        />
+      )}
+
+      {/* Per-week overview table — shown when toggled in the header */}
+      {tab !== "order" && showOverview && isAdmin && (
+        <WeekSummaryTable
+          allOrders={orders}
+          selectedWeekLabel={selectedWeekLabel}
+          onSelectWeek={(label) => {
+            setSelectedWeekLabel(label);
+            setShowOverview(false);
+          }}
         />
       )}
 
       {!isAdmin && tab === "order" && schoolName && (
         <div className="shrink-0 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          Ordering for <strong>{schoolName}</strong> ·{" "}
-          {weekOffset === 0 ? "This Week" : "Next Week"} (
-          {selectedWeek.dateRange})
+          Ordering for <strong>{schoolName}</strong> · {selectedWeekLabel}
         </div>
       )}
 
@@ -623,18 +661,136 @@ export default function WeeklyOrderView({
             {isAdmin && fixedCategory !== "other_order" && (
               <div className="flex flex-wrap justify-end gap-3">
                 <button
-                  onClick={() =>
-                    printAllOrders(
-                      orderRoleLabels[fixedCategory!],
-                      selectedWeek.weekLabel,
-                      categoryOrders,
-                    )
-                  }
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                  disabled={printLoading}
+                  onClick={async () => {
+                    if (!fixedCategory) return;
+                    setPrintLoading(true);
+                    try {
+                      const freshOrders = await getOrdersByCategoryAndWeek(
+                        fixedCategory,
+                        selectedWeekLabel,
+                      );
+                      printAllOrders(
+                        orderRoleLabels[fixedCategory],
+                        selectedWeekLabel,
+                        freshOrders,
+                      );
+                    } finally {
+                      setPrintLoading(false);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Printer className="h-4 w-4 text-slate-500" />
-                  Print All Orders
+                  {printLoading ? "Loading…" : "Print All Orders"}
                 </button>
+                <button
+                  disabled={printLoading}
+                  onClick={async () => {
+                    if (!fixedCategory) return;
+                    setPrintLoading(true);
+                    try {
+                      const [freshOrders, { getClients }] = await Promise.all([
+                        getOrdersByCategoryAndWeek(
+                          fixedCategory,
+                          selectedWeekLabel,
+                        ),
+                        import("../order/clientStorage"),
+                      ]);
+                      const allClients = await getClients();
+                      const allSchoolNames = allClients.map((c) => c.name);
+                      printItemizedTally(
+                        orderRoleLabels[fixedCategory],
+                        selectedWeekLabel,
+                        freshOrders,
+                        allSchoolNames,
+                      );
+                    } finally {
+                      setPrintLoading(false);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Printer className="h-4 w-4 text-indigo-500" />
+                  {printLoading ? "Loading…" : "Print Itemized Tally"}
+                </button>
+
+                {/* Export dropdown */}
+                <div className="relative">
+                  <button
+                    disabled={printLoading}
+                    onClick={() => setExportOpen((o) => !o)}
+                    className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronDown className="h-4 w-4 text-emerald-500" />
+                    Export
+                  </button>
+                  {exportOpen && (
+                    <>
+                      {/* invisible backdrop to close on outside click */}
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setExportOpen(false)}
+                      />
+                      <div className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                          onClick={async () => {
+                            if (!fixedCategory) return;
+                            setExportOpen(false);
+                            setPrintLoading(true);
+                            try {
+                              const freshOrders =
+                                await getOrdersByCategoryAndWeek(
+                                  fixedCategory,
+                                  selectedWeekLabel,
+                                );
+                              await downloadAllOrdersExcel(
+                                orderRoleLabels[fixedCategory],
+                                selectedWeekLabel,
+                                freshOrders,
+                              );
+                            } finally {
+                              setPrintLoading(false);
+                            }
+                          }}
+                        >
+                          All Orders (.xlsx)
+                        </button>
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition border-t border-slate-100"
+                          onClick={async () => {
+                            if (!fixedCategory) return;
+                            setExportOpen(false);
+                            setPrintLoading(true);
+                            try {
+                              const [freshOrders, { getClients }] =
+                                await Promise.all([
+                                  getOrdersByCategoryAndWeek(
+                                    fixedCategory,
+                                    selectedWeekLabel,
+                                  ),
+                                  import("../order/clientStorage"),
+                                ]);
+                              const allClients = await getClients();
+                              await downloadItemizedTallyExcel(
+                                orderRoleLabels[fixedCategory],
+                                selectedWeekLabel,
+                                freshOrders,
+                                allClients.map((c) => c.name),
+                              );
+                            } finally {
+                              setPrintLoading(false);
+                            }
+                          }}
+                        >
+                          Itemized Tally (.xlsx)
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 <button
                   onClick={() => setShowOrderForm(!showOrderForm)}
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
@@ -659,7 +815,7 @@ export default function WeeklyOrderView({
                 embedded
                 defaultClientName={placeOrderClient || undefined}
                 fixedClientName={fixedClientName}
-                weekLabel={selectedWeek.weekLabel}
+                weekLabel={selectedWeekLabel}
                 fixedCategory={fixedCategory}
                 onOrderSubmitted={() => {
                   onOrdersUpdated();
@@ -799,16 +955,11 @@ export default function WeeklyOrderView({
             onAddClient={handleAddClient}
             statusFilter={statusFilter}
             categoryFilter={categoryFilter}
-            weekLabel={selectedWeek.weekLabel}
+            weekLabel={selectedWeekLabel}
             isAdmin={isAdmin}
           />
         )}
-        {tab === "items" && (
-          <WeeklyItemsManager
-            orders={scopedOrders}
-            categoryFilter={categoryFilter}
-          />
-        )}
+        {tab === "items" && <WeeklyProductInputTable />}
       </div>
 
       <ItemFormModal

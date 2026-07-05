@@ -31,17 +31,32 @@ async function readClients(): Promise<ClientRecord[]> {
   try {
     const { data, error } = await supabase
       .from("schools")
-      .select("*")
+      .select("id,name,address,delivery_price")
       .order("name", { ascending: true });
+
+    // If address/delivery_price columns don't exist yet, fall back to id+name only
+    if (error && error.message?.includes("does not exist")) {
+      const { data: basic, error: basicErr } = await supabase
+        .from("schools")
+        .select("id,name")
+        .order("name", { ascending: true });
+
+      if (basicErr) throw basicErr;
+
+      if (!basic || basic.length === 0) {
+        const seeded = seedClients();
+        await supabase.from("schools").insert(seeded.map((s) => ({ id: s.id, name: s.name })));
+        return seeded;
+      }
+
+      return basic.map((row) => ({ id: row.id, name: row.name }));
+    }
 
     if (error) throw error;
 
     if (!data || data.length === 0) {
       const seeded = seedClients();
-      const dbSchools = seeded.map((s) => ({
-        id: s.id,
-        name: s.name,
-      }));
+      const dbSchools = seeded.map((s) => ({ id: s.id, name: s.name }));
       await supabase.from("schools").insert(dbSchools);
       return seeded;
     }
@@ -113,6 +128,10 @@ export async function updateClientAddress(schoolName: string, address: string): 
     if (existing.address !== address) {
       try {
         const { error } = await supabase.from("schools").update({ address }).eq("id", existing.id);
+        if (error && error.message?.includes("does not exist")) {
+          console.warn("schools.address column not yet created — run migration 001_add_school_columns.sql");
+          return;
+        }
         if (error) throw error;
         notify();
       } catch (err) {
@@ -120,14 +139,13 @@ export async function updateClientAddress(schoolName: string, address: string): 
       }
     }
   } else {
-    // If it doesn't exist, we add it with the address
     const entry = { id: `school-${Date.now()}`, name: schoolName.trim(), address };
     try {
-      const { error } = await supabase.from("schools").insert([entry]);
+      const { error } = await supabase.from("schools").insert([{ id: entry.id, name: entry.name }]);
       if (error) throw error;
       notify();
     } catch (err) {
-      console.error("Error saving new school with address:", err);
+      console.error("Error saving new school:", err);
     }
   }
 }
@@ -135,6 +153,10 @@ export async function updateClientAddress(schoolName: string, address: string): 
 export async function updateClientDeliveryPrice(schoolId: string, deliveryPrice: number): Promise<void> {
   try {
     const { error } = await supabase.from("schools").update({ delivery_price: deliveryPrice }).eq("id", schoolId);
+    if (error && error.message?.includes("does not exist")) {
+      console.warn("schools.delivery_price column not yet created — run migration 001_add_school_columns.sql");
+      return;
+    }
     if (error) throw error;
     notify();
   } catch (err) {
