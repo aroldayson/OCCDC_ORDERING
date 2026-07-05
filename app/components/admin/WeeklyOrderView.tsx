@@ -654,10 +654,10 @@ export default function WeeklyOrderView({
       )}
 
       <div
-        className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : "lg:overflow-hidden overflow-y-auto"}`}
+        className={`min-h-0 flex-1 ${fixedCategory ? "overflow-y-auto pr-1" : tab === "order" ? "overflow-y-auto" : "lg:overflow-hidden overflow-y-auto"}`}
       >
         {tab === "order" && (
-          <div className="space-y-8">
+          <div className="flex flex-col gap-8">
             {isAdmin && fixedCategory !== "other_order" && (
               <div className="flex flex-wrap justify-end gap-3">
                 <button

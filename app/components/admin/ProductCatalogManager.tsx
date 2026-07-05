@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronDown,
   Printer,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   getWeeklyProducts,
@@ -57,7 +58,7 @@ const categoryLabels: Record<string, string> = {
 
 import { filterOrdersForWeek } from "../order/orderAccess";
 import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
-import { printCatalog } from "./printOrder";
+import { printCatalog, exportCatalogExcel } from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -310,6 +311,13 @@ export default function ProductCatalogManager({
           >
             <Printer className="h-4 w-4" />
             Print / Download PDF
+          </button>
+          <button
+            onClick={() => exportCatalogExcel(selectedWeekLabel, filtered)}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 self-start sm:self-auto shadow-sm"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Export Excel
           </button>
         </div>
       </div>
