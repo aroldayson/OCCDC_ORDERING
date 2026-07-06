@@ -27,9 +27,8 @@ import {
   filterOrdersForWeek,
 } from "../order/orderAccess";
 import {
-  getWeekOptions,
   getJuneAugustWeeks,
-  getCurrentPeriodWeek,
+  getCurrentOrNextPeriodWeek,
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import WeeklyOrder from "../order/WeeklyOrder";
@@ -394,13 +393,16 @@ export default function WeeklyOrderView({
   const [internalTab, setTab] = useState<Tab>("order");
   const tab = forceTab ?? internalTab;
   // selectedWeekLabel is the stable key used for filtering.
-  // Auto-select the current period week if today falls within June–August, else "This Week".
+  // Always resolve to a fixed June–August week label so it matches the WeekSelector options.
   const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(() => {
-    const periodWeek = getCurrentPeriodWeek();
+    const allWeeks = getJuneAugustWeeks();
+    const periodWeek = getCurrentOrNextPeriodWeek();
     if (periodWeek !== null) {
-      return getJuneAugustWeeks()[periodWeek - 1].weekLabel;
+      // Current or next upcoming week — select it directly
+      return allWeeks[periodWeek - 1].weekLabel;
     }
-    return getWeekOptions()[0].weekLabel;
+    // Outside the period: pick the last week as the closest available option
+    return allWeeks[allWeeks.length - 1].weekLabel;
   });
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);

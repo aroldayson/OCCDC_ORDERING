@@ -22,9 +22,8 @@ import type { WeeklyProduct } from "../order/products";
 import ItemFormModal, { type ItemFormData } from "./weekly/ItemFormModal";
 import WeekSelector from "./weekly/WeekSelector";
 import {
-  getWeekOptions,
   getJuneAugustWeeks,
-  getCurrentPeriodWeek,
+  getCurrentOrNextPeriodWeek,
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
@@ -75,10 +74,10 @@ export default function ProductCatalogManager({
 }) {
   const { user } = useAuth();
   const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(() => {
-    const periodWeek = getCurrentPeriodWeek();
-    if (periodWeek !== null)
-      return getJuneAugustWeeks()[periodWeek - 1].weekLabel;
-    return getWeekOptions()[0].weekLabel;
+    const allWeeks = getJuneAugustWeeks();
+    const periodWeek = getCurrentOrNextPeriodWeek();
+    if (periodWeek !== null) return allWeeks[periodWeek - 1].weekLabel;
+    return allWeeks[allWeeks.length - 1].weekLabel;
   });
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
   const [search, setSearch] = useState("");
