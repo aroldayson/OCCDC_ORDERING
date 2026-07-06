@@ -9,7 +9,11 @@ import {
   saveOrder,
   getOrders,
 } from "./orderStorage";
-import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
+import {
+  getWeeklyProducts,
+  addWeeklyProduct,
+  ensureProductsForWeek,
+} from "./weeklyProductStorage";
 import { getItemCatalog, type ItemCatalogEntry } from "./itemCatalogStorage";
 import { filterOrdersForSchool, filterOrdersForWeek } from "./orderAccess";
 import { getClients, resolveClientBySchoolName } from "./clientStorage";
@@ -243,6 +247,39 @@ export default function WeeklyOrder({
     }
     if (selectedItems.length === 0 || !selectedClient) return;
 
+    // Check for duplicate items in the order
+    const itemsByCategory: Record<string, typeof selectedItems> = {};
+    selectedItems.forEach((item) => {
+      const cat = item.category;
+      if (!itemsByCategory[cat]) itemsByCategory[cat] = [];
+      itemsByCategory[cat].push(item);
+    });
+
+    const duplicateItems: string[] = [];
+    Object.entries(itemsByCategory).forEach(([cat, items]) => {
+      const itemCounts: Record<string, number> = {};
+      items.forEach((item) => {
+        itemCounts[item.id] = (itemCounts[item.id] || 0) + 1;
+      });
+      Object.entries(itemCounts).forEach(([itemId, count]) => {
+        if (count > 1) {
+          const itemName = items.find((i) => i.id === itemId)?.name || itemId;
+          duplicateItems.push(`• ${itemName} (${count} times)`);
+        }
+      });
+    });
+
+    if (duplicateItems.length > 0) {
+      const duplicateList = duplicateItems.join("\n");
+      const proceedWithDuplicates = window.confirm(
+        `⚠️ WARNING: Duplicate Items Detected!\n\nYou have ordered the following items multiple times:\n\n${duplicateList}\n\nDo you want to proceed with this order?\n\nClick "OK" to submit or "Cancel" to go back.`
+      );
+
+      if (!proceedWithDuplicates) {
+        return; // User cancelled the order
+      }
+    }
+
     const allOrders = await getOrders();
     const existingSchoolOrders = filterOrdersForSchool(
       allOrders,
@@ -254,13 +291,6 @@ export default function WeeklyOrder({
     );
     const isAdditionalOrder = currentWeekOrders.length > 0;
     let hasAppliedDeliveryFee = false;
-
-    const itemsByCategory: Record<string, typeof selectedItems> = {};
-    selectedItems.forEach((item) => {
-      const cat = item.category;
-      if (!itemsByCategory[cat]) itemsByCategory[cat] = [];
-      itemsByCategory[cat].push(item);
-    });
 
     const categoriesWithOrders = Object.keys(itemsByCategory);
     const createdOrders: WeeklyOrderRecord[] = [];
@@ -305,6 +335,14 @@ export default function WeeklyOrder({
       };
 
       await saveOrder(orderRecord);
+
+      // Ensure all ordered items exist in weekly_products for this week
+      // so the admin can see and price them in the Pricing Update view.
+      await ensureProductsForWeek(
+        items.filter((it) => !it.productId.startsWith("delivery-fee-")),
+        activeWeekLabel,
+      );
+
       createdOrders.push(orderRecord);
     }
 
