@@ -369,7 +369,7 @@ export default function WeeklyOrder({
   }, [selectedItems, order, selectedClient]);
 
   const leftPanel = (
-    <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 self-start">
+    <div className="flex min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 self-start">
       {!fixedCategory && (
         <div className="mb-5 sm:mb-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -699,7 +699,7 @@ export default function WeeklyOrder({
   );
 
   const leftColumnContent = (
-    <div className="flex flex-col gap-6 w-full lg:w-[380px] shrink-0">
+    <div className="flex flex-col gap-6 w-full lg:w-[380px] shrink-0 lg:sticky lg:top-4 lg:self-start">
       {leftPanel}
       {noticeCard}
     </div>
