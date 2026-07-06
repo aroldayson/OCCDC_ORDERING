@@ -366,96 +366,95 @@ function OrderAccordion({
           : "border-slate-200"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-3 text-left hover:bg-slate-50/80 rounded-lg -ml-1 px-1 py-0.5"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}
-                >
-                  {orderRoleLabels[order.clientRole] || order.clientRole}
-                </span>
-                <span
-                  className={`font-semibold ${order.status === "cancelled" ? "text-red-600 underline decoration-red-500 decoration-2" : "text-slate-800"}`}
-                >
-                  Order ID: {order.id}
-                </span>
-              </span>
-              <span className="text-slate-500">
-                Order Date: {formatOrderDate(order.createdAt)}
-              </span>
-              <span className="text-slate-500">
-                Items: {order.items.length}
-              </span>
-              <span
-                className={`font-semibold ${order.items.some((i) => !i.price || i.price === 0) ? "text-amber-600" : "text-emerald-700"}`}
-              >
-                Total: ₱
-                {(order.totalPrice || 0).toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              {order.items.some((i) => !i.price || i.price === 0) && (
-                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                  ⏳ Waiting for supplier pricing
-                </span>
-              )}
-            </div>
-          </div>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusStyles[order.status]}`}
+      <div className="px-4 py-3 sm:px-5">
+        {/* Row 1: Category badge + Order ID + status + chevron + actions */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
           >
-            {order.status}
-          </span>
-          {open ? (
-            <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-          )}
-        </button>
+            <span
+              className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}
+            >
+              {orderRoleLabels[order.clientRole] || order.clientRole}
+            </span>
+            <span
+              className={`truncate text-sm font-semibold ${order.status === "cancelled" ? "text-red-600 line-through" : "text-slate-800"}`}
+            >
+              Order ID: {order.id}
+            </span>
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[order.status]}`}
+            >
+              {order.status}
+            </span>
+            {open ? (
+              <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+            )}
+          </button>
 
-        <div className="flex items-center gap-1">
-          <span className="mr-2 hidden text-xs font-medium text-slate-400 sm:inline">
-            Actions
+          {/* Action buttons — always on the right */}
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => onView(order)}
+              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+              aria-label="View order"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => printOrderForm(order)}
+              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+              aria-label="Print order"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onView(order)}
+              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+              aria-label="Edit order"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+              aria-label="Delete order"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Date · Items · Total · waiting badge */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <span>{formatOrderDate(order.createdAt)}</span>
+          <span>·</span>
+          <span>
+            {order.items.length} item{order.items.length !== 1 ? "s" : ""}
           </span>
-          <button
-            type="button"
-            onClick={() => onView(order)}
-            className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-            aria-label="View order"
+          <span>·</span>
+          <span
+            className={`font-semibold ${order.items.some((i) => !i.price || i.price === 0) ? "text-amber-600" : "text-emerald-700"}`}
           >
-            <Eye className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => printOrderForm(order)}
-            className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-            aria-label="Print order"
-          >
-            <Printer className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onView(order)}
-            className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-            aria-label="Edit order"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
-            aria-label="Delete order"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+            ₱
+            {(order.totalPrice || 0).toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+          {order.items.some((i) => !i.price || i.price === 0) && (
+            <span className="font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              ⏳ Waiting for supplier pricing
+            </span>
+          )}
         </div>
       </div>
 
