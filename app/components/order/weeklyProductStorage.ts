@@ -97,6 +97,54 @@ export async function addWeeklyProduct(
   };
 }
 
+/**
+ * Ensure that all items from an order exist in weekly_products for the given week.
+ * Called after a client submits an advance order so the admin can see and price them.
+ * Uses upsert with ignoreDuplicates so existing priced rows are never overwritten.
+ */
+export async function ensureProductsForWeek(
+  items: Array<{ productId: string; name: string; qty: number; unit: string; price: number; category: string }>,
+  weekLabel: string,
+): Promise<void> {
+  const activeWeek = weekLabel.trim();
+  if (!activeWeek || items.length === 0) return;
+
+  // Fetch what already exists for this week so we don't overwrite prices
+  const { data: existing } = await supabase
+    .from("weekly_products")
+    .select("id")
+    .eq("week_label", activeWeek);
+
+  const existingIds = new Set((existing ?? []).map((r: { id: string }) => r.id));
+
+  // Only insert rows that don't exist yet — skip delivery-fee pseudo-products
+  const toInsert = items
+    .filter((it) => !it.productId.startsWith("delivery-fee-") && !existingIds.has(it.productId))
+    .map((it) => ({
+      id: it.productId,
+      week_label: activeWeek,
+      name: it.name,
+      default_qty: it.qty,
+      unit: it.unit,
+      price: 0, // price=0 until the admin sets it via Pricing Update
+      category: it.category,
+    }));
+
+  if (toInsert.length === 0) return;
+
+  try {
+    const { error } = await supabase
+      .from("weekly_products")
+      .insert(toInsert);
+
+    if (error) {
+      console.error("ensureProductsForWeek insert error:", error.message);
+    }
+  } catch (err) {
+    console.error("ensureProductsForWeek error:", err);
+  }
+}
+
 export async function updateWeeklyProduct(
   id: string,
   data: Partial<WeeklyProduct>,
