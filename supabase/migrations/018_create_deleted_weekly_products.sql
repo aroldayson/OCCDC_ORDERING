@@ -1,7 +1,4 @@
 -- Backup table for deleted weekly_products
--- Run this in your Supabase SQL Editor
-
-DROP TABLE IF EXISTS deleted_weekly_products;
 
 CREATE TABLE IF NOT EXISTS public.deleted_weekly_products (
   id           TEXT PRIMARY KEY,       -- unique archive row: original_id + timestamp
@@ -24,7 +21,6 @@ CREATE INDEX IF NOT EXISTS idx_del_wkprod_deleted_at  ON public.deleted_weekly_p
 -- Enable RLS (matching weekly_products setup)
 ALTER TABLE public.deleted_weekly_products ENABLE ROW LEVEL SECURITY;
 
--- Allow all authenticated users to read and write (same as weekly_products)
 CREATE POLICY "Enable read access for all users"
   ON public.deleted_weekly_products FOR SELECT
   USING (true);
@@ -35,7 +31,6 @@ CREATE POLICY "Enable all access for authenticated users"
   USING (true)
   WITH CHECK (true);
 
--- Also allow anon inserts so the client-side supabase key can archive on delete
 CREATE POLICY "Enable insert for anon"
   ON public.deleted_weekly_products FOR INSERT
   TO anon
