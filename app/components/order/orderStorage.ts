@@ -711,34 +711,35 @@ export async function deleteOrder(id: string): Promise<void> {
 
     if (fetchError) throw fetchError;
 
-    // Step 2: Insert into deleted_orders as a backup
-    if (orderData) {
-      const archivePayload = {
-        id:           orderData.id,
-        client_name:  orderData.client_name,
-        client_role:  orderData.client_role,
-        week_label:   orderData.week_label,
-        status:       orderData.status,
-        item_count:   orderData.item_count,
-        items:        orderData.items,
-        total_price:  orderData.total_price,
-        created_at:   orderData.created_at,
-        deleted_at:   new Date().toISOString(),
-      };
-      const { error: archiveError } = await supabase
-        .from("deleted_orders")
-        .insert(archivePayload);
-      if (archiveError) {
-        console.error(
-          "Error archiving order to deleted_orders:",
-          archiveError.message,
-          archiveError.details,
-          archiveError.hint,
-          archiveError.code,
-        );
-        // Do not abort — still proceed with deletion
+      // Step 2: Upsert into deleted_orders as a backup
+      // Use upsert so re-deleting the same order never throws a duplicate key error
+      if (orderData) {
+        const archivePayload = {
+          id:           orderData.id,
+          client_name:  orderData.client_name,
+          client_role:  orderData.client_role,
+          week_label:   orderData.week_label,
+          status:       orderData.status,
+          item_count:   orderData.item_count,
+          items:        orderData.items,
+          total_price:  orderData.total_price,
+          created_at:   orderData.created_at,
+          deleted_at:   new Date().toISOString(),
+        };
+        const { error: archiveError } = await supabase
+          .from("deleted_orders")
+          .upsert(archivePayload, { onConflict: "id" });
+        if (archiveError) {
+          console.error(
+            "Error archiving order to deleted_orders:",
+            archiveError.message,
+            archiveError.details,
+            archiveError.hint,
+            archiveError.code,
+          );
+          // Do not abort — still proceed with deletion
+        }
       }
-    }
 
     // Step 3: Hard delete from orders
     const { error } = await supabase

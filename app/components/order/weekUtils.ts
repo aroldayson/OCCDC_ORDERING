@@ -74,11 +74,11 @@ export function getWeekOptions(): WeekInfo[] {
 // Dates are fixed to the current school-year period (2026) and can be
 // updated each year by changing PERIOD_START_MONDAY.
 
-const PERIOD_START_MONDAY = new Date(2026, 5, 2); // June 2, 2026 (month is 0-indexed)
+const PERIOD_START_MONDAY = new Date(2026, 5, 24); // June 2, 2026 (month is 0-indexed)
 
 function buildFixedWeek(periodWeek: number): FixedWeekInfo {
   const monday = addDays(PERIOD_START_MONDAY, (periodWeek - 1) * 7);
-  const friday = addDays(monday, 4);
+  const friday = addDays(monday, 6);
 
   const dateRange =
     monday.getMonth() === friday.getMonth()

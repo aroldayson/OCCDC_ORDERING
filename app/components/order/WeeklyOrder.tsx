@@ -318,6 +318,18 @@ export default function WeeklyOrder({
     const createdOrders: WeeklyOrderRecord[] = [];
 
     for (const cat of categoriesWithOrders) {
+      // Duplicate check — skip if a non-cancelled order already exists
+      // for this school + category + week
+      const duplicateExists = currentWeekOrders.some(
+        (o) => o.clientRole === cat && o.status !== "cancelled",
+      );
+      if (duplicateExists) {
+        alert(
+          `You already have a ${orderRoleLabels[cat as OrderRole] ?? cat} order for this week (${activeWeekLabel}). Please edit the existing order instead of submitting a new one.`,
+        );
+        continue;
+      }
+
       const catItems = itemsByCategory[cat];
       const quantities = Object.fromEntries(
         catItems.map((p) => [p.id, order[p.id].qty]),
