@@ -7,7 +7,6 @@ import {
   PlusCircle,
   X,
   Eye,
-  EyeOff,
   Printer,
   Clock,
   CheckCircle,
@@ -792,23 +791,6 @@ export default function WeeklyOrderView({
                     </>
                   )}
                 </div>
-
-                <button
-                  onClick={() => setShowOrderForm(!showOrderForm)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
-                >
-                  {showOrderForm ? (
-                    <>
-                      <EyeOff className="h-4 w-4 text-slate-500" />
-                      Hide Place Order Form
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle className="h-4 w-4 text-blue-600" />
-                      Place New Order
-                    </>
-                  )}
-                </button>
               </div>
             )}
 
