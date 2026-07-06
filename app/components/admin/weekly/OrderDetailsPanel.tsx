@@ -73,13 +73,6 @@ function CategorySummary({
               {itemCount} item{itemCount !== 1 ? "s" : ""}
             </p>
           </div>
-          <button
-            onClick={() => onAddItem(category)}
-            className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold hover:bg-white hover:shadow-sm transition-all border border-black/5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Item
-          </button>
         </div>
       ))}
     </div>
