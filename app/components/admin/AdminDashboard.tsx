@@ -516,31 +516,28 @@ export default function AdminDashboard() {
           {activeView === "delivery-fees" && <DeliveryFeeManager />}
 
           {activeView === "orders" && (
-            <div
-              className={`flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 ${
-                selectedOrder ? "lg:grid lg:grid-cols-3 lg:gap-5" : "w-full"
-              }`}
-            >
-              <div
-                className={`flex min-h-0 flex-col ${
-                  selectedOrder ? "lg:col-span-2" : "w-full"
-                }`}
-              >
-                <OrdersTable
-                  orders={visibleOrders}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                />
-              </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 w-full">
+              <OrdersTable
+                orders={visibleOrders}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+
+              {/* Centered modal overlay for order detail */}
               {selectedOrder && (
                 <div
-                  className={`flex min-h-0 flex-col ${selectedOrder ? "lg:col-span-1" : ""}`}
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setSelectedId(null);
+                  }}
                 >
-                  <OrderDetailPanel
-                    order={selectedOrder}
-                    onClose={() => setSelectedId(null)}
-                    onStatusChange={loadOrders}
-                  />
+                  <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+                    <OrderDetailPanel
+                      order={selectedOrder}
+                      onClose={() => setSelectedId(null)}
+                      onStatusChange={loadOrders}
+                    />
+                  </div>
                 </div>
               )}
             </div>
