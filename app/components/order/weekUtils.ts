@@ -118,3 +118,30 @@ export function getCurrentPeriodWeek(): number | null {
   }
   return null;
 }
+
+/**
+ * Returns the period-week number that is current or next upcoming.
+ * - If today is within a Mon–Fri week, returns that week.
+ * - If today is a weekend (Sat/Sun), returns the following week.
+ * - If today is before the period starts, returns 1.
+ * - If today is after the period ends, returns null.
+ */
+export function getCurrentOrNextPeriodWeek(): number | null {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  for (let w = 1; w <= 8; w++) {
+    const monday = addDays(PERIOD_START_MONDAY, (w - 1) * 7);
+    const friday = addDays(monday, 4);
+    const sunday = addDays(monday, 6); // end of the same calendar week
+
+    // Today falls anywhere within Mon–Sun of this week's range
+    if (today >= monday && today <= sunday) return w;
+
+    // Today is before this week's Monday — this week is the next upcoming
+    if (today < monday) return w;
+  }
+
+  // Today is after the last week's Sunday — period is over
+  return null;
+}

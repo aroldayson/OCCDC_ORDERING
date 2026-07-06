@@ -242,6 +242,46 @@ export async function updateWeeklyProduct(
 export async function removeWeeklyProduct(id: string, weekLabel?: string): Promise<void> {
   const activeWeek = weekLabel?.trim() || "default";
   try {
+    // Step 1: Fetch the product before deleting so we can archive it
+    const { data: productData, error: fetchError } = await supabase
+      .from("weekly_products")
+      .select("*")
+      .eq("id", id)
+      .eq("week_label", activeWeek)
+      .single();
+
+    if (fetchError) {
+      console.warn("Could not fetch product for archiving:", fetchError.message);
+    }
+
+    // Step 2: Insert into deleted_weekly_products as a backup
+    if (productData) {
+      const { error: archiveError } = await supabase
+        .from("deleted_weekly_products")
+        .insert({
+          id:           `${productData.id}-${Date.now()}`,
+          original_id:  productData.id,
+          week_label:   productData.week_label,
+          name:         productData.name,
+          default_qty:  productData.default_qty,
+          unit:         productData.unit,
+          price:        productData.price,
+          category:     productData.category,
+          created_at:   productData.created_at,
+          deleted_at:   new Date().toISOString(),
+        });
+      if (archiveError) {
+        console.error(
+          "Error archiving weekly product:",
+          archiveError.message,
+          archiveError.details,
+          archiveError.hint,
+          archiveError.code,
+        );
+      }
+    }
+
+    // Step 3: Hard delete from weekly_products
     const { error } = await supabase
       .from("weekly_products")
       .delete()

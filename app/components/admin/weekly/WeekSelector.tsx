@@ -2,10 +2,8 @@
 
 import { Calendar, ChevronDown } from "lucide-react";
 import {
-  getWeekOptions,
   getJuneAugustWeeks,
-  getCurrentPeriodWeek,
-  type WeekOffset,
+  getCurrentOrNextPeriodWeek,
 } from "../../order/weekUtils";
 
 type WeekSelectorProps = {
@@ -18,9 +16,11 @@ export default function WeekSelector({
   selectedWeekLabel,
   onChange,
 }: WeekSelectorProps) {
-  const dynamicWeeks = getWeekOptions();
-  const periodWeeks = getJuneAugustWeeks();
-  const currentPeriodWeek = getCurrentPeriodWeek();
+  const allWeeks = getJuneAugustWeeks();
+  const currentOrNextWeek = getCurrentOrNextPeriodWeek();
+
+  // Show all weeks 1–8, auto-select the current/next one
+  const periodWeeks = allWeeks;
 
   return (
     <div className="relative flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
@@ -31,24 +31,12 @@ export default function WeekSelector({
         className="cursor-pointer appearance-none bg-transparent pr-6 text-sm font-medium outline-none"
         aria-label="Select order week"
       >
-        {/* Dynamic: This Week / Next Week */}
-        <optgroup label="Current Period">
-          {dynamicWeeks.map((w) => (
-            <option key={w.weekLabel} value={w.weekLabel}>
-              {w.offset === 0 ? "This Week" : "Next Week"} — {w.dateRange}
-            </option>
-          ))}
-        </optgroup>
-
-        {/* Fixed: June–August Weeks 1–8 */}
-        <optgroup label="June – August 2026">
-          {periodWeeks.map((w) => (
-            <option key={w.weekLabel} value={w.weekLabel}>
-              Week {w.periodWeek}
-              {w.periodWeek === currentPeriodWeek ? " ★" : ""} — {w.dateRange}
-            </option>
-          ))}
-        </optgroup>
+        {periodWeeks.map((w) => (
+          <option key={w.weekLabel} value={w.weekLabel}>
+            Week {w.periodWeek}
+            {w.periodWeek === currentOrNextWeek ? " ★" : ""} — {w.dateRange}
+          </option>
+        ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-slate-400" />
     </div>

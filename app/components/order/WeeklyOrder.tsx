@@ -97,6 +97,10 @@ export default function WeeklyOrder({
   const [submitted, setSubmitted] = useState(false);
   const [lastOrders, setLastOrders] = useState<WeeklyOrderRecord[]>([]);
   const [validationError, setValidationError] = useState("");
+  // Tracks custom items added locally — only written to Supabase on Submit
+  const [localCustomProducts, setLocalCustomProducts] = useState<
+    WeeklyProduct[]
+  >([]);
 
   const products = useMemo(() => {
     if (!selectedCategory) return [];
@@ -111,7 +115,14 @@ export default function WeeklyOrder({
   const syncProducts = useCallback(() => {
     getWeeklyProducts(activeWeekLabel).then((fetched) => {
       // Only show products that have a price set — items deleted from pricing don't appear
-      setAllProducts(fetched.filter((p) => p.price > 0));
+      const filtered = fetched.filter((p) => p.price > 0);
+      // Merge in any local custom products (price=0, not yet submitted)
+      setAllProducts((prev) => {
+        const localCustom = prev.filter(
+          (p) => !filtered.some((f) => f.id === p.id),
+        );
+        return [...filtered, ...localCustom];
+      });
     });
   }, [activeWeekLabel]);
 
@@ -233,11 +244,22 @@ export default function WeeklyOrder({
     setEditQty("");
   }
 
+  function handleDeleteLocalProduct(productId: string) {
+    setLocalCustomProducts((prev) => prev.filter((p) => p.id !== productId));
+    setAllProducts((prev) => prev.filter((p) => p.id !== productId));
+    setOrder((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+  }
+
   function resetToDefault() {
     setOrder(buildInitialState(allProducts));
     setEditingId(null);
     setSubmitted(false);
     setLastOrders([]);
+    setLocalCustomProducts([]);
   }
 
   async function handleSubmit() {
@@ -575,6 +597,34 @@ export default function WeeklyOrder({
                 setValidationError("Please select an egg size");
                 return;
               }
+
+              // Resolve the final display name the same way handleAddCustom does,
+              // so the duplicate check matches what would actually be added.
+              const resolvedName = (() => {
+                let name = (
+                  newItemName === "__custom__" ? newItemCustomName : newItemName
+                ).trim();
+                if (selectedCategory === "egg") {
+                  const sizeSuffix = `(${newItemSize.trim()})`;
+                  if (name.toLowerCase().includes("egg")) {
+                    if (!name.includes(sizeSuffix))
+                      name = `${name} ${sizeSuffix}`;
+                  } else {
+                    name = `${name} Egg ${sizeSuffix}`;
+                  }
+                }
+                return name;
+              })();
+
+              const isDuplicate = allProducts.some(
+                (p) =>
+                  p.name.trim().toLowerCase() === resolvedName.toLowerCase() &&
+                  p.category === selectedCategory,
+              );
+              if (isDuplicate) {
+                setValidationError(`"${resolvedName}" is already in the list.`);
+                return;
+              }
               const handleAddCustom = async () => {
                 let finalName = (
                   newItemName === "__custom__" ? newItemCustomName : newItemName
@@ -590,22 +640,30 @@ export default function WeeklyOrder({
                   }
                 }
 
-                const entry = await addWeeklyProduct(
-                  {
-                    name: finalName,
-                    defaultQty: qty,
-                    unit: newItemUnit.trim() || "pc",
-                    price: 0,
-                    category: selectedCategory,
-                  },
-                  activeWeekLabel,
-                );
+                // Build a local-only product entry — NOT saved to Supabase yet
+                const slug =
+                  finalName
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "") || "item";
+                const id = `${slug}-${Date.now()}`;
+
+                const newProduct: WeeklyProduct = {
+                  id,
+                  name: finalName,
+                  defaultQty: qty,
+                  unit: newItemUnit.trim() || "pc",
+                  price: 0,
+                  category: selectedCategory,
+                };
+
+                // Add to local state only — Supabase write happens on Submit
+                setLocalCustomProducts((prev) => [...prev, newProduct]);
+                setAllProducts((prev) => [...prev, newProduct]);
                 setOrder((prev) => ({
                   ...prev,
-                  [entry.id]: { selected: true, qty: entry.defaultQty },
+                  [id]: { selected: true, qty: newProduct.defaultQty },
                 }));
-                const updatedList = await getWeeklyProducts(activeWeekLabel);
-                setAllProducts(updatedList);
               };
               handleAddCustom();
               setNewItemName(
@@ -767,6 +825,11 @@ export default function WeeklyOrder({
                   onStartEdit={() => startEdit(product)}
                   onSaveEdit={() => saveEdit(product.id)}
                   onCancelEdit={cancelEdit}
+                  onDelete={
+                    localCustomProducts.some((p) => p.id === product.id)
+                      ? () => handleDeleteLocalProduct(product.id)
+                      : undefined
+                  }
                 />
               ))}
             </div>

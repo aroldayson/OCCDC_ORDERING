@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { deleteOrder, updateOrder } from "../../order/orderStorage";
+import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
+// import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import { printOrderForm } from "../printOrder";
 import type { OrderRole } from "../../order/roles";
@@ -127,10 +129,10 @@ function OrderItemsTable({
 
   async function handleDeleteItem(productId: string) {
     const remainingItems = order.items.filter(
-      (item) => item.productId !== productId
+      (item) => item.productId !== productId,
     );
     const activeItems = remainingItems.filter(
-      (item) => !item.deleted && !item.productId.startsWith("delivery-fee-")
+      (item) => !item.deleted && !item.productId.startsWith("delivery-fee-"),
     );
 
     const willCancelOrder = activeItems.length === 0;
@@ -144,7 +146,7 @@ function OrderItemsTable({
 
     const updatedTotalPrice = remainingItems.reduce(
       (sum, item) => sum + (item.qty || 0) * (item.price || 0),
-      0
+      0,
     );
 
     const updatedOrder = {
@@ -155,6 +157,13 @@ function OrderItemsTable({
       totalPrice: updatedTotalPrice,
     };
     await updateOrder(updatedOrder);
+
+    // Also delete the product from weekly_products table in Supabase
+    // (skip delivery fee items which are not in weekly_products)
+    if (!productId.startsWith("delivery-fee-")) {
+      await removeWeeklyProduct(productId, order.weekLabel);
+    }
+
     onUpdated();
   }
 
@@ -338,6 +347,12 @@ function OrderAccordion({
 
   async function handleDelete() {
     if (confirm(`Delete order ${order.id}?`)) {
+      // Remove each product in this order from weekly_products as well
+      for (const item of order.items) {
+        if (!item.deleted && !item.productId.startsWith("delivery-fee-")) {
+          await removeWeeklyProduct(item.productId, order.weekLabel);
+        }
+      }
       await deleteOrder(order.id);
       onUpdated();
     }
