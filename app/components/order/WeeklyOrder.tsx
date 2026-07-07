@@ -65,8 +65,7 @@ export default function WeeklyOrder({
   // }, []);
   // /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Temporarily disabled Wednesday block while adding features
-  const isOrderingDisabled = false;
+  const isOrderingDisabled = new Date().getDay() === 3;
 
   const [allProducts, setAllProducts] = useState<WeeklyProduct[]>([]);
   const [catalogItems, setCatalogItems] = useState<ItemCatalogEntry[]>([]);
@@ -881,7 +880,12 @@ export default function WeeklyOrder({
         <SubmitBar
           selectedCount={selectedItems.length}
           totalCount={products.length}
-          disabled={selectedItems.length === 0 || submitted || !readyToOrder}
+          disabled={
+            selectedItems.length === 0 ||
+            submitted ||
+            !readyToOrder ||
+            isOrderingDisabled
+          }
           onSubmit={handleSubmit}
           embedded={embedded}
         />
@@ -900,9 +904,8 @@ export default function WeeklyOrder({
             Ordering is Closed Today
           </h2>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Ordering is disabled every Tuesday for system maintenance and weekly
-            order processing. Please place your orders on other days of the
-            week.
+            Ordering is disabled every Wednesday while our suppliers compile
+            weekly shipments. Please place your orders on other weekdays.
           </p>
         </div>
       </div>

@@ -28,6 +28,7 @@ import {
 import {
   getJuneAugustWeeks,
   getCurrentOrNextPeriodWeek,
+  getCurrentPeriodWeek,
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import WeeklyOrder from "../order/WeeklyOrder";
@@ -385,6 +386,7 @@ export default function WeeklyOrderView({
 }: WeeklyOrderViewProps) {
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
+  const isWednesday = new Date().getDay() === 3;
   const schoolName = user?.school_name?.trim() ?? "";
 
   const tabs = adminTabs;
@@ -424,6 +426,25 @@ export default function WeeklyOrderView({
     if (isAdmin) return byWeek;
     return filterOrdersForSchool(byWeek, schoolName);
   }, [orders, selectedWeekLabel, isAdmin, schoolName]);
+
+  const isPastWeek = useMemo(() => {
+    const allWeeks = getJuneAugustWeeks();
+    const selectedWeek = allWeeks.find(
+      (w) => w.weekLabel === selectedWeekLabel,
+    );
+    const currentPeriodWeek = getCurrentPeriodWeek();
+    const currentOrNextWeek = getCurrentOrNextPeriodWeek();
+
+    if (!selectedWeek) return false;
+    if (currentPeriodWeek === null && currentOrNextWeek === null) {
+      return true;
+    }
+    if (currentPeriodWeek === null) {
+      // Before the period starts — no past weeks yet.
+      return false;
+    }
+    return selectedWeek.periodWeek < currentPeriodWeek;
+  }, [selectedWeekLabel]);
 
   const [selectedOrderDetail, setSelectedOrderDetail] =
     useState<WeeklyOrderRecord | null>(null);
@@ -941,6 +962,8 @@ export default function WeeklyOrderView({
             categoryFilter={categoryFilter}
             weekLabel={selectedWeekLabel}
             isAdmin={isAdmin}
+            isWednesday={isWednesday}
+            isPastWeek={isPastWeek}
           />
         )}
         {tab === "items" && <WeeklyProductInputTable />}
