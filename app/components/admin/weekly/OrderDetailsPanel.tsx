@@ -84,11 +84,15 @@ function OrderItemsTable({
   expanded,
   onToggleAll,
   onUpdated,
+  isWednesday = false,
+  isPastWeek = false,
 }: {
   order: WeeklyOrderRecord;
   expanded: boolean;
   onToggleAll: () => void;
   onUpdated: () => void;
+  isWednesday?: boolean;
+  isPastWeek?: boolean;
 }) {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(0);
@@ -97,6 +101,12 @@ function OrderItemsTable({
   const shown = expanded ? items : items.slice(0, PREVIEW_COUNT);
 
   async function handleUpdateQty(productId: string, newQty: number) {
+    if (isWednesday || isPastWeek) {
+      alert(
+        "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
+      );
+      return;
+    }
     if (newQty <= 0) {
       alert(
         "Quantity must be greater than zero. If you want to remove this item, click the delete button.",
@@ -121,6 +131,12 @@ function OrderItemsTable({
   }
 
   async function handleDeleteItem(productId: string) {
+    if (isWednesday || isPastWeek) {
+      alert(
+        "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
+      );
+      return;
+    }
     const remainingItems = order.items.filter(
       (item) => item.productId !== productId,
     );
@@ -283,19 +299,34 @@ function OrderItemsTable({
                     ) : (
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          type="button"
                           onClick={() => {
+                            if (isWednesday) return;
                             setEditingProductId(item.productId);
                             setEditQty(item.qty);
                           }}
-                          className="rounded p-1 text-blue-600 hover:bg-blue-50 transition"
-                          title="Edit quantity"
+                          disabled={isWednesday}
+                          aria-disabled={isWednesday}
+                          className={`rounded p-1 text-blue-600 transition ${isWednesday ? "cursor-not-allowed opacity-60" : "hover:bg-blue-50"}`}
+                          title={
+                            isWednesday
+                              ? "Disabled on Wednesday"
+                              : "Edit quantity"
+                          }
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteItem(item.productId)}
-                          className="rounded p-1 text-red-500 hover:bg-red-50 transition"
-                          title="Delete item"
+                          disabled={isWednesday}
+                          aria-disabled={isWednesday}
+                          className={`rounded p-1 text-red-500 transition ${isWednesday ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
+                          title={
+                            isWednesday
+                              ? "Disabled on Wednesday"
+                              : "Delete item"
+                          }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -327,6 +358,8 @@ type OrderAccordionProps = {
   defaultOpen?: boolean;
   onUpdated: () => void;
   onView: (order: WeeklyOrderRecord) => void;
+  isWednesday?: boolean;
+  isPastWeek?: boolean;
 };
 
 function OrderAccordion({
@@ -334,11 +367,19 @@ function OrderAccordion({
   defaultOpen = false,
   onUpdated,
   onView,
+  isWednesday = false,
+  isPastWeek = false,
 }: OrderAccordionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [itemsExpanded, setItemsExpanded] = useState(false);
 
   async function handleDelete() {
+    if (isWednesday) {
+      alert(
+        "Weekly processing pause is active. Order deletions are disabled on Wednesday.",
+      );
+      return;
+    }
     if (confirm(`Delete order ${order.id}?`)) {
       // Remove each product in this order from weekly_products as well
       for (const item of order.items) {
@@ -410,7 +451,9 @@ function OrderAccordion({
             <button
               type="button"
               onClick={() => onView(order)}
-              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+              disabled={isWednesday || isPastWeek}
+              aria-disabled={isWednesday || isPastWeek}
+              className={`rounded-lg p-1.5 text-blue-600 ${isWednesday || isPastWeek ? "cursor-not-allowed opacity-60" : "hover:bg-blue-50"}`}
               aria-label="Edit order"
             >
               <Pencil className="h-4 w-4" />
@@ -418,7 +461,9 @@ function OrderAccordion({
             <button
               type="button"
               onClick={handleDelete}
-              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+              disabled={isWednesday || isPastWeek}
+              aria-disabled={isWednesday || isPastWeek}
+              className={`rounded-lg p-1.5 text-red-500 ${isWednesday || isPastWeek ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
               aria-label="Delete order"
             >
               <Trash2 className="h-4 w-4" />
@@ -458,6 +503,8 @@ function OrderAccordion({
             expanded={itemsExpanded}
             onToggleAll={() => setItemsExpanded((v) => !v)}
             onUpdated={onUpdated}
+            isWednesday={isWednesday}
+            isPastWeek={isPastWeek}
           />
         </div>
       )}
@@ -476,6 +523,8 @@ type OrderDetailsPanelProps = {
   onViewOrder: (order: WeeklyOrderRecord) => void;
   onBack?: () => void;
   weekLabel?: string;
+  isWednesday?: boolean;
+  isPastWeek?: boolean;
 };
 
 export default function OrderDetailsPanel({
@@ -489,6 +538,8 @@ export default function OrderDetailsPanel({
   onViewOrder,
   onBack,
   weekLabel,
+  isWednesday = false,
+  isPastWeek = false,
 }: OrderDetailsPanelProps) {
   const [addItemCategory, setAddItemCategory] = useState<OrderRole | null>(
     null,
@@ -588,7 +639,9 @@ export default function OrderDetailsPanel({
           </button>
           <button
             onClick={onAddOrder}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+            disabled={isWednesday || isPastWeek}
+            aria-disabled={isWednesday || isPastWeek}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${isWednesday || isPastWeek ? "bg-slate-400 cursor-not-allowed opacity-70" : "bg-blue-600 hover:bg-blue-700"}`}
           >
             <Plus className="h-4 w-4" />
             Add Order
@@ -597,6 +650,13 @@ export default function OrderDetailsPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+        {(isWednesday || isPastWeek) && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            {isWednesday
+              ? "Wednesday processing pause: order edits and deletions are disabled until the next business day."
+              : "Past week view only: order edits and deletions are disabled for previous weeks."}
+          </div>
+        )}
         {orders.length === 0 ? (
           <p className="text-center text-sm text-slate-500">
             No orders for this client.
@@ -619,6 +679,8 @@ export default function OrderDetailsPanel({
                   }
                   onUpdated={onUpdated}
                   onView={onViewOrder}
+                  isWednesday={isWednesday}
+                  isPastWeek={isPastWeek}
                 />
               ))}
             </div>
