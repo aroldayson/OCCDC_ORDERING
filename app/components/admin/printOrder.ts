@@ -2,6 +2,16 @@ import type { WeeklyOrderRecord } from "../order/types";
 import type { WeeklyProduct } from "../order/products";
 import { ClientRecord } from "../order/clientStorage";
 
+function normalizeProductName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s*\(\s*/g, "(")
+    .replace(/\s*\)\s*/g, ")")
+    .trim();
+}
+
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
   fruits: "Fruits",
@@ -381,7 +391,9 @@ export function printItemizedTally(
     order.items
       .filter((item) => !item.deleted)
       .forEach((item) => {
-        const key = `${item.name}||${item.unit}||${item.price ?? 0}`;
+        const normName = normalizeProductName(item.name);
+        const normUnit = item.unit.toLowerCase().trim();
+        const key = `${normName}||${normUnit}||${item.price ?? 0}`;
         if (!rowMap.has(key)) {
           rowMap.set(key, {
             name: item.name,
@@ -1191,7 +1203,9 @@ export async function downloadItemizedTallyExcel(
     order.items
       .filter((it) => !it.deleted)
       .forEach((it) => {
-        const key = `${it.name}||${it.unit}||${it.price ?? 0}`;
+        const normName = normalizeProductName(it.name);
+        const normUnit = it.unit.toLowerCase().trim();
+        const key = `${normName}||${normUnit}||${it.price ?? 0}`;
         if (!rowMap.has(key)) {
           rowMap.set(key, {
             name: it.name,

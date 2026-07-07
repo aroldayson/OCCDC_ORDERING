@@ -11,13 +11,28 @@ type GroupedProduct = {
   category: string;
 };
 
+function normalizeProductName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s*\(\s*/g, "(")
+    .replace(/\s*\)\s*/g, ")")
+    .trim();
+}
+
 export default function TopDishes({ orders }: TopDishesProps) {
   // Aggregate products
   const productMap = new Map<string, GroupedProduct>();
 
   for (const order of orders) {
     for (const item of order.items) {
-      const key = `${item.name.toLowerCase()}-${item.unit.toLowerCase()}`;
+      if (item.deleted) continue;
+
+      const normName = normalizeProductName(item.name);
+      const normUnit = item.unit.toLowerCase().trim();
+      const key = `${normName}-${normUnit}`;
+
       const existing = productMap.get(key);
       if (existing) {
         existing.qty += item.qty;
@@ -61,6 +76,9 @@ export default function TopDishes({ orders }: TopDishesProps) {
       <div className="mb-4 flex items-center justify-between shrink-0">
         <h2 className="text-base font-bold text-slate-800">Top Ordered Products</h2>
       </div>
+
+
+
       {sortedProducts.length === 0 ? (
         <div className="py-8 text-center text-sm text-slate-500 flex-1 flex items-center justify-center">No ordered items yet.</div>
       ) : (

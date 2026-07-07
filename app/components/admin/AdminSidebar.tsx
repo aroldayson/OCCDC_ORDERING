@@ -115,6 +115,8 @@ function SidebarInner({
   const getSupplierNavItems = () => {
     const list = [
       { id: "overview", icon: LayoutDashboard, label: "Dashboard" },
+      { id: "place-order", icon: ShoppingBag, label: "Weekly Order" },
+      { id: "orders", icon: ClipboardList, label: "Order Summary" },
       { id: "notifications", icon: Bell, label: "Notifications" },
     ];
 

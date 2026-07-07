@@ -1,5 +1,5 @@
 import { ShoppingCart } from "lucide-react";
-import { weekLabel } from "./products";
+import { weekLabel as defaultWeekLabel } from "./products";
 
 type SubmitBarProps = {
   selectedCount: number;
@@ -7,6 +7,7 @@ type SubmitBarProps = {
   disabled: boolean;
   onSubmit: () => void;
   embedded?: boolean;
+  weekLabel?: string;
 };
 
 export default function SubmitBar({
@@ -15,7 +16,10 @@ export default function SubmitBar({
   disabled,
   onSubmit,
   embedded,
+  weekLabel,
 }: SubmitBarProps) {
+  const displayWeekLabel = weekLabel || defaultWeekLabel;
+
   return (
     <div
       className={
@@ -26,9 +30,9 @@ export default function SubmitBar({
     >
       <div className={`flex items-center justify-between gap-4 ${embedded ? "" : "mx-auto max-w-2xl"}`}>
         <div className="min-w-0">
-          <p className="text-xs text-slate-500">{weekLabel}</p>
+          <p className="text-xs text-slate-500">{displayWeekLabel}</p>
           <p className="truncate text-sm font-bold text-slate-800">
-            {selectedCount} of {totalCount} items selected
+            {selectedCount} item{selectedCount === 1 ? "" : "s"} selected
           </p>
         </div>
         <button

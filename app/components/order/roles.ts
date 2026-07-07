@@ -1,4 +1,5 @@
 export type OrderRole =
+  | "all"
   | "vegetables"
   | "fruits"
   | "fish"
@@ -9,6 +10,7 @@ export type OrderRole =
   | "other_order";
 
 export const orderRoles: OrderRole[] = [
+  "all",
   "vegetables",
   "fruits",
   "fish",
@@ -20,6 +22,7 @@ export const orderRoles: OrderRole[] = [
 ];
 
 export const orderRoleLabels: Record<OrderRole, string> = {
+  all: "All",
   vegetables: "Vegetables",
   fruits: "Fruits",
   fish: "Fish",
@@ -31,6 +34,7 @@ export const orderRoleLabels: Record<OrderRole, string> = {
 };
 
 export const orderRoleColors: Record<OrderRole, string> = {
+  all: "bg-slate-100 text-slate-700",
   vegetables: "bg-emerald-100 text-emerald-700",
   fruits: "bg-teal-100 text-teal-700",
   fish: "bg-sky-100 text-sky-700",

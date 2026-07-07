@@ -675,6 +675,23 @@ export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
     };
     const { error } = await supabase.from("orders").insert(dbOrder);
     if (error) throw error;
+
+    if (order.items && order.items.length > 0) {
+      const dbOrderItems = order.items.map((item) => ({
+        order_id: order.id,
+        product_id: item.productId || 'unknown',
+        quantity: item.qty,
+        price: item.price,
+        subtotal: item.qty * item.price,
+        status: 'Active',
+        created_at: order.createdAt || new Date().toISOString(),
+      }));
+      const { error: itemsError } = await supabase.from("order_items").insert(dbOrderItems);
+      if (itemsError) {
+        console.error("Error saving order items to Supabase:", itemsError);
+      }
+    }
+
     window.dispatchEvent(new Event("occdc-orders-updated"));
     window.dispatchEvent(new CustomEvent("occdc-order-action", {
       detail: { type: "new_order", orderId: order.id, clientName: order.clientName, category: order.clientRole },
@@ -773,6 +790,34 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       .update(dbOrder)
       .eq("id", updated.id);
     if (error) throw error;
+
+    // Sync items in order_items table in Supabase
+    // Clear old items first
+    const { error: deleteError } = await supabase
+      .from("order_items")
+      .delete()
+      .eq("order_id", updated.id);
+      
+    if (deleteError) {
+      console.error("Error deleting old order items in Supabase:", deleteError);
+    }
+
+    // Insert updated items
+    if (updated.items && updated.items.length > 0) {
+      const dbOrderItems = updated.items.map((item) => ({
+        order_id: updated.id,
+        product_id: item.productId || 'unknown',
+        quantity: item.qty,
+        price: item.price,
+        subtotal: item.qty * item.price,
+        status: 'Active',
+      }));
+      const { error: insertError } = await supabase.from("order_items").insert(dbOrderItems);
+      if (insertError) {
+        console.error("Error inserting updated order items in Supabase:", insertError);
+      }
+    }
+
     window.dispatchEvent(new Event("occdc-orders-updated"));
     window.dispatchEvent(new CustomEvent("occdc-order-action", {
       detail: { type: "items_updated", orderId: updated.id, clientName: updated.clientName },
