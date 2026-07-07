@@ -1,6 +1,7 @@
 import { Eye, Printer } from "lucide-react";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 import { printOrderForm } from "./printOrder";
+import { orderRoleColors, orderRoleLabels } from "../order/roles";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -63,7 +64,17 @@ export default function OrdersTable({
                 <p className="font-semibold text-slate-800">
                   {order.clientName}
                 </p>
-                <p className="text-xs text-slate-400">{order.id}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-slate-400">{order.id}</span>
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                      orderRoleColors[order.clientRole] ||
+                      "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {orderRoleLabels[order.clientRole] || order.clientRole}
+                  </span>
+                </div>
               </div>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -103,6 +114,7 @@ export default function OrdersTable({
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400 shadow-[0_1px_0_0_rgb(241_245_249)]">
                 <th className="px-3 py-3 sm:px-5">Order ID</th>
+                <th className="px-3 py-3 sm:px-5">Category</th>
                 <th className="px-3 py-3 sm:px-5">Client</th>
                 <th className="hidden px-3 py-3 sm:px-5 md:table-cell">Week</th>
                 <th className="hidden px-3 py-3 sm:px-5 lg:table-cell">
@@ -123,6 +135,16 @@ export default function OrdersTable({
                 >
                   <td className="px-3 py-3.5 font-medium text-slate-600 sm:px-5 whitespace-nowrap">
                     {order.id}
+                  </td>
+                  <td className="px-3 py-3.5 sm:px-5">
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                        orderRoleColors[order.clientRole] ||
+                        "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {orderRoleLabels[order.clientRole] || order.clientRole}
+                    </span>
                   </td>
                   <td className="px-3 py-3.5 font-medium text-slate-800 sm:px-5">
                     <div className="min-w-0">

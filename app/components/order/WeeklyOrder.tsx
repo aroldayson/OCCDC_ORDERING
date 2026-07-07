@@ -103,13 +103,19 @@ export default function WeeklyOrder({
 
   const products = useMemo(() => {
     if (!selectedCategory) return [];
+    if (selectedCategory === "all") return allProducts;
     return allProducts.filter((p) => p.category === selectedCategory);
   }, [allProducts, selectedCategory]);
 
-  const selectedItems = useMemo(
-    () => allProducts.filter((p) => order[p.id]?.selected),
-    [allProducts, order],
-  );
+  const selectedItems = useMemo(() => {
+    if (!selectedCategory) return [];
+    if (selectedCategory === "all") {
+      return allProducts.filter((p) => order[p.id]?.selected);
+    }
+    return allProducts.filter(
+      (p) => p.category === selectedCategory && order[p.id]?.selected,
+    );
+  }, [allProducts, order, selectedCategory]);
 
   const syncProducts = useCallback(() => {
     getWeeklyProducts(activeWeekLabel).then((fetched) => {
@@ -138,7 +144,8 @@ export default function WeeklyOrder({
       setCatalogItems([]);
       return;
     }
-    getItemCatalog(selectedCategory).then(setCatalogItems);
+    const catQuery = selectedCategory === "all" ? undefined : selectedCategory;
+    getItemCatalog(catQuery).then(setCatalogItems);
   }, [selectedCategory]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -156,12 +163,17 @@ export default function WeeklyOrder({
     } else if (selectedCategory === "rice") {
       setNewItemUnit("sack");
       setNewItemSize("");
-      setNewItemName("Rice");
+      setNewItemName("");
       setNewItemCustomName("");
     } else if (selectedCategory === "egg") {
       setNewItemUnit("tray/30");
       setNewItemSize("Medium");
       setNewItemName("Egg");
+      setNewItemCustomName("");
+    } else if (selectedCategory === "all") {
+      setNewItemUnit("pc");
+      setNewItemSize("");
+      setNewItemName("");
       setNewItemCustomName("");
     } else {
       setNewItemUnit("");
@@ -409,19 +421,25 @@ export default function WeeklyOrder({
             Select Category
           </p>
           <div className="flex flex-wrap gap-2">
-            {orderRoles.map((role) => (
-              <button
-                key={role}
-                onClick={() => setSelectedCategory(role)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                  selectedCategory === role
-                    ? "border-blue-600 bg-blue-50 text-blue-700"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {orderRoleLabels[role]}
-              </button>
-            ))}
+            {orderRoles.map((role) => {
+              const isDisabled = role === "other_order";
+              return (
+                <button
+                  key={role}
+                  disabled={isDisabled}
+                  onClick={() => setSelectedCategory(role)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${
+                    isDisabled
+                      ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
+                      : selectedCategory === role
+                        ? "border-blue-600 bg-blue-50 text-blue-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {orderRoleLabels[role]}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -434,7 +452,7 @@ export default function WeeklyOrder({
           <div className="mt-3 space-y-2">
             {/* Row 1: Item Name */}
             <div>
-              {selectedCategory === "egg" || selectedCategory === "rice" ? (
+              {selectedCategory === "egg" ? (
                 <input
                   value={newItemName}
                   disabled
@@ -445,9 +463,15 @@ export default function WeeklyOrder({
                   <select
                     value={newItemName}
                     onChange={(e) => {
-                      setNewItemName(e.target.value);
+                      const val = e.target.value;
+                      setNewItemName(val);
                       setNewItemCustomName("");
                       setValidationError("");
+
+                      const matched = catalogItems.find((item) => item.name === val);
+                      if (matched && matched.default_unit) {
+                        setNewItemUnit(matched.default_unit);
+                      }
                     }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   >
@@ -627,62 +651,73 @@ export default function WeeklyOrder({
                 return name;
               })();
 
-              const isDuplicate = allProducts.some(
+              const selectedCatalogItem = catalogItems.find((c) => c.name === newItemName);
+              const targetCategory = selectedCatalogItem
+                ? (selectedCatalogItem.category as OrderRole)
+                : (selectedCategory === "all" ? "other_order" : selectedCategory);
+
+              const existingProduct = allProducts.find(
                 (p) =>
                   p.name.trim().toLowerCase() === resolvedName.toLowerCase() &&
-                  p.category === selectedCategory,
+                  p.category === targetCategory,
               );
-              if (isDuplicate) {
-                setValidationError(`"${resolvedName}" is already in the list.`);
-                return;
-              }
-              const handleAddCustom = async () => {
-                let finalName = (
-                  newItemName === "__custom__" ? newItemCustomName : newItemName
-                ).trim();
-                if (selectedCategory === "egg") {
-                  const sizeSuffix = `(${newItemSize.trim()})`;
-                  if (finalName.toLowerCase().includes("egg")) {
-                    if (!finalName.includes(sizeSuffix)) {
-                      finalName = `${finalName} ${sizeSuffix}`;
-                    }
-                  } else {
-                    finalName = `${finalName} Egg ${sizeSuffix}`;
-                  }
+
+              if (existingProduct) {
+                if (order[existingProduct.id]?.selected) {
+                  setValidationError(`"${resolvedName}" is already in the list.`);
+                  return;
                 }
-
-                // Build a local-only product entry — NOT saved to Supabase yet
-                const slug =
-                  finalName
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/(^-|-$)/g, "") || "item";
-                const id = `${slug}-${Date.now()}`;
-
-                const newProduct: WeeklyProduct = {
-                  id,
-                  name: finalName,
-                  defaultQty: qty,
-                  unit: newItemUnit.trim() || "pc",
-                  price: 0,
-                  category: selectedCategory,
-                };
-
-                // Add to local state only — Supabase write happens on Submit
-                setLocalCustomProducts((prev) => [...prev, newProduct]);
-                setAllProducts((prev) => [...prev, newProduct]);
                 setOrder((prev) => ({
                   ...prev,
-                  [id]: { selected: true, qty: newProduct.defaultQty },
+                  [existingProduct.id]: { selected: true, qty },
                 }));
-              };
-              handleAddCustom();
+              } else {
+                const handleAddCustom = async () => {
+                  let finalName = (
+                    newItemName === "__custom__" ? newItemCustomName : newItemName
+                  ).trim();
+                  if (selectedCategory === "egg") {
+                    const sizeSuffix = `(${newItemSize.trim()})`;
+                    if (finalName.toLowerCase().includes("egg")) {
+                      if (!finalName.includes(sizeSuffix)) {
+                        finalName = `${finalName} ${sizeSuffix}`;
+                      }
+                    } else {
+                      finalName = `${finalName} Egg ${sizeSuffix}`;
+                    }
+                  }
+
+                  // Build a local-only product entry — NOT saved to Supabase yet
+                  const slug =
+                    finalName
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/(^-|-$)/g, "") || "item";
+                  const id = `${slug}-${Date.now()}`;
+
+                  const newProduct: WeeklyProduct = {
+                    id,
+                    name: finalName,
+                    defaultQty: qty,
+                    unit: newItemUnit.trim() || "pc",
+                    price: 0,
+                    category: targetCategory,
+                  };
+
+                  // Add to local state only — Supabase write happens on Submit
+                  setLocalCustomProducts((prev) => [...prev, newProduct]);
+                  setAllProducts((prev) => [...prev, newProduct]);
+                  setOrder((prev) => ({
+                    ...prev,
+                    [id]: { selected: true, qty: newProduct.defaultQty },
+                  }));
+                };
+                handleAddCustom();
+              }
               setNewItemName(
                 selectedCategory === "egg"
                   ? "Egg"
-                  : selectedCategory === "rice"
-                    ? "Rice"
-                    : "",
+                  : "",
               );
               setNewItemCustomName("");
               setNewItemQty("");
@@ -888,6 +923,7 @@ export default function WeeklyOrder({
           }
           onSubmit={handleSubmit}
           embedded={embedded}
+          weekLabel={activeWeekLabel}
         />
       </div>
     </div>

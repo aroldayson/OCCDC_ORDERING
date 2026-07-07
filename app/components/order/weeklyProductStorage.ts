@@ -62,6 +62,18 @@ export async function addWeeklyProduct(
 
   let id = product.id ?? slug;
   const existingList = await getWeeklyProducts(activeWeek);
+
+  const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const existing = existingList.find(
+    (p) =>
+      normalize(p.name) === normalize(product.name) &&
+      p.category === product.category,
+  );
+
+  if (existing) {
+    return existing;
+  }
+
   if (existingList.some((p) => p.id === id)) {
     id = `${slug}-${Date.now()}`;
   }
@@ -228,6 +240,18 @@ export async function updateWeeklyProduct(
             .from("orders")
             .update({ items: updatedItems, total_price: totalPrice })
             .eq("id", order.id);
+
+          const itemToUpdate = items.find((it) => it.productId === id);
+          if (itemToUpdate) {
+            await supabase
+              .from("order_items")
+              .update({
+                price: newPrice,
+                subtotal: (itemToUpdate.qty || 0) * newPrice,
+              })
+              .eq("order_id", order.id)
+              .eq("product_id", id);
+          }
         }
       }
     }
@@ -340,6 +364,16 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
             status: newStatus,
           })
           .eq("id", order.id);
+
+        if (newStatus === "cancelled") {
+          await supabase.from("order_items").delete().eq("order_id", order.id);
+        } else {
+          await supabase
+            .from("order_items")
+            .delete()
+            .eq("order_id", order.id)
+            .eq("product_id", id);
+        }
       }
     }
 

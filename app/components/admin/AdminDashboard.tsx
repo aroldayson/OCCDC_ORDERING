@@ -17,6 +17,7 @@ import OrderDetailPanel from "./OrderDetailPanel";
 import ProductCatalogManager from "./ProductCatalogManager";
 import DeliveryFeeManager from "./DeliveryFeeManager";
 import { isCategoryAllowed, type OrderRole } from "../order/roles";
+import { getJuneAugustWeeks } from "../order/weekUtils";
 
 const viewMeta: Record<AdminView, { title: string; subtitle?: string }> = {
   overview: { title: "Dashboard", subtitle: "Welcome back!" },
@@ -67,6 +68,12 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Table filters for Order Summary view
+  const [ordersSearch, setOrdersSearch] = useState("");
+  const [ordersCategory, setOrdersCategory] = useState("all");
+  const [ordersStatus, setOrdersStatus] = useState("all");
+  const [ordersWeek, setOrdersWeek] = useState("all");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [readOrderIds, setReadOrderIds] = useState<string[]>([]);
@@ -201,6 +208,34 @@ export default function AdminDashboard() {
     return filterOrdersForSchool(orders, user?.school_name);
   }, [orders, isAdmin, user]);
 
+  const filteredOrders = useMemo(() => {
+    let result = visibleOrders;
+
+    const q = ordersSearch.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (o) =>
+          o.id.toLowerCase().includes(q) ||
+          o.clientName.toLowerCase().includes(q) ||
+          o.items.some((i) => i.name.toLowerCase().includes(q)),
+      );
+    }
+
+    if (ordersCategory !== "all") {
+      result = result.filter((o) => o.clientRole === ordersCategory);
+    }
+
+    if (ordersStatus !== "all") {
+      result = result.filter((o) => o.status === ordersStatus);
+    }
+
+    if (ordersWeek !== "all") {
+      result = result.filter((o) => o.weekLabel === ordersWeek);
+    }
+
+    return result;
+  }, [visibleOrders, ordersSearch, ordersCategory, ordersStatus, ordersWeek]);
+
   const dynamicViewMeta = useMemo(() => {
     const meta = { ...viewMeta };
     if (activeView.startsWith("other-order")) {
@@ -229,11 +264,7 @@ export default function AdminDashboard() {
   // Enforce role-based access control constraints during render phase
   if (user) {
     const isUserAdmin = user.role === "admin";
-    if (isUserAdmin) {
-      if (activeView === "place-order" || activeView === "orders") {
-        setActiveView("overview");
-      }
-    } else {
+    if (!isUserAdmin) {
       if (
         activeView === "overview" ||
         activeView.startsWith("other-order") ||
@@ -516,9 +547,84 @@ export default function AdminDashboard() {
           {activeView === "delivery-fees" && <DeliveryFeeManager />}
 
           {activeView === "orders" && (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 w-full">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 w-full">
+              {/* Filters row */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm shrink-0">
+                {/* Search query */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="m21 21-4.3-4.3" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    value={ordersSearch}
+                    onChange={(e) => setOrdersSearch(e.target.value)}
+                    placeholder="Search orders..."
+                    className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+
+                {/* Category filter */}
+                <select
+                  value={ordersCategory}
+                  onChange={(e) => setOrdersCategory(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="vegetables">Vegetables</option>
+                  <option value="fruits">Fruits</option>
+                  <option value="fish">Fish</option>
+                  <option value="egg">Egg</option>
+                  <option value="meat">Meat</option>
+                  <option value="groceries">Groceries</option>
+                  <option value="rice">Rice</option>
+                  <option value="other_order">Other Order</option>
+                </select>
+
+                {/* Status filter */}
+                <select
+                  value={ordersStatus}
+                  onChange={(e) => setOrdersStatus(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="accepted">Approved</option>
+                  <option value="processing">Processing</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+
+                {/* Week filter */}
+                <select
+                  value={ordersWeek}
+                  onChange={(e) => setOrdersWeek(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="all">All Weeks</option>
+                  {getJuneAugustWeeks().map((w) => (
+                    <option key={w.weekLabel} value={w.weekLabel}>
+                      {w.weekLabel}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <OrdersTable
-                orders={visibleOrders}
+                orders={filteredOrders}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
               />

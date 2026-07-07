@@ -39,7 +39,7 @@ import ToProcessView from "./weekly/ToProcessView";
 import WeekSelector from "./weekly/WeekSelector";
 import WeekSummaryTable from "./weekly/WeekSummaryTable";
 import WeeklyProductInputTable from "./weekly/WeeklyProductInputTable";
-import { addClient } from "../order/clientStorage";
+import { addClient, getClients, type ClientRecord } from "../order/clientStorage";
 import AddClientModal from "./weekly/AddClientModal";
 import type { AdminView } from "./AdminSidebar";
 import { orderRoleLabels, type OrderRole } from "../order/roles";
@@ -417,6 +417,12 @@ export default function WeeklyOrderView({
   const [exportOpen, setExportOpen] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
 
+  const [allClients, setAllClients] = useState<ClientRecord[]>([]);
+
+  useEffect(() => {
+    getClients().then(setAllClients);
+  }, []);
+
   useEffect(() => {
     getWeeklyProducts(selectedWeekLabel).then(setWeeklyProducts);
   }, [selectedWeekLabel]);
@@ -668,6 +674,29 @@ export default function WeeklyOrderView({
         </div>
       )}
 
+      {isAdmin && tab === "order" && (
+        <div className="shrink-0 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="text-sm font-semibold text-blue-900">
+            Select School Client to place order for:
+          </div>
+          <select
+            value={placeOrderClient}
+            onChange={(e) => {
+              setPlaceOrderClient(e.target.value);
+              setShowOrderForm(!!e.target.value);
+            }}
+            className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">-- Choose a school client --</option>
+            {allClients.map((client) => (
+              <option key={client.id} value={client.name}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {!isAdmin && !authLoading && !schoolName && (
         <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Walang naka-link na school sa account mo. Pakicontact ang admin para
@@ -825,6 +854,7 @@ export default function WeeklyOrderView({
                 onOrderSubmitted={() => {
                   onOrdersUpdated();
                   setPlaceOrderClient("");
+                  setShowOrderForm(false);
                   if (onViewChange && !isAdmin) {
                     onViewChange("orders");
                   } else {
@@ -966,7 +996,39 @@ export default function WeeklyOrderView({
             isPastWeek={isPastWeek}
           />
         )}
-        {tab === "items" && <WeeklyProductInputTable />}
+        {tab === "items" && (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-100 bg-white p-12 text-center shadow-sm max-w-lg mx-auto mt-16 space-y-6">
+            <div className="rounded-full bg-blue-50 p-6 text-blue-600 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="36"
+                height="36"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="animate-spin"
+              >
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+                Module Under Construction
+              </h2>
+              <p className="mt-3 text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+                This section is currently under development to bring you a fully featured Weekly Items input manager.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-100 px-3 py-1 text-xs text-slate-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
+              Coming Soon
+            </div>
+          </div>
+        )}
       </div>
 
       <ItemFormModal
