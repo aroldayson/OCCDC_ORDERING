@@ -145,3 +145,56 @@ export function getCurrentOrNextPeriodWeek(): number | null {
   // Today is after the last week's Sunday — period is over
   return null;
 }
+
+// ─── Delivery Date Utilities ─────────────────────────────────────────────────
+
+/**
+ * Given a weekLabel (e.g. "WEEK 4 — June 23-27, 2026"), returns the default Wednesday
+ * delivery date for that week using the fixed period schedule.
+ * Since the week starts on Wednesday (June 24, 2026), the delivery date
+ * defaults to the Wednesday of the following week (next Wednesday).
+ */
+export function getFridayFromWeekLabel(weekLabel: string, createdAt?: string | Date): Date | null {
+  // Match period week number from label like "WEEK 4 — ..."
+  const weeks = getJuneAugustWeeks();
+  const match = weeks.find((w) => w.weekLabel === weekLabel);
+  if (match) {
+    const monday = addDays(PERIOD_START_MONDAY, (match.periodWeek - 1) * 7);
+    
+    // Check if the order was placed on Thursday in Philippine time (UTC+8)
+    const orderDate = createdAt ? new Date(createdAt) : new Date();
+    const phDayStr = orderDate.toLocaleDateString("en-US", {
+      timeZone: "Asia/Manila",
+      weekday: "short"
+    });
+    const isThursday = phDayStr === "Thu";
+
+    if (isThursday) {
+      return addDays(monday, 9); // Friday of the following week (next Friday)
+    }
+    return addDays(monday, 7); // Wednesday of the following week (next Wednesday)
+  }
+  return null;
+}
+
+/**
+ * Formats a delivery (Friday) Date into a human-readable string.
+ */
+export function formatDeliveryDate(date: Date): string {
+  return date.toLocaleDateString("en-PH", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Formats a Date to an ISO date string (YYYY-MM-DD) for HTML date inputs.
+ */
+export function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}

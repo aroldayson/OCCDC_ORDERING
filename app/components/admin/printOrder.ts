@@ -1,6 +1,7 @@
 import type { WeeklyOrderRecord } from "../order/types";
 import type { WeeklyProduct } from "../order/products";
 import { ClientRecord } from "../order/clientStorage";
+import { getFridayFromWeekLabel } from "../order/weekUtils";
 
 function normalizeProductName(name: string): string {
   return name
@@ -147,6 +148,22 @@ export function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?
   // Exclude deleted items and items with no price from print
   const printableItems = order.items.filter(it => !it.deleted && it.price && it.price > 0);
 
+  const orderDateFormatted = order.createdAt
+    ? new Date(order.createdAt).toLocaleDateString("en-PH")
+    : new Date().toLocaleDateString("en-PH");
+
+  let deliveryDateFormatted = "Not set";
+  const dateStr = order.deliveryDate;
+  let dDate: Date | null = null;
+  if (dateStr) {
+    dDate = new Date(dateStr + "T12:00:00");
+  } else {
+    dDate = getFridayFromWeekLabel(order.weekLabel, order.createdAt);
+  }
+  if (dDate) {
+    deliveryDateFormatted = dDate.toLocaleDateString("en-PH");
+  }
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -187,9 +204,9 @@ export function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?
         <div class="form-title">Purchase Request Form</div>
         <div class="form-info">
           <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
-          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
+          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${orderDateFormatted}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${order.weekLabel}</span></div>
-          <div class="form-info-item"><span class="form-info-label">DELIVERY DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
+          <div class="form-info-item"><span class="form-info-label">TARGET DELIVER :</span><span>${deliveryDateFormatted}</span></div>
           <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${categoryLabels[order.clientRole] ?? order.clientRole}</span></div>
           <div class="form-info-item"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${order.status}</span></div>
         </div>

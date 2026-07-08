@@ -152,12 +152,66 @@ export async function updateClientAddress(schoolName: string, address: string): 
 
 export async function updateClientDeliveryPrice(schoolId: string, deliveryPrice: number): Promise<void> {
   try {
+    // 1. Update the school's delivery_price
     const { error } = await supabase.from("schools").update({ delivery_price: deliveryPrice }).eq("id", schoolId);
     if (error && error.message?.includes("does not exist")) {
       console.warn("schools.delivery_price column not yet created — run migration 001_add_school_columns.sql");
       return;
     }
     if (error) throw error;
+
+    // 2. Get the school name so we can match orders
+    const { data: schoolRow } = await supabase
+      .from("schools")
+      .select("name")
+      .eq("id", schoolId)
+      .single();
+    const schoolName = schoolRow?.name as string | undefined;
+
+    if (schoolName) {
+      // 3. Fetch all active orders for this school
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("id, items, total_price")
+        .eq("client_name", schoolName)
+        .not("status", "in", '("cancelled","completed")');
+
+      if (orders) {
+        for (const order of orders) {
+          const items = order.items as Array<{
+            productId: string;
+            price?: number;
+            qty: number;
+            [key: string]: unknown;
+          }> | null;
+          if (!Array.isArray(items)) continue;
+
+          const hasDeliveryItem = items.some((it) =>
+            String(it.productId).startsWith("delivery-fee-")
+          );
+          if (!hasDeliveryItem) continue;
+
+          // 4. Update the delivery-fee item price
+          const updatedItems = items.map((it) =>
+            String(it.productId).startsWith("delivery-fee-")
+              ? { ...it, price: deliveryPrice }
+              : it
+          );
+
+          // 5. Recalculate total_price including delivery
+          const newTotal = updatedItems.reduce(
+            (sum, it) => sum + (it.qty || 0) * (it.price ?? 0),
+            0
+          );
+
+          await supabase
+            .from("orders")
+            .update({ items: updatedItems, total_price: newTotal })
+            .eq("id", order.id);
+        }
+      }
+    }
+
     notify();
   } catch (err) {
     console.error("Error updating delivery price:", err);

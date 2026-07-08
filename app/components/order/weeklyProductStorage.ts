@@ -231,8 +231,13 @@ export async function updateWeeklyProduct(
           const updatedItems = items.map((it) =>
             it.productId === id ? { ...it, price: newPrice } : it
           );
+          // Recalculate total: include all items (delivery fee included), exclude deleted
           const totalPrice = updatedItems.reduce(
-            (sum, it) => sum + (it.qty || 0) * ((it.productId === id ? newPrice : (it.price ?? 0))),
+            (sum, it) => {
+              if ((it as { deleted?: boolean }).deleted) return sum;
+              const p = it.productId === id ? newPrice : (it.price ?? 0);
+              return sum + (it.qty || 0) * p;
+            },
             0
           );
 
