@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { supabase, type UserProfile, type UserRole } from "@/lib/supabase";
+import { type UserProfile, type UserRole } from "@/lib/supabase";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -34,53 +34,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (clerkUser) {
       const fetchOrCreateProfile = async () => {
         try {
-          let { data: profile, error } = await supabase
-            .from("user_profiles")
-            .select("*")
-            .eq("id", clerkUser.id)
-            .maybeSingle();
-
-          if (error) {
-            console.error("Error fetching user profile by ID:", error);
-          }
-
           const userEmail = clerkUser.primaryEmailAddress?.emailAddress;
 
-          // If not found by Clerk ID, look up by Email address!
-          if (!profile && userEmail) {
-            const { data: emailProfile, error: emailError } = await supabase
-              .from("user_profiles")
-              .select("*")
-              .eq("email", userEmail)
-              .maybeSingle();
+          // Fetch profile via server API (uses service role key to bypass RLS)
+          const params = new URLSearchParams({ clerkId: clerkUser.id });
+          if (userEmail) params.set("email", userEmail);
 
-            if (emailError) {
-              console.error("Error fetching user profile by email:", emailError);
-            }
+          const res = await fetch(`/api/user/profile?${params.toString()}`);
+          const json = await res.json();
 
-            if (emailProfile) {
-              // Found existing profile by email! Link it to the Clerk ID!
-              const { error: updateError } = await supabase
-                .from("user_profiles")
-                .update({
-                  id: clerkUser.id,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("email", userEmail);
-
-              if (updateError) {
-                console.error("Error linking existing profile to Clerk ID:", updateError);
-              } else {
-                console.log(`Successfully migrated existing profile for ${userEmail} to Clerk ID`);
-                profile = { ...emailProfile, id: clerkUser.id };
-              }
-            }
+          if (!res.ok) {
+            console.error("Error fetching user profile:", json.error);
           }
+
+          let profile = json.profile ?? null;
 
           if (profile) {
             setUser({
               id: profile.id,
-              email: profile.email || clerkUser.primaryEmailAddress?.emailAddress || "",
+              email: profile.email || userEmail || "",
               role: profile.role as UserRole,
               school_name: profile.school_name || undefined,
               school_address: profile.school_address || undefined,
@@ -89,34 +61,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               updated_at: profile.updated_at,
             });
           } else {
-            // Profile doesn't exist, create it (default role is 'user')
-            // Since it's a new sign-in/signup, they will be redirected to complete-profile by ProtectedRoute.tsx
-            const newProfile = {
-              id: clerkUser.id,
-              email: userEmail || "",
-              role: "user",
-              school_name: null,
-              school_address: null,
-              categories: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-
-            const { error: insertError } = await supabase
-              .from("user_profiles")
-              .insert(newProfile);
-
-            if (insertError) {
-              console.error("Error creating default user profile for Clerk user:", insertError);
-            }
-            
-            setUser({
-              id: newProfile.id,
-              email: newProfile.email,
-              role: "user" as UserRole,
-              created_at: newProfile.created_at,
-              updated_at: newProfile.updated_at,
+            // Profile doesn't exist — create it via server API (default role "user")
+            // ProtectedRoute.tsx will redirect them to complete-profile
+            const createRes = await fetch("/api/user/profile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clerkId: clerkUser.id, email: userEmail || "" }),
             });
+            const createJson = await createRes.json();
+
+            if (!createRes.ok) {
+              console.error("Error creating default user profile:", createJson.error);
+            }
+
+            profile = createJson.profile ?? null;
+
+            if (profile) {
+              setUser({
+                id: profile.id,
+                email: profile.email,
+                role: "user" as UserRole,
+                created_at: profile.created_at,
+                updated_at: profile.updated_at,
+              });
+            }
           }
         } catch (e) {
           console.error("Failed to fetch/create user profile:", e);
