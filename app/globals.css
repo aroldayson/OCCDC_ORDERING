@@ -13,7 +13,7 @@
   --sidebar-text-muted: #94a3b8;
 }
 
-@theme inline {
+@theme {
   --color-foreground: var(--foreground);
   --color-sidebar-active: var(--sidebar-active-bg);
   --color-sidebar-active-text: var(--sidebar-active-text);
