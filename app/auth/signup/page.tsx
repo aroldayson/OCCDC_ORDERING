@@ -11,7 +11,7 @@ import { LeftAuthPanel } from "../../components/auth/LeftAuthPanel";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -27,9 +27,7 @@ export default function SignupPage() {
     categories?: string[],
     schoolAddress?: string,
   ) => {
-    await signUp(email, password, role, schoolName, categories, schoolAddress);
-    router.refresh();
-    router.push("/dashboard");
+    // Stub: Clerk Custom flow is handled inside SignupForm itself
   };
 
   return (

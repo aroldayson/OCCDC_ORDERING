@@ -34,24 +34,33 @@ export default function RevenueChart({ orders }: RevenueChartProps) {
           const isToday = i === todayIndex;
 
           return (
-            <div key={day} className="flex flex-1 flex-col items-center gap-2">
-              {isToday && (
-                <div className="rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-medium text-white">
+            <div key={day} className="group flex flex-1 flex-col items-center h-full justify-end">
+              {/* Tooltip space */}
+              <div className={`h-8 flex items-center justify-center shrink-0 transition-opacity duration-200 ${
+                isToday ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}>
+                <div className="rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-medium text-white shadow-md">
                   <div className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    {value} order{value !== 1 ? "s" : ""}
+                    <span className={`h-1.5 w-1.5 rounded-full ${isToday ? "bg-blue-500" : "bg-slate-400"}`} />
+                    <span>{value} order{value !== 1 ? "s" : ""}</span>
                   </div>
                 </div>
-              )}
-              <div
-                className={`w-full rounded-t-lg transition-all duration-300 ${
-                  isToday
-                    ? "bg-blue-600"
-                    : "bg-slate-200 hover:bg-slate-300"
-                }`}
-                style={{ height: `${height}%`, minHeight: "8px" }}
-              />
-              <span className={`text-xs ${isToday ? "font-bold text-blue-600" : "text-slate-400"}`}>
+              </div>
+
+              {/* Bar Container */}
+              <div className="w-full flex-1 flex items-end min-h-[40px] px-0.5 sm:px-1 mt-2">
+                <div
+                  className={`w-full rounded-t-lg transition-all duration-300 ${
+                    isToday
+                      ? "bg-blue-600"
+                      : "bg-slate-200 hover:bg-slate-300"
+                  }`}
+                  style={{ height: `${height}%`, minHeight: "8px" }}
+                />
+              </div>
+
+              {/* Day Label */}
+              <span className={`text-xs mt-2 shrink-0 ${isToday ? "font-bold text-blue-600" : "text-slate-400"}`}>
                 {day}
               </span>
             </div>

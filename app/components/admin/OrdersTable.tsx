@@ -2,6 +2,7 @@ import { Eye, Printer } from "lucide-react";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 import { printOrderForm } from "./printOrder";
 import { orderRoleColors, orderRoleLabels } from "../order/roles";
+import { getFridayFromWeekLabel } from "../order/weekUtils";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -18,6 +19,24 @@ function formatDate(iso: string) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatDeliveryDateValue(order: WeeklyOrderRecord) {
+  const dateStr = order.deliveryDate;
+  let date: Date | null = null;
+  if (dateStr) {
+    date = new Date(dateStr + "T12:00:00");
+  } else {
+    date = getFridayFromWeekLabel(order.weekLabel, order.createdAt);
+  }
+
+  if (!date) return "Not set";
+
+  return date.toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -121,7 +140,8 @@ export default function OrdersTable({
                   Items
                 </th>
                 <th className="px-3 py-3 sm:px-5">Status</th>
-                <th className="hidden px-3 py-3 sm:px-5 sm:table-cell">Date</th>
+                <th className="hidden px-3 py-3 sm:px-5 sm:table-cell">Order Date</th>
+                <th className="hidden px-3 py-3 sm:px-5 sm:table-cell">Target Deliver</th>
                 <th className="px-3 py-3 sm:px-5 text-right">Actions</th>
               </tr>
             </thead>
@@ -169,6 +189,9 @@ export default function OrdersTable({
                   </td>
                   <td className="hidden px-3 py-3.5 text-xs text-slate-400 sm:px-5 sm:table-cell">
                     <p className="truncate">{formatDate(order.createdAt)}</p>
+                  </td>
+                  <td className="hidden px-3 py-3.5 text-xs text-slate-500 sm:px-5 sm:table-cell">
+                    <p className="truncate">{formatDeliveryDateValue(order)}</p>
                   </td>
                   <td className="px-3 py-3.5 sm:px-5 text-right">
                     <div className="flex justify-end gap-1 sm:gap-2">

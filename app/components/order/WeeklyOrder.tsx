@@ -7,11 +7,9 @@ import {
   buildOrderItems,
   createOrderId,
   saveOrder,
-  getOrders,
 } from "./orderStorage";
 import { getWeeklyProducts, addWeeklyProduct } from "./weeklyProductStorage";
 import { getItemCatalog, type ItemCatalogEntry } from "./itemCatalogStorage";
-import { filterOrdersForSchool, filterOrdersForWeek } from "./orderAccess";
 import { getClients, resolveClientBySchoolName } from "./clientStorage";
 import type { ClientRecord } from "./clientStorage";
 import { orderRoleLabels, orderRoles } from "./roles";
@@ -292,17 +290,6 @@ export default function WeeklyOrder({
     }
     setLocalCustomProducts([]);
 
-    const allOrders = await getOrders();
-    const existingSchoolOrders = filterOrdersForSchool(
-      allOrders,
-      selectedClient.name,
-    );
-    const currentWeekOrders = filterOrdersForWeek(
-      existingSchoolOrders,
-      activeWeekLabel,
-    );
-    const isAdditionalOrder = currentWeekOrders.length > 0;
-    let hasAppliedDeliveryFee = false;
 
     const itemsByCategory: Record<string, typeof selectedItems> = {};
     selectedItems.forEach((item) => {
@@ -315,37 +302,12 @@ export default function WeeklyOrder({
     const createdOrders: WeeklyOrderRecord[] = [];
 
     for (const cat of categoriesWithOrders) {
-      // Duplicate check — skip if a non-cancelled order already exists
-      // for this school + category + week
-      const duplicateExists = currentWeekOrders.some(
-        (o) => o.clientRole === cat && o.status !== "cancelled",
-      );
-      if (duplicateExists) {
-        alert(
-          `You already have a ${orderRoleLabels[cat as OrderRole] ?? cat} order for this week (${activeWeekLabel}). Please edit the existing order instead of submitting a new one.`,
-        );
-        continue;
-      }
-
       const catItems = itemsByCategory[cat];
       const quantities = Object.fromEntries(
         catItems.map((p) => [p.id, order[p.id].qty]),
       );
 
       const items = buildOrderItems(catItems, quantities);
-
-      const deliveryPrice = selectedClient.delivery_price || 0;
-      if (deliveryPrice > 0 && !hasAppliedDeliveryFee) {
-        items.push({
-          productId: `delivery-fee-${Date.now()}`,
-          name: "Delivery Fee",
-          qty: 1,
-          unit: "trip",
-          price: deliveryPrice,
-          category: cat,
-        });
-        hasAppliedDeliveryFee = true;
-      }
 
       const totalPrice = items.reduce(
         (sum, item) => sum + item.qty * item.price,
@@ -383,13 +345,11 @@ export default function WeeklyOrder({
   const readyToOrder = !!selectedClient && !!selectedCategory;
 
   const grandTotal = useMemo(() => {
-    const itemsTotal = selectedItems.reduce((sum, item) => {
+    return selectedItems.reduce((sum, item) => {
       const qty = order[item.id]?.qty ?? 0;
       return sum + qty * item.price;
     }, 0);
-    const deliveryFee = selectedClient?.delivery_price || 0;
-    return itemsTotal > 0 ? itemsTotal + deliveryFee : 0;
-  }, [selectedItems, order, selectedClient]);
+  }, [selectedItems, order]);
 
   const leftPanel = (
     <div className="flex min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6 self-start">
@@ -406,13 +366,12 @@ export default function WeeklyOrder({
                   key={role}
                   disabled={isDisabled}
                   onClick={() => setSelectedCategory(role)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                    isDisabled
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${isDisabled
                       ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
                       : selectedCategory === role
                         ? "border-blue-600 bg-blue-50 text-blue-700"
                         : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {orderRoleLabels[role]}
                 </button>
@@ -774,9 +733,8 @@ export default function WeeklyOrder({
           </div>
         ) : (
           <div
-            className={`shrink-0 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:p-4 ${
-              embedded ? "" : "mb-2"
-            }`}
+            className={`shrink-0 rounded-2xl border border-blue-100 bg-blue-50 p-3 sm:p-4 ${embedded ? "" : "mb-2"
+              }`}
           >
             <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
               Order Period

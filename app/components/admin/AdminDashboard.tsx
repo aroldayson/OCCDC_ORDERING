@@ -64,7 +64,9 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const [activeView, setActiveView] = useState<AdminView>("overview");
+  const [activeView, setActiveView] = useState<AdminView>(
+    user?.role === "admin" ? "overview" : "place-order",
+  );
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);

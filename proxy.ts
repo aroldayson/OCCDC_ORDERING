@@ -1,66 +1,27 @@
-import { createServerClient } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const publicRoutes = ["/", "/auth/login", "/auth/signup"];
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/auth/login(.*)",
+  "/auth/signup(.*)",
+  "/auth/callback(.*)",
+]);
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  let user = null;
-  try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch (error) {
-    console.error("Supabase auth fetch failed in proxy:", error);
+const clerkProxy = clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
   }
+});
 
-  const pathname = request.nextUrl.pathname;
-
-  if (publicRoutes.includes(pathname)) {
-    if (user && (pathname === "/auth/login" || pathname === "/auth/signup")) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    return supabaseResponse;
-  }
-
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".")
-  ) {
-    return supabaseResponse;
-  }
-
-  if (!user) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
-  }
-
-  return supabaseResponse;
+export async function proxy(request: any, event: any) {
+  return clerkProxy(request, event);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html|css|js(?!on)|jfif|jpg|jpeg|gif|png|svg|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
 };

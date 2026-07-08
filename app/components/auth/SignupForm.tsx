@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import type { UserRole } from "@/lib/supabase";
-import { getClients } from "@/app/components/order/clientStorage";
+import { getClients, updateClientAddress } from "@/app/components/order/clientStorage";
+import { useSignUp } from "@clerk/nextjs/legacy";
+import { supabase } from "@/lib/supabase";
 
 interface SignupFormProps {
   onSubmit: (
@@ -17,6 +19,8 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
+  const { isLoaded, signUp, setActive } = useSignUp();
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -25,8 +29,13 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [schoolAddress, setSchoolAddress] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
+  
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(loading);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Clerk Custom Sign Up verification states
+  const [verifying, setVerifying] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   const availableCategories = [
     "fruits",
@@ -45,9 +54,20 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
 
+  const handleGoogleSignup = () => {
+    if (!isLoaded) return;
+    signUp.authenticateWithRedirect({
+      strategy: "oauth_google",
+      redirectUrl: "/auth/callback",
+      redirectUrlComplete: "/dashboard",
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!isLoaded) return;
 
     if (!email.trim()) {
       setError("Email is required");
@@ -82,72 +102,175 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     setIsLoading(true);
 
     try {
-      if (role === "admin") {
-        await onSubmit(email, password, role, undefined, selectedCategories);
-      } else {
-        await onSubmit(
-          email,
-          password,
-          role,
-          schoolName.trim(),
-          undefined,
-          schoolAddress.trim(),
-        );
-      }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to sign up";
+      // Start Clerk sign up flow
+      await signUp.create({
+        emailAddress: email,
+        password,
+      });
 
-      if (errorMessage === "verification_required") {
-        setError(
-          "🎉 Success! Please check your Gmail account to verify your email address before signing in.",
-        );
-        // We leave isLoading as false so they can read the message, or they can navigate to login.
-      } else if (
-        errorMessage.includes("rate limit") ||
-        errorMessage.includes("rate_limit")
-      ) {
-        setError(
-          "Too many signup attempts. Please wait a few minutes and try again with a different email or try again later.",
-        );
-      } else if (errorMessage.includes("already registered")) {
-        setError("This email is already registered. Please sign in instead.");
-      } else if (errorMessage.includes("invalid email")) {
-        setError("Please enter a valid email address");
-      } else if (errorMessage.includes("weak password")) {
-        setError("Password is too weak. Use a stronger password.");
-      } else if (errorMessage.includes("email")) {
-        setError(
-          "There's an issue with your email. Please try a different email address.",
-        );
-      } else {
-        setError(errorMessage);
-      }
+      // Prepare email verification (sends OTP!)
+      await signUp.prepareEmailAddressVerification({
+        strategy: "email_code",
+      });
+
+      setVerifying(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign up");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const result = await signUp.attemptEmailAddressVerification({
+        code: verificationCode,
+      });
+
+      if (result.status !== "complete") {
+        setError("Verification incomplete. Please check your code.");
+        return;
+      }
+
+      // Clerk signup is complete! Create/update user profile in Supabase
+      const clerkUserId = result.createdUserId;
+      
+      const { data: existingProfile } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+
+      let profileError = null;
+
+      if (existingProfile) {
+        // Link existing profile to Clerk ID and update fields
+        const { error: updateError } = await supabase
+          .from("user_profiles")
+          .update({
+            id: clerkUserId,
+            role,
+            school_name: role === "client" ? schoolName.trim() : null,
+            school_address: role === "client" ? schoolAddress.trim() : null,
+            categories: role === "admin" ? selectedCategories : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("email", email);
+        profileError = updateError;
+      } else {
+        // Insert new profile
+        const newProfile = {
+          id: clerkUserId,
+          email,
+          role,
+          school_name: role === "client" ? schoolName.trim() : null,
+          school_address: role === "client" ? schoolAddress.trim() : null,
+          categories: role === "admin" ? selectedCategories : null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const { error: insertError } = await supabase
+          .from("user_profiles")
+          .insert(newProfile);
+        profileError = insertError;
+      }
+
+      if (profileError) {
+        console.error("Error creating/linking profile in Supabase:", profileError);
+      }
+
+      if (role === "client" && schoolName && schoolAddress) {
+        await updateClientAddress(schoolName, schoolAddress);
+      }
+
+      // Activate the Clerk session
+      await setActive({ session: result.createdSessionId });
+
+      // Redirect to dashboard
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (verifying) {
+    return (
+      <form onSubmit={handleVerify} className="space-y-4">
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="text-center space-y-2">
+          <p className="text-sm text-slate-600">
+            We sent a verification code to <strong>{email}</strong>. Please enter it below to complete your registration.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="code" className="text-sm font-semibold text-slate-700">
+            Verification Code
+          </label>
+          <input
+            type="text"
+            id="code"
+            value={verificationCode}
+            onChange={(e) => setVerificationCode(e.target.value)}
+            required
+            disabled={isLoading}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 text-center font-mono tracking-widest text-lg"
+            placeholder="000000"
+            maxLength={6}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full mt-4 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm disabled:opacity-50"
+        >
+          {isLoading ? "Verifying..." : "Verify & Sign Up"}
+        </button>
+
+        <button
+          type="button"
+          onClick={async () => {
+            setError("");
+            setIsLoading(true);
+            if (!signUp) return;
+            try {
+              await signUp.prepareEmailAddressVerification({
+                strategy: "email_code",
+              });
+              setError("Code resent successfully!");
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Failed to resend code");
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          disabled={isLoading}
+          className="w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-700 transition mt-2"
+        >
+          Resend Code
+        </button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-sm space-y-1 ${error.includes("Success!") ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600"}`}
-        >
-          <p>{error}</p>
-          {(error.includes("Too many signup attempts") ||
-            error.toLowerCase().includes("rate limit") ||
-            error.toLowerCase().includes("rate_limit")) && (
-            <p className="mt-1.5 text-xs text-red-500 font-medium">
-              💡 <strong>Developer Tip:</strong> Supabase has a default limit of
-              3 signups per hour. To increase/disable this, go to your{" "}
-              <strong>
-                Supabase Dashboard &gt; Project Settings &gt; Auth
-              </strong>
-              , scroll down to <strong>Rate Limits</strong>, and increase the{" "}
-              <strong>Signups (per hour)</strong> configuration.
-            </p>
-          )}
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
 
@@ -320,12 +443,41 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
         />
       </div>
 
+      <div id="clerk-captcha"></div>
+
       <button
         type="submit"
         disabled={isLoading}
         className="w-full mt-4 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm disabled:opacity-50"
       >
         {isLoading ? "Creating account..." : "Create Account"}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleGoogleSignup}
+        disabled={isLoading}
+        className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition active:scale-[0.98] disabled:opacity-50"
+      >
+        <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
+          <path
+            fill="#4285F4"
+            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+          />
+          <path
+            fill="#34A853"
+            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+          />
+          <path
+            fill="#EA4335"
+            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+          />
+        </svg>
+        Continue with Google
       </button>
     </form>
   );

@@ -596,6 +596,7 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       created_at: string;
       items: WeeklyOrderRecord["items"];
       total_price?: number;
+      delivery_date?: string;
     };
 
     const records = (data as DbOrderRow[]).map((row) => ({
@@ -608,6 +609,7 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       createdAt: row.created_at,
       items: row.items,
       totalPrice: row.total_price || 0,
+      deliveryDate: row.delivery_date || undefined,
     }));
 
     // Merge current catalog prices into items that have price=0 (legacy/migrated orders)
@@ -672,6 +674,7 @@ export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
       created_at: order.createdAt,
       items: order.items,
       total_price: order.totalPrice || 0,
+      delivery_date: order.deliveryDate || null,
     };
     const { error } = await supabase.from("orders").insert(dbOrder);
     if (error) throw error;
@@ -717,6 +720,22 @@ export async function updateOrderStatus(id: string, status: WeeklyOrderRecord["s
   }
 }
 
+export async function updateOrderDeliveryDate(id: string, deliveryDate: string | null): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("orders")
+      .update({ delivery_date: deliveryDate })
+      .eq("id", id);
+    if (error) {
+      console.error("Supabase error updating delivery date:", error.message, error.code, error.hint, error.details);
+      throw error;
+    }
+    window.dispatchEvent(new Event("occdc-orders-updated"));
+  } catch (err) {
+    console.error("Error updating order delivery date in Supabase:", err instanceof Error ? err.message : JSON.stringify(err));
+  }
+}
+
 export async function deleteOrder(id: string): Promise<void> {
   try {
     // Step 1: Fetch the order before deleting so we can archive it
@@ -728,35 +747,35 @@ export async function deleteOrder(id: string): Promise<void> {
 
     if (fetchError) throw fetchError;
 
-      // Step 2: Upsert into deleted_orders as a backup
-      // Use upsert so re-deleting the same order never throws a duplicate key error
-      if (orderData) {
-        const archivePayload = {
-          id:           orderData.id,
-          client_name:  orderData.client_name,
-          client_role:  orderData.client_role,
-          week_label:   orderData.week_label,
-          status:       orderData.status,
-          item_count:   orderData.item_count,
-          items:        orderData.items,
-          total_price:  orderData.total_price,
-          created_at:   orderData.created_at,
-          deleted_at:   new Date().toISOString(),
-        };
-        const { error: archiveError } = await supabase
-          .from("deleted_orders")
-          .upsert(archivePayload, { onConflict: "id" });
-        if (archiveError) {
-          console.error(
-            "Error archiving order to deleted_orders:",
-            archiveError.message,
-            archiveError.details,
-            archiveError.hint,
-            archiveError.code,
-          );
-          // Do not abort — still proceed with deletion
-        }
+    // Step 2: Upsert into deleted_orders as a backup
+    // Use upsert so re-deleting the same order never throws a duplicate key error
+    if (orderData) {
+      const archivePayload = {
+        id: orderData.id,
+        client_name: orderData.client_name,
+        client_role: orderData.client_role,
+        week_label: orderData.week_label,
+        status: orderData.status,
+        item_count: orderData.item_count,
+        items: orderData.items,
+        total_price: orderData.total_price,
+        created_at: orderData.created_at,
+        deleted_at: new Date().toISOString(),
+      };
+      const { error: archiveError } = await supabase
+        .from("deleted_orders")
+        .upsert(archivePayload, { onConflict: "id" });
+      if (archiveError) {
+        console.error(
+          "Error archiving order to deleted_orders:",
+          archiveError.message,
+          archiveError.details,
+          archiveError.hint,
+          archiveError.code,
+        );
+        // Do not abort — still proceed with deletion
       }
+    }
 
     // Step 3: Hard delete from orders
     const { error } = await supabase
@@ -784,6 +803,7 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       item_count: updated.itemCount,
       items: updated.items,
       total_price: updated.totalPrice || 0,
+      delivery_date: updated.deliveryDate || null,
     };
     const { error } = await supabase
       .from("orders")
@@ -797,7 +817,7 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       .from("order_items")
       .delete()
       .eq("order_id", updated.id);
-      
+
     if (deleteError) {
       console.error("Error deleting old order items in Supabase:", deleteError);
     }

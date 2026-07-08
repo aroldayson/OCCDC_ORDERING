@@ -1,42 +1,120 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../providers/AuthProvider";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useSignIn } from "@clerk/nextjs/legacy";
 
 import { LeftAuthPanel } from "../../components/auth/LeftAuthPanel";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  const { isLoaded, signIn, setActive } = useSignIn();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Email Code OTP verification state
+  const [verifying, setVerifying] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!loading && isAuthenticated) {
       router.push("/dashboard");
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [loading, isAuthenticated, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleGoogleLogin = async () => {
+    if (!isLoaded) return;
+    setError("");
+    setIsLoading(true);
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: "/auth/callback",
+        redirectUrlComplete: "/dashboard",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google authentication failed");
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
+
+    if (!isLoaded) return;
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      await signIn(email, password);
-      router.refresh();
-      router.push("/dashboard");
+      // Start Clerk sign in flow and send OTP code automatically
+      const result = await signIn.create({
+        identifier: email,
+      });
+
+      // Find the email code factor
+      const emailCodeFactor = result.supportedFirstFactors?.find(
+        (factor: any) => factor.strategy === "email_code"
+      ) as any;
+
+      if (!emailCodeFactor) {
+        setError("Email verification code is not available for this account.");
+        setIsLoading(false);
+        return;
+      }
+
+      await signIn.prepareFirstFactor({
+        strategy: "email_code",
+        emailAddressId: emailCodeFactor.emailAddressId,
+      });
+
+      setVerifying(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign in");
+      setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!isLoaded) return;
+    if (!verificationCode.trim()) {
+      setError("Please enter the verification code");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: "email_code",
+        code: verificationCode,
+      });
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.push("/dashboard");
+      } else {
+        setError("Sign in incomplete. Please check the code.");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+      setIsLoading(false);
     }
   };
 
@@ -46,8 +124,7 @@ export default function LoginPage() {
         <LeftAuthPanel />
 
         {/* RIGHT PANEL */}
-        <div className="flex flex-col justify-center p-6 sm:p-10 md:p-14 relative">
-
+        <div className="flex flex-col justify-center p-6 sm:p-10 md:p-14 overflow-y-auto max-h-[90vh] lg:max-h-none relative">
           {/* Mobile Only Header */}
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
             <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
@@ -78,95 +155,182 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  {error}
-                </div>
-              )}
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                    </svg>
+            {/* 1. SIGN IN FORM (AUTOMATICALLY SENDS CODE) */}
+            {!verifying ? (
+              <form onSubmit={handleSignInSubmit} className="space-y-4 sm:space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      placeholder="Enter your email address"
+                      className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 text-sm placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50"
+                    />
                   </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      placeholder="Enter your password"
+                      className="w-full rounded-xl border border-slate-200 pl-11 pr-11 py-3 text-sm placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isLoading}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                          <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" disabled={isLoading} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium text-slate-700">Remember me</span>
+                  </label>
+                  <Link href="#" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full mt-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isLoading ? "Sending Code..." : "Sign In"}
+                </button>
+
+                {/* Google Button */}
+                <div className="mt-6 relative flex items-center justify-center">
+                  <div className="absolute inset-x-0 h-px bg-slate-200"></div>
+                  <span className="relative bg-white px-4 text-xs text-slate-500 font-medium uppercase tracking-wider">or</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition active:scale-[0.98] disabled:opacity-50"
+                >
+                  <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  {isLoading ? "Connecting to Google..." : "Continue with Google"}
+                </button>
+              </form>
+            ) : (
+              /* 2. EMAIL CODE OTP VERIFICATION SCREEN */
+              <form onSubmit={handleVerifyCode} className="space-y-4 sm:space-y-5">
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-slate-600">
+                    We sent a verification code to <strong>{email}</strong>. Please enter it below to verify your login.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="code" className="text-sm font-semibold text-slate-700">
+                    Verification Code
+                  </label>
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    id="code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
                     required
-                    placeholder="Enter your email address"
-                    className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-3 text-sm placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors"
+                    disabled={isLoading}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 text-center font-mono tracking-widest text-lg"
+                    placeholder="000000"
+                    maxLength={6}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="Enter your password"
-                    className="w-full rounded-xl border border-slate-200 pl-11 pr-11 py-3 text-sm placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
-                  >
-                    {showPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-                        <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full mt-4 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm disabled:opacity-50"
+                >
+                  {isLoading ? "Verifying..." : "Verify & Sign In"}
+                </button>
 
-              <div className="flex items-center justify-between mt-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm font-medium text-slate-700">Remember me</span>
-                </label>
-                <Link href="#" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                  Forgot password?
-                </Link>
-              </div>
-
-              <button
-                disabled={loading}
-                className="w-full mt-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 active:scale-[0.98]"
-              >
-                {loading ? "Signing In..." : "Sign In"}
-              </button>
-            </form>
-
-            <div className="mt-8 relative flex items-center justify-center">
-              <div className="absolute inset-x-0 h-px bg-slate-200"></div>
-              <span className="relative bg-white px-4 text-xs text-slate-500 font-medium uppercase tracking-wider">or</span>
-            </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError("");
+                    setIsLoading(true);
+                    try {
+                      if (!signIn) return;
+                      const emailCodeFactor = signIn.supportedFirstFactors?.find(
+                        (factor: any) => factor.strategy === "email_code"
+                      ) as any;
+                      if (emailCodeFactor) {
+                        await signIn.prepareFirstFactor({
+                          strategy: "email_code",
+                          emailAddressId: emailCodeFactor.emailAddressId,
+                        });
+                        setError("Code resent successfully!");
+                      }
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Failed to resend code");
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-700 transition mt-2"
+                >
+                  Resend Code
+                </button>
+              </form>
+            )}
 
             <div className="mt-8 space-y-3 text-center text-sm">
               <p className="text-slate-600">
@@ -181,20 +345,7 @@ export default function LoginPage() {
                   Contact administrator
                 </Link>
               </p>
-              </div>
-
-            <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col items-center gap-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-100 px-4 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-1.998A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
-                </svg>
-                Secure and trusted access
-              </div>
-              <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                © 2026 Olongapo City Cooperative Development Council.<br />All rights reserved.
-              </p>
             </div>
-
           </div>
         </div>
       </div>
