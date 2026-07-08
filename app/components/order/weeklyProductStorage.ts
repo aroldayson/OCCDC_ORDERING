@@ -25,7 +25,7 @@ export async function getWeeklyProducts(weekLabel?: string): Promise<WeeklyProdu
 
       const { error: seedError } = await supabase
         .from("weekly_products")
-        .insert(payload);
+        .upsert(payload, { onConflict: "id,week_label" });
 
       if (seedError) {
         console.error("Error seeding weekly products:", seedError);
@@ -77,14 +77,23 @@ export async function addWeeklyProduct(
   };
 
   try {
-    const { error } = await supabase.from("weekly_products").insert(entry);
+    const { error } = await supabase
+      .from("weekly_products")
+      .upsert(entry, { onConflict: "id,week_label" });
     if (error) throw error;
     window.dispatchEvent(new Event("occdc-weekly-products-updated"));
     window.dispatchEvent(new CustomEvent("occdc-order-action", {
       detail: { type: "product_added", productName: product.name, category: product.category },
     }));
   } catch (err) {
-    console.error("Error adding weekly product to Supabase:", err);
+    const e = err as { message?: string; details?: string; hint?: string; code?: string };
+    console.error(
+      "Error adding weekly product to Supabase:",
+      e?.message ?? err,
+      e?.details ?? "",
+      e?.hint ?? "",
+      e?.code ?? "",
+    );
   }
 
   return {
