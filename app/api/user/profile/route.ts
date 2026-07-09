@@ -127,3 +127,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+/**
+ * PUT /api/user/profile
+ * Updates an existing user profile.
+ * Body: { clerkId, role, school_name, school_address, categories }
+ */
+export async function PUT(request: Request) {
+  try {
+    const { clerkId, role, school_name, school_address, categories } = await request.json();
+
+    if (!clerkId) {
+      return NextResponse.json(
+        { error: "clerkId is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getAdminClient();
+
+    const { error: updateError } = await supabase
+      .from("user_profiles")
+      .update({
+        role,
+        school_name,
+        school_address,
+        categories,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", clerkId);
+
+    if (updateError) {
+      console.error("Error updating user profile:", updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal server error";
+    console.error("PUT /api/user/profile error:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
