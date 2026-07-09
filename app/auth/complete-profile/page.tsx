@@ -83,19 +83,23 @@ export default function CompleteProfilePage() {
         });
       }
 
-      // 2. Update user profile table directly
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .update({
+      // 2. Update user profile table via API
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clerkId: user.id,
           role,
           school_name: role === "client" ? schoolName.trim() : null,
           school_address: role === "client" ? schoolAddress.trim() : null,
           categories: role === "admin" ? selectedCategories : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-
-      if (profileError) throw profileError;
+        }),
+      });
+      
+      const resJson = await res.json();
+      if (!res.ok) {
+        throw new Error(resJson.error || "Failed to update profile");
+      }
 
       // 3. Update schools table if client
       if (role === "client" && schoolName && schoolAddress) {
