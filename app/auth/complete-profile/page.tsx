@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useUser } from "@clerk/nextjs";
 import { supabase, type UserRole } from "@/lib/supabase";
 import { getClients, updateClientAddress } from "@/app/components/order/clientStorage";
 import { LeftAuthPanel } from "@/app/components/auth/LeftAuthPanel";
@@ -13,7 +12,6 @@ import { ClipboardList, GraduationCap, MapPin, Truck } from "lucide-react";
 export default function CompleteProfilePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { user: clerkUser } = useUser();
   
   const [role, setRole] = useState<UserRole>("client");
   const [schoolName, setSchoolName] = useState("");
@@ -71,24 +69,12 @@ export default function CompleteProfilePage() {
     setSubmitting(true);
 
     try {
-      // 1. Update Clerk user metadata
-      if (clerkUser) {
-        await clerkUser.update({
-          unsafeMetadata: {
-            role,
-            schoolName: role === "client" ? schoolName.trim() : undefined,
-            schoolAddress: role === "client" ? schoolAddress.trim() : undefined,
-            categories: role === "admin" ? selectedCategories : undefined,
-          },
-        });
-      }
-
-      // 2. Update user profile table via API
+      // 1. Update user profile table via API
       const res = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clerkId: user.id,
+          id: user.id,
           role,
           school_name: role === "client" ? schoolName.trim() : null,
           school_address: role === "client" ? schoolAddress.trim() : null,

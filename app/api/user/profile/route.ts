@@ -16,27 +16,26 @@ function getAdminClient() {
 }
 
 /**
- * GET /api/user/profile?clerkId=xxx&email=xxx
- * Fetches a user profile by Clerk ID, falling back to email lookup,
- * and links the profile to the Clerk ID if found by email.
+ * GET /api/user/profile?id=xxx&email=xxx
+ * Fetches a user profile by User ID, falling back to email lookup.
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const clerkId = searchParams.get("clerkId");
+    const id = searchParams.get("id") || searchParams.get("userId") || searchParams.get("clerkId");
     const email = searchParams.get("email");
 
-    if (!clerkId) {
-      return NextResponse.json({ error: "clerkId is required" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
     const supabase = getAdminClient();
 
-    // 1. Try to find profile by Clerk ID
+    // 1. Try to find profile by User ID
     let { data: profile, error } = await supabase
       .from("user_profiles")
       .select("*")
-      .eq("id", clerkId)
+      .eq("id", id)
       .maybeSingle();
 
     if (error) {
@@ -58,17 +57,17 @@ export async function GET(request: Request) {
       }
 
       if (emailProfile) {
-        // Link existing profile to Clerk ID
+        // Link existing profile to new ID
         const { error: updateError } = await supabase
           .from("user_profiles")
-          .update({ id: clerkId, updated_at: new Date().toISOString() })
+          .update({ id: id, updated_at: new Date().toISOString() })
           .eq("email", email);
 
         if (updateError) {
-          console.error("Error linking profile to Clerk ID:", updateError);
+          console.error("Error linking profile to ID:", updateError);
         } else {
-          console.log(`Migrated profile for ${email} to Clerk ID`);
-          profile = { ...emailProfile, id: clerkId };
+          console.log(`Migrated profile for ${email} to ID ${id}`);
+          profile = { ...emailProfile, id: id };
         }
       }
     }
@@ -84,15 +83,16 @@ export async function GET(request: Request) {
 /**
  * POST /api/user/profile
  * Creates a new user profile with default role "user".
- * Body: { clerkId, email }
+ * Body: { id, email }
  */
 export async function POST(request: Request) {
   try {
-    const { clerkId, email } = await request.json();
+    const { id, clerkId, email } = await request.json();
+    const targetId = id || clerkId;
 
-    if (!clerkId || !email) {
+    if (!targetId || !email) {
       return NextResponse.json(
-        { error: "clerkId and email are required" },
+        { error: "id and email are required" },
         { status: 400 }
       );
     }
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     const newProfile = {
-      id: clerkId,
+      id: targetId,
       email,
       role: "user",
       school_name: null,
@@ -131,15 +131,16 @@ export async function POST(request: Request) {
 /**
  * PUT /api/user/profile
  * Updates an existing user profile.
- * Body: { clerkId, role, school_name, school_address, categories }
+ * Body: { id, role, school_name, school_address, categories }
  */
 export async function PUT(request: Request) {
   try {
-    const { clerkId, role, school_name, school_address, categories } = await request.json();
+    const { id, clerkId, role, school_name, school_address, categories } = await request.json();
+    const targetId = id || clerkId;
 
-    if (!clerkId) {
+    if (!targetId) {
       return NextResponse.json(
-        { error: "clerkId is required" },
+        { error: "id is required" },
         { status: 400 }
       );
     }
@@ -155,7 +156,7 @@ export async function PUT(request: Request) {
         categories,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", clerkId);
+      .eq("id", targetId);
 
     if (updateError) {
       console.error("Error updating user profile:", updateError);

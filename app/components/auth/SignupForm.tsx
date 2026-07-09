@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { UserRole } from "@/lib/supabase";
 import { getClients, updateClientAddress } from "@/app/components/order/clientStorage";
-import { useSignUp } from "@clerk/nextjs/legacy";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
 interface SignupFormProps {
@@ -19,7 +19,7 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { signUp } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,10 +32,6 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Clerk Custom Sign Up verification states
-  const [verifying, setVerifying] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
 
   const availableCategories = [
     "fruits",
@@ -54,20 +50,26 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
 
-  const handleGoogleSignup = () => {
-    if (!isLoaded) return;
-    signUp.authenticateWithRedirect({
-      strategy: "oauth_google",
-      redirectUrl: "/auth/callback",
-      redirectUrlComplete: "/dashboard",
-    });
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign up failed");
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (!isLoaded) return;
 
     if (!email.trim()) {
       setError("Email is required");
@@ -102,169 +104,27 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     setIsLoading(true);
 
     try {
-      // Start Clerk sign up flow
-      await signUp.create({
-        emailAddress: email,
+      // Sign up using Supabase (calls API route internally, then logs in)
+      await signUp(
+        email,
         password,
-      });
-
-      // Prepare email verification (sends OTP!)
-      await signUp.prepareEmailAddressVerification({
-        strategy: "email_code",
-      });
-
-      setVerifying(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign up");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoaded) return;
-    setError("");
-    setIsLoading(true);
-
-    try {
-      const result = await signUp.attemptEmailAddressVerification({
-        code: verificationCode,
-      });
-
-      if (result.status !== "complete") {
-        setError("Verification incomplete. Please check your code.");
-        return;
-      }
-
-      // Clerk signup is complete! Create/update user profile in Supabase
-      const clerkUserId = result.createdUserId;
-      
-      const { data: existingProfile } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-
-      let profileError = null;
-
-      if (existingProfile) {
-        // Link existing profile to Clerk ID and update fields
-        const { error: updateError } = await supabase
-          .from("user_profiles")
-          .update({
-            id: clerkUserId,
-            role,
-            school_name: role === "client" ? schoolName.trim() : null,
-            school_address: role === "client" ? schoolAddress.trim() : null,
-            categories: role === "admin" ? selectedCategories : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("email", email);
-        profileError = updateError;
-      } else {
-        // Insert new profile
-        const newProfile = {
-          id: clerkUserId,
-          email,
-          role,
-          school_name: role === "client" ? schoolName.trim() : null,
-          school_address: role === "client" ? schoolAddress.trim() : null,
-          categories: role === "admin" ? selectedCategories : null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const { error: insertError } = await supabase
-          .from("user_profiles")
-          .insert(newProfile);
-        profileError = insertError;
-      }
-
-      if (profileError) {
-        console.error("Error creating/linking profile in Supabase:", profileError);
-      }
+        role,
+        role === "client" ? schoolName.trim() : undefined,
+        role === "admin" ? selectedCategories : undefined,
+        role === "client" ? schoolAddress.trim() : undefined
+      );
 
       if (role === "client" && schoolName && schoolAddress) {
         await updateClientAddress(schoolName, schoolAddress);
       }
 
-      // Activate the Clerk session
-      await setActive({ session: result.createdSessionId });
-
       // Redirect to dashboard
       window.location.href = "/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
-    } finally {
+      setError(err instanceof Error ? err.message : "Failed to sign up");
       setIsLoading(false);
     }
   };
-
-  if (verifying) {
-    return (
-      <form onSubmit={handleVerify} className="space-y-4">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
-        <div className="text-center space-y-2">
-          <p className="text-sm text-slate-600">
-            We sent a verification code to <strong>{email}</strong>. Please enter it below to complete your registration.
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="code" className="text-sm font-semibold text-slate-700">
-            Verification Code
-          </label>
-          <input
-            type="text"
-            id="code"
-            value={verificationCode}
-            onChange={(e) => setVerificationCode(e.target.value)}
-            required
-            disabled={isLoading}
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 text-center font-mono tracking-widest text-lg"
-            placeholder="000000"
-            maxLength={6}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full mt-4 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 shadow-sm disabled:opacity-50"
-        >
-          {isLoading ? "Verifying..." : "Verify & Sign Up"}
-        </button>
-
-        <button
-          type="button"
-          onClick={async () => {
-            setError("");
-            setIsLoading(true);
-            if (!signUp) return;
-            try {
-              await signUp.prepareEmailAddressVerification({
-                strategy: "email_code",
-              });
-              setError("Code resent successfully!");
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Failed to resend code");
-            } finally {
-              setIsLoading(false);
-            }
-          }}
-          disabled={isLoading}
-          className="w-full text-center text-xs font-semibold text-blue-600 hover:text-blue-700 transition mt-2"
-        >
-          Resend Code
-        </button>
-      </form>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -442,8 +302,6 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           placeholder="••••••••"
         />
       </div>
-
-      <div id="clerk-captcha"></div>
 
       <button
         type="submit"

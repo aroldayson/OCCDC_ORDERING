@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
-import { type UserProfile, type UserRole } from "@/lib/supabase";
+import { supabase, type UserProfile, type UserRole } from "@/lib/supabase";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -25,92 +24,147 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const { user: clerkUser, isLoaded, isSignedIn } = useUser();
-  const { signOut: clerkSignOut } = useClerk();
+  const [session, setSession] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  const fetchProfile = async (userId: string, email: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (clerkUser) {
-      const fetchOrCreateProfile = async () => {
-        try {
-          const userEmail = clerkUser.primaryEmailAddress?.emailAddress;
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+      }
 
-          // Fetch profile via server API (uses service role key to bypass RLS)
-          const params = new URLSearchParams({ clerkId: clerkUser.id });
-          if (userEmail) params.set("email", userEmail);
-
-          const res = await fetch(`/api/user/profile?${params.toString()}`);
-          const json = await res.json();
-
-          if (!res.ok) {
-            console.error("Error fetching user profile:", json.error);
-          }
-
-          let profile = json.profile ?? null;
-
-          if (profile) {
-            setUser({
-              id: profile.id,
-              email: profile.email || userEmail || "",
-              role: profile.role as UserRole,
-              school_name: profile.school_name || undefined,
-              school_address: profile.school_address || undefined,
-              categories: profile.categories || undefined,
-              created_at: profile.created_at,
-              updated_at: profile.updated_at,
-            });
-          } else {
-            // Profile doesn't exist — create it via server API (default role "user")
-            // ProtectedRoute.tsx will redirect them to complete-profile
-            const createRes = await fetch("/api/user/profile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ clerkId: clerkUser.id, email: userEmail || "" }),
-            });
-            const createJson = await createRes.json();
-
-            if (!createRes.ok) {
-              console.error("Error creating default user profile:", createJson.error);
-            }
-
-            profile = createJson.profile ?? null;
-
-            if (profile) {
-              setUser({
-                id: profile.id,
-                email: profile.email,
-                role: "user" as UserRole,
-                created_at: profile.created_at,
-                updated_at: profile.updated_at,
-              });
-            }
-          }
-        } catch (e) {
-          console.error("Failed to fetch/create user profile:", e);
-        }
-      };
-      fetchOrCreateProfile();
-    } else {
-      setUser(null);
+      if (profile) {
+        return {
+          id: profile.id,
+          email: profile.email || email,
+          role: profile.role as UserRole,
+          school_name: profile.school_name || undefined,
+          school_address: profile.school_address || undefined,
+          categories: profile.categories || undefined,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at,
+        };
+      }
+      return null;
+    } catch (e) {
+      console.error("Failed to fetch user profile:", e);
+      return null;
     }
-  }, [clerkUser, isLoaded]);
-
-  // Clerk components handle the signup/login UI directly, so these forms are stubs
-  const signUp = async () => {
-    throw new Error("Please use the Google or email sign-up screen to create an account.");
   };
 
-  const signIn = async () => {
-    throw new Error("Please use the Google or email sign-in screen to log in.");
+  useEffect(() => {
+    let active = true;
+
+    async function getInitialSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(session);
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id, session.user.email || "");
+          if (active) {
+            setUser(profile);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Error getting initial session:", err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    getInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        if (!active) return;
+        setSession(currentSession);
+        if (currentSession?.user) {
+          setLoading(true);
+          const profile = await fetchProfile(currentSession.user.id, currentSession.user.email || "");
+          if (active) {
+            setUser(profile);
+            setLoading(false);
+          }
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signUp = async (
+    email: string,
+    password: string,
+    role: UserRole,
+    schoolName?: string,
+    categories?: string[],
+    schoolAddress?: string,
+  ) => {
+    // 1. Create the user using the Server API (which bypasses confirmation)
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        role,
+        schoolName,
+        categories,
+        schoolAddress,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || "Failed to create account");
+    }
+
+    // 2. Sign in the user on the client using password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      throw signInError;
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      throw error;
+    }
   };
 
   const signOut = async () => {
     try {
-      await clerkSignOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
+      setSession(null);
     } catch (e) {
-      console.error("Failed to sign out from Clerk:", e);
+      console.error("Failed to sign out from Supabase:", e);
     }
   };
 
@@ -118,12 +172,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        session: clerkUser ? { user: { id: clerkUser.id, email: clerkUser.primaryEmailAddress?.emailAddress } } : null,
-        loading: !isLoaded || (!!isSignedIn && !user),
+        session,
+        loading,
         signUp,
         signIn,
         signOut,
-        isAuthenticated: !!isSignedIn,
+        isAuthenticated: !!session?.user,
       }}
     >
       {children}
