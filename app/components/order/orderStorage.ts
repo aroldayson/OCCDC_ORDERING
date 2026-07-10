@@ -532,6 +532,12 @@ export async function getOrdersByCategoryAndWeek(
     if (error) throw error;
     if (!data || data.length === 0) return [];
 
+    const { data: receiptRecords } = await supabase
+      .from("delivery_receipt_records")
+      .select("order_id");
+
+    const receiptSet = new Set(receiptRecords?.map(r => r.order_id) || []);
+
     type DbOrderRow = {
       id: string;
       client_name: string;
@@ -542,6 +548,7 @@ export async function getOrdersByCategoryAndWeek(
       created_at: string;
       items: WeeklyOrderRecord["items"];
       total_price?: number;
+      delivery_date?: string;
     };
 
     return (data as DbOrderRow[]).map((row) => ({
@@ -554,6 +561,8 @@ export async function getOrdersByCategoryAndWeek(
       createdAt: row.created_at,
       items: row.items,
       totalPrice: row.total_price || 0,
+      deliveryDate: row.delivery_date || undefined,
+      hasReceiptRecord: receiptSet.has(row.id),
     }));
   } catch (err) {
     console.error("Error fetching orders by category from Supabase:", err);
@@ -599,6 +608,12 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       delivery_date?: string;
     };
 
+    const { data: receiptRecords } = await supabase
+      .from("delivery_receipt_records")
+      .select("order_id");
+
+    const receiptSet = new Set(receiptRecords?.map(r => r.order_id) || []);
+
     const records = (data as DbOrderRow[]).map((row) => ({
       id: row.id,
       clientName: row.client_name,
@@ -610,6 +625,7 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       items: row.items,
       totalPrice: row.total_price || 0,
       deliveryDate: row.delivery_date || undefined,
+      hasReceiptRecord: receiptSet.has(row.id),
     }));
 
     // Merge current catalog prices into items that have price=0 (legacy/migrated orders)
@@ -795,11 +811,18 @@ export async function deleteOrder(id: string): Promise<void> {
 
 export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
   try {
+    const originalStatus = updated.status;
+    let targetStatus = originalStatus;
+    if (originalStatus === "pending" && updated.items.length > 0 && updated.items.every(item => item.deleted || (item.price && item.price > 0))) {
+      targetStatus = "processing";
+      updated.status = "processing";
+    }
+
     const dbOrder = {
       client_name: updated.clientName,
       client_role: updated.clientRole,
       week_label: updated.weekLabel,
-      status: updated.status,
+      status: targetStatus,
       item_count: updated.itemCount,
       items: updated.items,
       total_price: updated.totalPrice || 0,
@@ -839,6 +862,11 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
     }
 
     window.dispatchEvent(new Event("occdc-orders-updated"));
+    if (targetStatus !== originalStatus) {
+      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+        detail: { type: "status_change", orderId: updated.id, status: targetStatus },
+      }));
+    }
     window.dispatchEvent(new CustomEvent("occdc-order-action", {
       detail: { type: "items_updated", orderId: updated.id, clientName: updated.clientName },
     }));

@@ -24,6 +24,7 @@ export type WeeklyOrderRecord = {
   totalPrice: number;
   /** Optional admin-set delivery date (ISO date string, e.g. "2026-06-27"). Defaults to Wednesday of the following week (next Wednesday). */
   deliveryDate?: string;
+  hasReceiptRecord?: boolean;
 };
 
 export type OrderLine = {

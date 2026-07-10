@@ -28,7 +28,8 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   const [schoolName, setSchoolName] = useState("");
   const [schoolAddress, setSchoolAddress] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
+  const [schools, setSchools] = useState<{ id: string; name: string; address?: string }[]>([]);
+  const [coops, setCoops] = useState<{ id: string; name: string; address?: string }[]>([]);
   
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +48,17 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
     getClients().then(setSchools);
     const refresh = () => getClients().then(setSchools);
     window.addEventListener("occdc-clients-updated", refresh);
+
+    supabase
+      .from("coop_profile")
+      .select("id,name,address")
+      .order("name", { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setCoops(data);
+        }
+      });
+
     return () => window.removeEventListener("occdc-clients-updated", refresh);
   }, []);
 
@@ -96,10 +108,23 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       return;
     }
 
+    if (role === "admin" && !schoolName.trim()) {
+      setError("Please select your cooperative");
+      return;
+    }
+
+    if (role === "admin" && !schoolAddress.trim()) {
+      setError("Please enter your cooperative address");
+      return;
+    }
+
     if (role === "admin" && selectedCategories.length === 0) {
       setError("Please select at least one product category you supply");
       return;
     }
+
+    const matchedCoop = role === "admin" ? coops.find((c) => c.name === schoolName.trim()) : undefined;
+    const finalCoopId = matchedCoop?.id || undefined;
 
     setIsLoading(true);
 
@@ -109,9 +134,10 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
         email,
         password,
         role,
-        role === "client" ? schoolName.trim() : undefined,
+        schoolName.trim(),
         role === "admin" ? selectedCategories : undefined,
-        role === "client" ? schoolAddress.trim() : undefined
+        schoolAddress.trim(),
+        finalCoopId
       );
 
       if (role === "client" && schoolName && schoolAddress) {
@@ -160,7 +186,8 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           onChange={(e) => {
             const nextRole = e.target.value as UserRole;
             setRole(nextRole);
-            if (nextRole === "admin") setSchoolName("");
+            setSchoolName("");
+            setSchoolAddress("");
           }}
           disabled={isLoading}
           className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
@@ -171,45 +198,103 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       </div>
 
       {role === "admin" && (
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700">
-            Supplied Categories
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            {availableCategories.map((category) => {
-              const isChecked = selectedCategories.includes(category);
-              return (
-                <label
-                  key={category}
-                  className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none hover:text-slate-900 p-1"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={isLoading}
-                    onChange={() => {
-                      if (isChecked) {
-                        setSelectedCategories(
-                          selectedCategories.filter((c) => c !== category),
-                        );
-                      } else {
-                        setSelectedCategories([
-                          ...selectedCategories,
-                          category,
-                        ]);
-                      }
-                    }}
-                    className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span className="capitalize">{category}</span>
-                </label>
-              );
-            })}
+        <>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="coopName"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Cooperative
+            </label>
+            <select
+              id="coopName"
+              value={schoolName}
+              onChange={(e) => {
+                const name = e.target.value;
+                setSchoolName(name);
+                const matched = coops.find((c) => c.name === name);
+                if (matched && matched.address) {
+                  setSchoolAddress(matched.address);
+                }
+              }}
+              disabled={isLoading}
+              required
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
+            >
+              <option value="">Select your cooperative...</option>
+              {coops.map((coop) => (
+                <option key={coop.id} value={coop.name}>
+                  {coop.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">
+              Ito ang cooperative na iyong kinabibilangan
+            </p>
           </div>
-          <p className="text-xs text-slate-500">
-            Select the categories of products that you supply
-          </p>
-        </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="coopAddress"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Cooperative Address
+            </label>
+            <input
+              type="text"
+              id="coopAddress"
+              value={schoolAddress}
+              onChange={(e) => setSchoolAddress(e.target.value)}
+              disabled={isLoading}
+              required
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"
+              placeholder="Enter cooperative address"
+            />
+            <p className="text-xs text-slate-500">
+              Address of the cooperative
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Supplied Categories
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              {availableCategories.map((category) => {
+                const isChecked = selectedCategories.includes(category);
+                return (
+                  <label
+                    key={category}
+                    className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none hover:text-slate-900 p-1"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isLoading}
+                      onChange={() => {
+                        if (isChecked) {
+                          setSelectedCategories(
+                            selectedCategories.filter((c) => c !== category),
+                          );
+                        } else {
+                          setSelectedCategories([
+                            ...selectedCategories,
+                            category,
+                          ]);
+                        }
+                      }}
+                      className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span className="capitalize">{category}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-500">
+              Select the categories of products that you supply
+            </p>
+          </div>
+        </>
       )}
 
       {role !== "admin" && (
@@ -224,7 +309,14 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
             <select
               id="schoolName"
               value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
+              onChange={(e) => {
+                const name = e.target.value;
+                setSchoolName(name);
+                const matched = schools.find((s) => s.name === name);
+                if (matched && matched.address) {
+                  setSchoolAddress(matched.address);
+                }
+              }}
               disabled={isLoading}
               required
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-colors disabled:opacity-50 disabled:bg-slate-50"

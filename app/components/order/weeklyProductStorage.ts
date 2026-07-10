@@ -218,7 +218,7 @@ export async function updateWeeklyProduct(
       const newPrice = data.price;
       const { data: orders, error: ordErr } = await supabase
         .from("orders")
-        .select("id, items, total_price");
+        .select("id, items, total_price, status");
 
       if (!ordErr && orders) {
         for (const order of orders) {
@@ -241,10 +241,26 @@ export async function updateWeeklyProduct(
             0
           );
 
+          const allItemsPriced = updatedItems.every(
+            (it) => (it as { deleted?: boolean }).deleted || ((it as { price?: number }).price !== undefined && (it as { price?: number }).price! > 0)
+          );
+
+          const isPending = order.status === "pending";
+          const updatePayload: any = { items: updatedItems, total_price: totalPrice };
+          if (isPending && allItemsPriced) {
+            updatePayload.status = "processing";
+          }
+
           await supabase
             .from("orders")
-            .update({ items: updatedItems, total_price: totalPrice })
+            .update(updatePayload)
             .eq("id", order.id);
+
+          if (isPending && allItemsPriced) {
+            window.dispatchEvent(new CustomEvent("occdc-order-action", {
+              detail: { type: "status_change", orderId: order.id, status: "processing" },
+            }));
+          }
 
           const itemToUpdate = items.find((it) => it.productId === id);
           if (itemToUpdate) {

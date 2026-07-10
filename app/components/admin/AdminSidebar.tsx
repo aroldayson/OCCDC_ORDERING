@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -15,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { SidebarToggleButton } from "./SidebarToggle";
 import type { WeeklyOrderRecord } from "../order/types";
+import { supabase } from "@/lib/supabase";
 
 export type AdminView =
   | "overview"
@@ -91,6 +93,46 @@ function SidebarInner({
 }) {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const [coopName, setCoopName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (user?.role === "admin" && user?.coop_id) {
+      supabase
+        .from("coop_profile")
+        .select("name")
+        .eq("id", user.coop_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (active && data && data.name) {
+            setCoopName(data.name);
+          }
+        });
+    } else if (user?.role === "client" && user?.school_name) {
+      supabase
+        .from("schools")
+        .select("coop_id")
+        .ilike("name", user.school_name.trim())
+        .maybeSingle()
+        .then(({ data: schoolData }) => {
+          if (active && schoolData && schoolData.coop_id) {
+            supabase
+              .from("coop_profile")
+              .select("name")
+              .eq("id", schoolData.coop_id)
+              .maybeSingle()
+              .then(({ data: coopData }) => {
+                if (active && coopData && coopData.name) {
+                  setCoopName(coopData.name);
+                }
+              });
+          }
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [user?.role, user?.coop_id, user?.school_name]);
 
   const handleLogout = async () => {
     try {
@@ -263,7 +305,7 @@ function SidebarInner({
             <p className="text-xs font-bold text-[#82caff]">Stay Updated</p>
           </div>
           <p className="text-[11px] leading-relaxed text-white/50">
-            Get the latest news and updates from your cooperative.
+            Get the latest news and updates from {coopName || "your cooperative"}.
           </p>
         </div>
 

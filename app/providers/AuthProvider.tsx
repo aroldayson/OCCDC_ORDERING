@@ -14,6 +14,7 @@ interface AuthContextType {
     schoolName?: string,
     categories?: string[],
     schoolAddress?: string,
+    coopId?: string,
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           school_name: profile.school_name || undefined,
           school_address: profile.school_address || undefined,
           categories: profile.categories || undefined,
+          coop_id: profile.coop_id || undefined,
           created_at: profile.created_at,
           updated_at: profile.updated_at,
         };
@@ -117,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     schoolName?: string,
     categories?: string[],
     schoolAddress?: string,
+    coopId?: string,
   ) => {
     // 1. Create the user using the Server API (which bypasses confirmation)
     const res = await fetch("/api/auth/signup", {
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         schoolName,
         categories,
         schoolAddress,
+        coopId,
       }),
     });
     const json = await res.json();
