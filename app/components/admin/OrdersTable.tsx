@@ -1,8 +1,10 @@
-import { Eye, Printer } from "lucide-react";
+import { useState, useMemo, Fragment } from "react";
+import { Eye, Printer, Truck, ChevronDown, ChevronRight } from "lucide-react";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 import { printOrderForm } from "./printOrder";
 import { orderRoleColors, orderRoleLabels } from "../order/roles";
 import { getFridayFromWeekLabel } from "../order/weekUtils";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -45,6 +47,7 @@ type OrdersTableProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   compact?: boolean;
+  onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
 };
 
 export default function OrdersTable({
@@ -52,7 +55,32 @@ export default function OrdersTable({
   selectedId,
   onSelect,
   compact,
+  onPrintDeliveryReceipt,
 }: OrdersTableProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
+
+  const toggleSchool = (schoolName: string) => {
+    setExpandedSchools((prev) => ({
+      ...prev,
+      [schoolName]: !prev[schoolName],
+    }));
+  };
+
+  // Group orders by clientName
+  const groupedOrders = useMemo(() => {
+    const groups: Record<string, WeeklyOrderRecord[]> = {};
+    orders.forEach((order) => {
+      if (!groups[order.clientName]) {
+        groups[order.clientName] = [];
+      }
+      groups[order.clientName].push(order);
+    });
+    return groups;
+  }, [orders]);
+
   if (orders.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm">
@@ -65,65 +93,108 @@ export default function OrdersTable({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Mobile cards */}
+      {/* Mobile cards grouped per school */}
       <div
         className={`min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 ${compact ? "" : "lg:hidden"}`}
       >
-        {orders.map((order) => (
-          <div
-            key={order.id}
-            onClick={() => onSelect(order.id)}
-            className={`w-full rounded-2xl border p-4 cursor-pointer transition-all ${selectedId === order.id
-              ? "border-blue-300 bg-blue-50 shadow-sm"
-              : "border-slate-100 bg-white hover:border-slate-200"
-              }`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-slate-800">
-                  {order.clientName}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs text-slate-400">{order.id}</span>
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
-                      orderRoleColors[order.clientRole] ||
-                      "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {orderRoleLabels[order.clientRole] || order.clientRole}
+        {Object.entries(groupedOrders).map(([schoolName, schoolOrders]) => {
+          const isExpanded = !!expandedSchools[schoolName];
+          const orderCount = schoolOrders.length;
+
+          return (
+            <div key={`mobile-school-${schoolName}`} className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+              <div
+                onClick={() => toggleSchool(schoolName)}
+                className="w-full flex items-center justify-between p-3.5 bg-slate-50 border-b border-slate-100 cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </span>
+                  <span className="font-bold text-slate-800 text-xs line-clamp-1">
+                    {schoolName}
                   </span>
                 </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    printOrderForm(order);
-                  }}
-                  className="rounded p-1.5 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
-                  title="Print order"
-                >
-                  <Printer className="h-4 w-4" />
-                </button>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusStyles[order.status]}`}
-                >
-                  {order.status}
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 shrink-0">
+                  {orderCount} Order{orderCount > 1 ? "s" : ""}
                 </span>
               </div>
+
+              {isExpanded && (
+                <div className="p-2 space-y-2 bg-slate-50/20">
+                  {schoolOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      onClick={() => onSelect(order.id)}
+                      className={`w-full rounded-xl border p-3.5 cursor-pointer transition-all ${selectedId === order.id
+                        ? "border-blue-300 bg-blue-50 shadow-sm"
+                        : "border-slate-100 bg-white hover:border-slate-200"
+                        }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-500">{order.id}</span>
+                            <span
+                              className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${orderRoleColors[order.clientRole] ||
+                                "bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              {orderRoleLabels[order.clientRole] || order.clientRole}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => printOrderForm(order)}
+                            className="rounded p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
+                            title="Print order"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
+                          {(isAdmin || order.hasReceiptRecord) && (
+                            <button
+                              disabled={isAdmin && !!order.hasReceiptRecord}
+                              onClick={() => {
+                                if (isAdmin && order.hasReceiptRecord) return;
+                                onPrintDeliveryReceipt(order);
+                              }}
+                              className={`rounded p-1 transition ${isAdmin && order.hasReceiptRecord
+                                  ? "text-slate-200 cursor-not-allowed opacity-40"
+                                  : "text-slate-400 hover:bg-violet-100 hover:text-violet-600"
+                                }`}
+                              title={isAdmin && order.hasReceiptRecord ? "Receipt Already Saved" : "Print Delivery Receipt"}
+                            >
+                              <Truck className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${statusStyles[order.status]}`}
+                          >
+                            {order.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>
+                          {order.itemCount} items · {order.weekLabel}
+                        </span>
+                        <span>{formatDate(order.createdAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-              <span>
-                {order.itemCount} items · {order.weekLabel}
-              </span>
-              <span>{formatDate(order.createdAt)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Desktop table */}
+      {/* Desktop table grouped per school */}
       <div
         className={`hidden min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm ${compact ? "lg:hidden" : "lg:flex"
           }`}
@@ -146,79 +217,126 @@ export default function OrdersTable({
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr
-                  key={order.id}
-                  onClick={() => onSelect(order.id)}
-                  className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 ${selectedId === order.id ? "bg-blue-50" : ""
-                    }`}
-                >
-                  <td className="px-3 py-3.5 font-medium text-slate-600 sm:px-5 whitespace-nowrap">
-                    {order.id}
-                  </td>
-                  <td className="px-3 py-3.5 sm:px-5">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
-                        orderRoleColors[order.clientRole] ||
-                        "bg-slate-100 text-slate-700"
-                      }`}
+              {Object.entries(groupedOrders).map(([schoolName, schoolOrders]) => {
+                const isExpanded = !!expandedSchools[schoolName];
+                const totalItems = schoolOrders.reduce((sum, o) => sum + (o.itemCount || 0), 0);
+                const orderCount = schoolOrders.length;
+
+                return (
+                  <Fragment key={`group-${schoolName}`}>
+                    {/* School Header Row */}
+                    <tr
+                      onClick={() => toggleSchool(schoolName)}
+                      className="bg-slate-50/50 hover:bg-slate-50 border-b border-slate-100 cursor-pointer select-none transition-colors"
                     >
-                      {orderRoleLabels[order.clientRole] || order.clientRole}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3.5 font-medium text-slate-800 sm:px-5">
-                    <div className="min-w-0">
-                      <p className="truncate">{order.clientName}</p>
-                      <p className="text-xs text-slate-500 sm:hidden">
-                        {order.weekLabel}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="hidden px-3 py-3.5 text-slate-500 sm:px-5 md:table-cell">
-                    <p className="truncate">{order.weekLabel}</p>
-                  </td>
-                  <td className="hidden px-3 py-3.5 text-slate-600 sm:px-5 lg:table-cell">
-                    {order.itemCount}
-                  </td>
-                  <td className="px-3 py-3.5 sm:px-5">
-                    <span
-                      className={`inline-block rounded-full px-2 py-1 text-xs font-medium capitalize sm:px-2.5 sm:py-1 ${statusStyles[order.status]}`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="hidden px-3 py-3.5 text-xs text-slate-400 sm:px-5 sm:table-cell">
-                    <p className="truncate">{formatDate(order.createdAt)}</p>
-                  </td>
-                  <td className="hidden px-3 py-3.5 text-xs text-slate-500 sm:px-5 sm:table-cell">
-                    <p className="truncate">{formatDeliveryDateValue(order)}</p>
-                  </td>
-                  <td className="px-3 py-3.5 sm:px-5 text-right">
-                    <div className="flex justify-end gap-1 sm:gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelect(order.id);
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
-                        title="View order"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          printOrderForm(order);
-                        }}
-                        className="rounded p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
-                        title="Print order"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      <td colSpan={9} className="px-3 py-3.5 sm:px-5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4.5 w-4.5" />
+                              ) : (
+                                <ChevronRight className="h-4.5 w-4.5" />
+                              )}
+                            </span>
+                            <span className="font-bold text-slate-800 text-sm">
+                              {schoolName}
+                            </span>
+                            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 border border-blue-100">
+                              {orderCount} Order{orderCount > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Total items: {totalItems}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Order Rows */}
+                    {isExpanded &&
+                      schoolOrders.map((order) => (
+                        <tr
+                          key={order.id}
+                          onClick={() => onSelect(order.id)}
+                          className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 ${selectedId === order.id ? "bg-blue-50" : ""
+                            }`}
+                        >
+                          <td className="pl-8 pr-3 py-3.5 font-medium text-slate-600 sm:pl-10 whitespace-nowrap">
+                            {order.id}
+                          </td>
+                          <td className="px-3 py-3.5 sm:px-5">
+                            <span
+                              className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${orderRoleColors[order.clientRole] ||
+                                "bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              {orderRoleLabels[order.clientRole] || order.clientRole}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3.5 font-medium text-slate-800 sm:px-5">
+                            <div className="min-w-0">
+                              <p className="truncate text-slate-500 text-xs">{order.clientName}</p>
+                            </div>
+                          </td>
+                          <td className="hidden px-3 py-3.5 text-slate-500 sm:px-5 md:table-cell">
+                            <p className="truncate">{order.weekLabel}</p>
+                          </td>
+                          <td className="hidden px-3 py-3.5 text-slate-600 sm:px-5 lg:table-cell">
+                            {order.itemCount}
+                          </td>
+                          <td className="px-3 py-3.5 sm:px-5">
+                            <span
+                              className={`inline-block rounded-full px-2 py-1 text-xs font-medium capitalize sm:px-2.5 sm:py-1 ${statusStyles[order.status]}`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="hidden px-3 py-3.5 text-xs text-slate-400 sm:px-5 sm:table-cell">
+                            <p className="truncate">{formatDate(order.createdAt)}</p>
+                          </td>
+                          <td className="hidden px-3 py-3.5 text-xs text-slate-500 sm:px-5 sm:table-cell">
+                            <p className="truncate">{formatDeliveryDateValue(order)}</p>
+                          </td>
+                          <td className="px-3 py-3.5 sm:px-5 text-right">
+                            <div className="flex justify-end gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => onSelect(order.id)}
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                                title="View order"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => printOrderForm(order)}
+                                className="rounded p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
+                                title="Print order"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </button>
+                              {(isAdmin || order.hasReceiptRecord) && (
+                                <button
+                                  disabled={isAdmin && !!order.hasReceiptRecord}
+                                  onClick={() => {
+                                    if (isAdmin && order.hasReceiptRecord) return;
+                                    onPrintDeliveryReceipt(order);
+                                  }}
+                                  className={`rounded p-1 transition ${isAdmin && order.hasReceiptRecord
+                                      ? "text-slate-200 cursor-not-allowed opacity-40"
+                                      : "text-slate-400 hover:bg-violet-100 hover:text-violet-600"
+                                    }`}
+                                  title={isAdmin && order.hasReceiptRecord ? "Receipt Already Saved" : "Print Delivery Receipt"}
+                                >
+                                  <Truck className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Printer, Eye, Edit, Trash2, Calendar, Pencil, Camera } from "lucide-react";
+import { X, Printer, Eye, Edit, Trash2, Calendar, Pencil, Camera, Truck } from "lucide-react";
 import { updateOrderStatus, updateOrderDeliveryDate } from "../order/orderStorage";
 import { getDeliveryProof, saveDeliveryProof, deleteDeliveryProof } from "../order/deliveryProofStorage";
 import { printOrderForm } from "./printOrder";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 import { getFridayFromWeekLabel, formatDeliveryDate, toDateInputValue } from "../order/weekUtils";
 
@@ -38,12 +39,14 @@ type OrderDetailPanelProps = {
   order: WeeklyOrderRecord | null;
   onClose: () => void;
   onStatusChange: () => void;
+  onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
 };
 
 export default function OrderDetailPanel({
   order,
   onClose,
   onStatusChange,
+  onPrintDeliveryReceipt,
 }: OrderDetailPanelProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -57,6 +60,8 @@ export default function OrderDetailPanel({
   const [proofImageData, setProofImageData] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [hasReceiptData, setHasReceiptData] = useState(false);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -68,8 +73,22 @@ export default function OrderDetailPanel({
           setLoadingProof(false);
         }
       });
+
+      setLoadingReceipt(true);
+      supabase
+        .from("delivery_receipt_records")
+        .select("id")
+        .eq("order_id", order.id)
+        .limit(1)
+        .then(({ data, error }) => {
+          if (active) {
+            setHasReceiptData(!error && data && data.length > 0);
+            setLoadingReceipt(false);
+          }
+        });
     } else {
       setProofImageData(null);
+      setHasReceiptData(false);
     }
 
     const handleProofUpdate = (e: Event) => {
@@ -187,6 +206,8 @@ export default function OrderDetailPanel({
     },
     {},
   );
+
+  const canClientPrintDR = hasReceiptData;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -360,6 +381,18 @@ export default function OrderDetailPanel({
             >
               <Printer className="h-4 w-4 sm:h-4 sm:w-4" />
             </button>
+            {(isAdmin || canClientPrintDR) && (
+              <button
+                onClick={() => {
+                  onPrintDeliveryReceipt(order);
+                }}
+                className="rounded p-1 text-slate-400 hover:bg-violet-50 hover:text-violet-600 transition sm:p-1.5 flex items-center gap-1"
+                title="Print Delivery Receipt"
+              >
+                <Truck className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="text-[10px] hidden md:inline">Delivery Receipt</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

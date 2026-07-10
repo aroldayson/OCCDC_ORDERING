@@ -111,12 +111,6 @@ export default function ProductCatalogManager({
     }
   };
 
-  const hasCompletedOrders = useMemo(() => {
-    if (!orders) return false;
-    const weekOrders = filterOrdersForWeek(orders, selectedWeekLabel);
-    return weekOrders.some((o) => o.status === "completed");
-  }, [orders, selectedWeekLabel]);
-
   const loadProducts = useCallback(() => {
     getWeeklyProducts(selectedWeekLabel).then(setProducts);
   }, [selectedWeekLabel]);
@@ -610,7 +604,7 @@ export default function ProductCatalogManager({
           setEditingItem(null);
         }}
         onSave={handleSaveItem}
-        disablePriceEdit={hasCompletedOrders}
+        disablePriceEdit={false}
       />
     </div>
   );

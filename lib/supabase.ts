@@ -30,6 +30,7 @@ export interface UserProfile {
   school_name?: string;
   school_address?: string;
   categories?: string[];
+  coop_id?: string;
   created_at: string;
   updated_at: string;
 }

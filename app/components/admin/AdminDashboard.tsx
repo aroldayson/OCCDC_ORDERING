@@ -16,6 +16,7 @@ import OrdersTable from "./OrdersTable";
 import OrderDetailPanel from "./OrderDetailPanel";
 import ProductCatalogManager from "./ProductCatalogManager";
 import DeliveryFeeManager from "./DeliveryFeeManager";
+import PrintReceiptModal from "./PrintReceiptModal";
 import { isCategoryAllowed, type OrderRole } from "../order/roles";
 import { getJuneAugustWeeks } from "../order/weekUtils";
 
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
   const [ordersStatus, setOrdersStatus] = useState("all");
   const [ordersWeek, setOrdersWeek] = useState("all");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [drPrintOrder, setDrPrintOrder] = useState<WeeklyOrderRecord | null>(null);
 
   const [readOrderIds, setReadOrderIds] = useState<string[]>([]);
   const [toasts, setToasts] = useState<
@@ -127,6 +129,28 @@ export default function AdminDashboard() {
       return prev;
     });
   }, []);
+
+  const handlePrintDeliveryReceipt = useCallback(async (order: WeeklyOrderRecord) => {
+    if (user?.role === "client") {
+      try {
+        const { resolveClientBySchoolName } = await import("../order/clientStorage");
+        const clientRec = await resolveClientBySchoolName(order.clientName);
+        const { printDeliveryReceipt } = await import("./printOrder");
+        await printDeliveryReceipt(
+          order,
+          undefined,
+          clientRec || undefined,
+          "school",
+          clientRec?.contact_person || "",
+          clientRec?.contact_number || ""
+        );
+      } catch (e) {
+        console.error("Direct print error:", e);
+      }
+    } else {
+      setDrPrintOrder(order);
+    }
+  }, [user?.role]);
 
   useEffect(() => {
     loadOrders();
@@ -285,7 +309,15 @@ export default function AdminDashboard() {
     return visibleOrders
       .filter((o) => {
         if (isAdmin) {
-          return o.status === "pending";
+          const isPending = o.status === "pending";
+          const isApproved =
+            o.status === "accepted" ||
+            o.status === "processing" ||
+            o.status === "completed";
+          const isRecent =
+            Date.now() - new Date(o.createdAt).getTime() <
+            7 * 24 * 60 * 60 * 1000;
+          return isPending || (isApproved && isRecent);
         } else {
           const isApproved =
             o.status === "accepted" ||
@@ -303,9 +335,9 @@ export default function AdminDashboard() {
       );
   }, [visibleOrders, isAdmin]);
 
-  // Compute unread count based on localStorage
+  // Compute unread count based on localStorage (only count unread PENDING notifications for badge alerts)
   const pendingCount = useMemo(() => {
-    return notifOrders.filter((o) => !readOrderIds.includes(o.id)).length;
+    return notifOrders.filter((o) => o.status === "pending" && !readOrderIds.includes(o.id)).length;
   }, [notifOrders, readOrderIds]);
 
   const handleMarkAllAsRead = () => {
@@ -443,9 +475,7 @@ export default function AdminDashboard() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-2">
                                 <p className="text-xs font-bold text-slate-800 truncate">
-                                  {isAdmin
-                                    ? `Order ID: ${order.id} — Pending`
-                                    : `Order ID: ${order.id} — ${formatStatusLabel(order.status)}`}
+                                  Order ID: {order.id} — {formatStatusLabel(order.status)}
                                 </p>
                                 <span className="text-[10px] text-slate-400 shrink-0">
                                   {dateStr}
@@ -525,6 +555,7 @@ export default function AdminDashboard() {
               orders={visibleOrders}
               onOrdersUpdated={loadOrders}
               onViewChange={setActiveView}
+              onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
             />
           )}
 
@@ -539,6 +570,7 @@ export default function AdminDashboard() {
                   : (activeView.replace("other-order-", "") as OrderRole)
               }
               onViewChange={setActiveView}
+              onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
             />
           )}
 
@@ -629,6 +661,7 @@ export default function AdminDashboard() {
                 orders={filteredOrders}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
               />
 
               {/* Centered modal overlay for order detail */}
@@ -644,9 +677,19 @@ export default function AdminDashboard() {
                       order={selectedOrder}
                       onClose={() => setSelectedId(null)}
                       onStatusChange={loadOrders}
+                      onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
                     />
                   </div>
                 </div>
+              )}
+              {drPrintOrder && (
+                <PrintReceiptModal
+                  order={drPrintOrder}
+                  onClose={() => {
+                    setDrPrintOrder(null);
+                    loadOrders();
+                  }}
+                />
               )}
             </div>
           )}

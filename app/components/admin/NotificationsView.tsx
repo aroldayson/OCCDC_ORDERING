@@ -81,7 +81,15 @@ export default function NotificationsView({
     return orders
       .filter((o) => {
         if (isAdmin) {
-          return o.status === "pending";
+          const isPending = o.status === "pending";
+          const isApproved =
+            o.status === "accepted" ||
+            o.status === "processing" ||
+            o.status === "completed";
+          const isRecent =
+            Date.now() - new Date(o.createdAt).getTime() <
+            7 * 24 * 60 * 60 * 1000;
+          return isPending || (isApproved && isRecent);
         } else {
           const isApproved =
             o.status === "accepted" ||
@@ -115,6 +123,7 @@ export default function NotificationsView({
     const allIds = displayOrders.map((o) => o.id);
     const updated = Array.from(new Set([...readOrderIds, ...allIds]));
     onMarkReadIds(updated);
+    setFilterTab("read");
   };
 
   const handleQuickAccept = async (id: string) => {
@@ -241,7 +250,7 @@ export default function NotificationsView({
                       <div className="flex flex-wrap items-center gap-2 pr-12">
                         <h4 className="font-bold text-slate-800 text-sm truncate">
                           Order ID: {order.id} —{" "}
-                          {isAdmin ? "Pending" : formatStatus(order.status)}
+                          {formatStatus(order.status)}
                         </h4>
                       </div>
 

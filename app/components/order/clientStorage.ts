@@ -3,6 +3,9 @@ export type ClientRecord = {
   name: string;
   address?: string;
   delivery_price?: number;
+  contact_person?: string;
+  contact_number?: string;
+  coop_id?: string;
 };
 
 
@@ -31,25 +34,61 @@ async function readClients(): Promise<ClientRecord[]> {
   try {
     const { data, error } = await supabase
       .from("schools")
-      .select("id,name,address,delivery_price")
+      .select("id,name,address,delivery_price,contact_person,contact_number,coop_id")
       .order("name", { ascending: true });
 
-    // If address/delivery_price columns don't exist yet, fall back to id+name only
+    // Fallback if contact, coop, or address columns don't exist yet
     if (error && error.message?.includes("does not exist")) {
-      const { data: basic, error: basicErr } = await supabase
+      const { data: mid, error: midErr } = await supabase
         .from("schools")
-        .select("id,name")
+        .select("id,name,address,delivery_price,contact_person,contact_number")
         .order("name", { ascending: true });
 
-      if (basicErr) throw basicErr;
+      if (midErr && midErr.message?.includes("does not exist")) {
+        const { data: m2, error: e2 } = await supabase
+          .from("schools")
+          .select("id,name,address,delivery_price")
+          .order("name", { ascending: true });
 
-      if (!basic || basic.length === 0) {
-        const seeded = seedClients();
-        await supabase.from("schools").insert(seeded.map((s) => ({ id: s.id, name: s.name })));
-        return seeded;
+        if (e2 && e2.message?.includes("does not exist")) {
+          const { data: basic, error: basicErr } = await supabase
+            .from("schools")
+            .select("id,name")
+            .order("name", { ascending: true });
+
+          if (basicErr) throw basicErr;
+
+          if (!basic || basic.length === 0) {
+            const seeded = seedClients();
+            await supabase.from("schools").insert(seeded.map((s) => ({ id: s.id, name: s.name })));
+            return seeded;
+          }
+
+          return basic.map((row) => ({ id: row.id, name: row.name }));
+        }
+
+        if (e2) throw e2;
+        if (!m2 || m2.length === 0) return [];
+        return m2.map((row) => ({
+          id: row.id,
+          name: row.name,
+          address: row.address || undefined,
+          delivery_price: row.delivery_price ? Number(row.delivery_price) : undefined,
+          coop_id: "coop-1",
+        }));
       }
 
-      return basic.map((row) => ({ id: row.id, name: row.name }));
+      if (midErr) throw midErr;
+      if (!mid || mid.length === 0) return [];
+      return mid.map((row) => ({
+        id: row.id,
+        name: row.name,
+        address: row.address || undefined,
+        delivery_price: row.delivery_price ? Number(row.delivery_price) : undefined,
+        contact_person: row.contact_person || undefined,
+        contact_number: row.contact_number || undefined,
+        coop_id: "coop-1",
+      }));
     }
 
     if (error) throw error;
@@ -66,6 +105,9 @@ async function readClients(): Promise<ClientRecord[]> {
       name: row.name,
       address: row.address || undefined,
       delivery_price: row.delivery_price ? Number(row.delivery_price) : undefined,
+      contact_person: row.contact_person || undefined,
+      contact_number: row.contact_number || undefined,
+      coop_id: row.coop_id || "coop-1",
     }));
   } catch (err) {
     const error = err as Error;
@@ -215,5 +257,37 @@ export async function updateClientDeliveryPrice(schoolId: string, deliveryPrice:
     notify();
   } catch (err) {
     console.error("Error updating delivery price:", err);
+  }
+}
+
+export async function updateClientContactDetails(
+  schoolName: string,
+  contactPerson: string,
+  contactNumber: string
+): Promise<void> {
+  const clients = await readClients();
+  const existing = clients.find((c) => c.name.toLowerCase() === schoolName.trim().toLowerCase());
+  if (existing) {
+    if (existing.contact_person !== contactPerson || existing.contact_number !== contactNumber) {
+      try {
+        const { error } = await supabase
+          .from("schools")
+          .update({
+            contact_person: contactPerson,
+            contact_number: contactNumber,
+          })
+          .eq("id", existing.id);
+        if (error) {
+          if (error.message?.includes("does not exist")) {
+            console.warn("schools.contact_person / contact_number columns not yet created in Supabase.");
+            return;
+          }
+          throw error;
+        }
+        notify();
+      } catch (err) {
+        console.error("Error updating school contact details:", err);
+      }
+    }
   }
 }

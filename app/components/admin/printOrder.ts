@@ -2,6 +2,7 @@ import type { WeeklyOrderRecord } from "../order/types";
 import type { WeeklyProduct } from "../order/products";
 import { ClientRecord } from "../order/clientStorage";
 import { getFridayFromWeekLabel } from "../order/weekUtils";
+import { supabase } from "@/lib/supabase";
 
 function normalizeProductName(name: string): string {
   return name
@@ -141,12 +142,21 @@ export function printCatalog(weekLabel: string, rows: any[]) {
 }
 
 
-export function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?: ClientRecord, isSupplier = false) {
-  const address = client?.address || "Address not provided";
-  const deliveryPrice = client?.delivery_price || 0;
+export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?: ClientRecord, isSupplier = false) {
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client details for printOrderForm:", e);
+    }
+  }
+  const address = resolvedClient?.address || "Address not provided";
+  const deliveryPrice = resolvedClient?.delivery_price || 0;
 
-  // Exclude deleted items and items with no price from print
-  const printableItems = order.items.filter(it => !it.deleted && it.price && it.price > 0);
+  // Exclude deleted items from print (show items even if not priced yet)
+  const printableItems = order.items.filter(it => !it.deleted);
 
   const orderDateFormatted = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString("en-PH")
@@ -1442,4 +1452,355 @@ export async function exportCatalogExcel(
 
   const safeWeek = weekLabel.replace(/[^a-z0-9]/gi, "_");
   XLSX.writeFile(wb, `PricingUpdate_${safeWeek}.xlsx`);
+}
+
+export async function printDeliveryReceipt(
+  order: WeeklyOrderRecord,
+  notes?: string,
+  client?: ClientRecord,
+  copyType: "ocgempc" | "school" | "deliverer" | "all" = "ocgempc",
+  contactPerson?: string,
+  contactNumber?: string,
+  adminCoopId?: string,
+  adminCoopName?: string,
+  adminCoopAddress?: string,
+  signatureDataUrl?: string
+) {
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client record:", e);
+    }
+  }
+
+  // Retrieve delivery price directly from schools table for maximum reliability
+  let deliveryPrice = resolvedClient?.delivery_price || 0;
+  try {
+    const { data: schoolRecord } = await supabase
+      .from("schools")
+      .select("delivery_price")
+      .ilike("name", order.clientName.trim())
+      .maybeSingle();
+
+    if (schoolRecord && schoolRecord.delivery_price !== null && schoolRecord.delivery_price !== undefined) {
+      deliveryPrice = Number(schoolRecord.delivery_price);
+    }
+  } catch (e) {
+    console.error("Failed to fetch delivery price directly from schools table:", e);
+  }
+
+  const address = resolvedClient?.address || "Address not provided";
+  const resolvedContactPerson = contactPerson || resolvedClient?.contact_person || "";
+  const resolvedContactNumber = contactNumber || resolvedClient?.contact_number || "";
+
+  // Dynamic Cooperative Info from database (with OCGEMPC defaults if query fails)
+  let coopName = adminCoopName || "OLONGAPO CITY GOVERNMENT EMPLOYEES' MULTIPURPOSE COOPERATIVE (OCGEMPC)";
+  let coopAddress = adminCoopAddress || "3rd Floor City Hall Annex, Rizal Ave., West Bajac-Bajac, Olongapo City";
+  let coopContact = "Contact No. 09323735919 / 09423124513";
+  let coopShort = adminCoopName || "OCGEMPC";
+
+  if (!adminCoopName) {
+    let targetCoopId = adminCoopId || resolvedClient?.coop_id || "coop-1";
+    let resolvedCoopName = "";
+    let resolvedCoopAddress = "";
+
+    try {
+      const { data: receiptRec } = await supabase
+        .from("delivery_receipt_records")
+        .select("coop_id, printed_by, signature_data")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (receiptRec) {
+        // Use saved signature from DB if none was passed in
+        if (!signatureDataUrl && receiptRec.signature_data) {
+          signatureDataUrl = receiptRec.signature_data as string;
+        }
+        if (receiptRec.coop_id) {
+          targetCoopId = receiptRec.coop_id;
+        }
+
+        if (receiptRec.printed_by) {
+          const { data: supplierProfile } = await supabase
+            .from("user_profiles")
+            .select("school_name, school_address, coop_id")
+            .eq("email", receiptRec.printed_by)
+            .maybeSingle();
+
+          if (supplierProfile) {
+            if (supplierProfile.school_name && supplierProfile.school_name.trim() !== "") {
+              resolvedCoopName = supplierProfile.school_name;
+              resolvedCoopAddress = supplierProfile.school_address || "";
+            }
+            if (supplierProfile.coop_id) {
+              targetCoopId = supplierProfile.coop_id;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to query supplier details from receipt records/user profiles:", e);
+    }
+
+    const isDefaultCoopName = !resolvedCoopName ||
+      resolvedCoopName.toUpperCase() === "OCGEMPC" ||
+      resolvedCoopName.toUpperCase() === "OLONGAPO CITY GOVERNMENT EMPLOYEES' MULTIPURPOSE COOPERATIVE (OCGEMPC)";
+
+    if (!isDefaultCoopName) {
+      coopName = resolvedCoopName;
+      coopAddress = resolvedCoopAddress;
+      coopShort = resolvedCoopName;
+    } else {
+      try {
+        const { data: coop } = await supabase
+          .from("coop_profile")
+          .select("name,address,contact_no,short_name")
+          .eq("id", targetCoopId)
+          .maybeSingle();
+
+        if (coop) {
+          coopName = coop.name;
+          coopAddress = coop.address || "";
+          coopContact = coop.contact_no ? `Contact No. ${coop.contact_no}` : "";
+          coopShort = coop.short_name || "OCGEMPC";
+        }
+      } catch (e) {
+        console.error("Failed to fetch coop profile from database:", e);
+      }
+    }
+  }
+
+  // Exclude deleted items or items with no quantity
+  const printableItems = order.items.filter(it => !it.deleted && it.qty && it.qty > 0);
+
+  const orderDateFormatted = order.createdAt
+    ? new Date(order.createdAt).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+    : new Date().toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" });
+
+  let deliveryDateFormatted = "Not set";
+  const dateStr = order.deliveryDate;
+  let dDate: Date | null = null;
+  if (dateStr) {
+    dDate = new Date(dateStr + "T12:00:00");
+  } else {
+    dDate = getFridayFromWeekLabel(order.weekLabel, order.createdAt);
+  }
+  if (dDate) {
+    deliveryDateFormatted = dDate.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  const copiesToPrint: ("ocgempc" | "school" | "deliverer")[] =
+    copyType === "all" ? ["ocgempc", "school", "deliverer"] : [copyType as any];
+
+  const copyLabels: Record<string, string> = {
+    ocgempc: `${coopShort} COPY`,
+    school: "SCHOOL COPY",
+    deliverer: "DELIVERER COPY",
+  };
+
+  const grandTotal = printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+
+  // Build HTML per copy
+  let htmlContent = "";
+
+  copiesToPrint.forEach((copy, idx) => {
+    const isLast = idx === copiesToPrint.length - 1;
+    const badgeLabel = copyLabels[copy] || "OCGEMPC COPY";
+
+    // Build the received-by block: show signature image if provided, else blank line
+    const receivedByBlock = signatureDataUrl
+      ? `<img src="${signatureDataUrl}" class="sig-image" alt="Signature" />`
+      : `<div class="sig-line"></div>`;
+
+    htmlContent += `
+      <div class="container ${!isLast ? 'page-break' : ''}">
+        <!-- Header -->
+        <div class="header-container">
+          <div class="header-main">
+            <div class="supplier-title">${coopName}</div>
+            ${coopAddress ? `<div class="supplier-address">${coopAddress}</div>` : ""}
+            ${coopContact ? `<div class="supplier-contact">${coopContact}</div>` : ""}
+          </div>
+        </div>
+
+        <!-- Title and Badge -->
+        <div class="title-row">
+          <div class="form-title">DELIVERY RECEIPT</div>
+          <div class="copy-badge">${badgeLabel}</div>
+        </div>
+
+        <!-- Metadata Box -->
+        <div class="meta-box">
+          <div class="meta-row">
+            <div class="meta-label">TO:</div>
+            <div class="meta-val">${order.clientName}</div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">DATE:</div>
+            <div class="meta-val">${deliveryDateFormatted}</div>
+          </div>
+        </div>
+
+        <!-- Items Table -->
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 80px; text-align: center;">ITEM NO.</th>
+              <th>DESCRIPTION</th>
+              <th style="width: 80px; text-align: center;">Qty.</th>
+              <th style="width: 100px; text-align: center;">Unit</th>
+              <th style="width: 120px; text-align: right;">Unit Price</th>
+              <th style="width: 150px; text-align: right;">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${printableItems.map((item, index) => `
+              <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td>${item.name}</td>
+                <td style="text-align: center;">${item.qty}</td>
+                <td style="text-align: center;">${item.unit}</td>
+                <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            `).join("")}
+            <!-- nothing follows row -->
+            <tr>
+              <td style="text-align: center;">${printableItems.length + 1}</td>
+              <td style="font-weight: bold; font-style: italic;">***nothing follows***</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td colspan="4" style="border: none;"></td>
+                <td style="text-align: right; border: 1px solid #000; font-weight: bold;">Delivery Fee</td>
+                <td style="text-align: right; border: 1px solid #000; font-weight: bold;">PHP ${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
+            <!-- grand total row -->
+            <tr>
+              <td colspan="4" style="border: none;"></td>
+              <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa;">PHP</td>
+              <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa; font-size: 14px;">${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Signatures & Contacts -->
+        <div class="footer-row">
+          <div class="sig-block">
+            <div class="sig-line-container">
+              ${receivedByBlock}
+              <div class="sig-label">RECEIVED BY: (NAME &amp; SIGN)</div>
+            </div>
+            ${resolvedContactPerson ? `
+              <div class="contact-details">
+                <div>Contact Person: ${resolvedContactPerson}</div>
+                ${resolvedContactNumber ? `<div>${resolvedContactNumber}</div>` : ""}
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Delivery Receipt - ${order.clientName}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; color: #000; padding: 40px 20px; }
+
+        .container {
+          background: white;
+          max-width: 800px;
+          margin: 0 auto 40px auto;
+          padding: 45px;
+          border: 1px solid #ccc;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .header-container { text-align: center; margin-bottom: 25px; }
+        .supplier-title { font-size: 14px; font-weight: bold; text-transform: uppercase; line-height: 1.3; }
+        .supplier-address, .supplier-contact { font-size: 11px; color: #333; margin-top: 2px; }
+
+        .title-row { display: flex; align-items: center; justify-content: center; position: relative; margin: 25px 0 15px 0; }
+        .form-title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; text-align: center; }
+        .copy-badge { position: absolute; right: 0; border: 1px solid #7c3aed; background-color: #f5f3ff; color: #7c3aed; padding: 4px 10px; font-size: 10px; font-weight: bold; border-radius: 4px; }
+
+        .meta-box { border: 1px solid #000; margin-bottom: 20px; font-size: 12px; width: 100%; }
+        .meta-row { display: flex; border-bottom: 1px solid #000; }
+        .meta-row:last-child { border-bottom: none; }
+        .meta-label { width: 80px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
+        .meta-val { padding: 6px 10px; flex: 1; font-weight: bold; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
+        th { border: 1px solid #000; padding: 8px 10px; font-weight: bold; background-color: #fafafa; text-transform: uppercase; }
+        td { border: 1px solid #000; padding: 8px 10px; }
+
+        .footer-row { display: flex; justify-content: space-between; margin-top: 45px; font-size: 11px; }
+        .sig-block { width: 48%; }
+        .sig-line-container { display: flex; flex-direction: column; margin-bottom: 8px; }
+        .sig-line { border-bottom: 1.5px solid #000; width: 220px; height: 30px; }
+        .sig-image { width: 220px; height: 70px; object-fit: contain; display: block; border-bottom: 1.5px solid #000; }
+        .sig-label { font-size: 10px; font-weight: bold; margin-top: 4px; }
+        .contact-details { margin-top: 10px; font-size: 11px; font-weight: bold; line-height: 1.4; }
+
+        @media print {
+          body { background: white; padding: 0; }
+          .container { border: none; box-shadow: none; padding: 20px; margin-bottom: 0; }
+          .page-break { page-break-after: always; border-bottom: 1px dashed #ccc; padding-bottom: 20px; margin-bottom: 20px; }
+          th { background-color: #f0f0f0 !important; }
+          .copy-badge { border: 1px solid #000 !important; background-color: transparent !important; color: #000 !important; }
+          * { color: #000 !important; }
+        }
+      </style>
+    </head>
+    <body>
+      ${htmlContent}
+      <script>
+        // Wait for data-URI signature images to fully decode before opening print dialog
+        window.addEventListener('load', function() {
+          var imgs = document.querySelectorAll('img.sig-image');
+          if (imgs.length === 0) {
+            window.print();
+            return;
+          }
+          var remaining = imgs.length;
+          function tryPrint() {
+            remaining--;
+            if (remaining <= 0) { window.focus(); window.print(); }
+          }
+          imgs.forEach(function(img) {
+            if (img.complete && img.naturalWidth > 0) {
+              tryPrint();
+            } else {
+              img.addEventListener('load', tryPrint);
+              img.addEventListener('error', tryPrint);
+            }
+          });
+        });
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    // print() is triggered by the inline window load listener inside the HTML,
+    // ensuring data-URI signature images are fully decoded before the print dialog opens.
+  }
 }

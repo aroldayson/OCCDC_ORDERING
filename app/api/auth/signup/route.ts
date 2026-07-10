@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { email, password, role, schoolName, categories, schoolAddress } = await request.json();
+    const { email, password, role, schoolName, categories, schoolAddress, coopId } = await request.json();
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         school_name: schoolName || null,
         school_address: schoolAddress || null,
         categories: categories || null,
+        coop_id: coopId || null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -77,6 +78,25 @@ export async function POST(request: Request) {
             .from("schools")
             .update({ address: schoolAddress.trim() })
             .eq("id", school.id);
+        }
+      }
+    }
+
+    // If admin role with coop name and address, update the coop_profile table server-side
+    if (role === "admin" && schoolName && schoolAddress) {
+      const { data: coops } = await supabase
+        .from("coop_profile")
+        .select("id, address")
+        .ilike("name", schoolName.trim())
+        .limit(1);
+
+      if (coops && coops.length > 0) {
+        const coop = coops[0];
+        if (coop.address !== schoolAddress.trim()) {
+          await supabase
+            .from("coop_profile")
+            .update({ address: schoolAddress.trim() })
+            .eq("id", coop.id);
         }
       }
     }

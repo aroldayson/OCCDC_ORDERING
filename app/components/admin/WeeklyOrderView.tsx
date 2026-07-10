@@ -13,6 +13,7 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  Truck,
 } from "lucide-react";
 import type { WeeklyProduct } from "../order/products";
 import {
@@ -79,6 +80,7 @@ type WeeklyOrderViewProps = {
   forceTab?: Tab;
   onViewChange?: (view: AdminView) => void;
   fixedCategory?: OrderRole;
+  onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
 };
 
 interface SchoolGroupBlockProps {
@@ -87,6 +89,7 @@ interface SchoolGroupBlockProps {
   handleStatusChange: (id: string, status: OrderStatus) => Promise<void>;
   setSelectedOrderDetail: (order: WeeklyOrderRecord | null) => void;
   weeklyProducts: WeeklyProduct[];
+  onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
 }
 
 function SchoolGroupBlock({
@@ -95,6 +98,7 @@ function SchoolGroupBlock({
   handleStatusChange,
   setSelectedOrderDetail,
   weeklyProducts,
+  onPrintDeliveryReceipt,
 }: SchoolGroupBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -342,6 +346,13 @@ function SchoolGroupBlock({
                       Print Order
                     </button>
                     <button
+                      onClick={() => onPrintDeliveryReceipt(order)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+                    >
+                      <Truck className="h-4 w-4 text-violet-500" />
+                      Delivery Receipt
+                    </button>
+                    <button
                       onClick={() => setSelectedOrderDetail(order)}
                       className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition"
                     >
@@ -383,6 +394,7 @@ export default function WeeklyOrderView({
   forceTab,
   onViewChange,
   fixedCategory,
+  onPrintDeliveryReceipt,
 }: WeeklyOrderViewProps) {
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -974,6 +986,7 @@ export default function WeeklyOrderView({
                         handleStatusChange={handleStatusChange}
                         setSelectedOrderDetail={setSelectedOrderDetail}
                         weeklyProducts={weeklyProducts}
+                        onPrintDeliveryReceipt={onPrintDeliveryReceipt}
                       />
                     ))
                   )}
