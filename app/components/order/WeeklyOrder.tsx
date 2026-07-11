@@ -389,10 +389,10 @@ export default function WeeklyOrder({
                   disabled={isDisabled}
                   onClick={() => setSelectedCategory(role)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition ${isDisabled
-                      ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
-                      : selectedCategory === role
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
+                    : selectedCategory === role
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                 >
                   {orderRoleLabels[role]}
@@ -478,24 +478,20 @@ export default function WeeklyOrder({
               <div>
                 {/* Conditional Unit Selector */}
                 {selectedCategory === "rice" ? (
-                  <select
-                    value={newItemUnit}
+                  <input
+                    value="sack"
                     disabled
                     className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
-                  >
-                    <option value="sack">sack</option>
-                  </select>
+                  />
                 ) : selectedCategory === "vegetables" ||
                   selectedCategory === "meat" ||
                   selectedCategory === "fruits" ||
                   selectedCategory === "fish" ? (
-                  <select
-                    value={newItemUnit}
+                  <input
+                    value="kg"
                     disabled
                     className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
-                  >
-                    <option value="kg">kg</option>
-                  </select>
+                  />
                 ) : selectedCategory === "egg" ? (
                   <select
                     value={newItemUnit}
@@ -508,6 +504,13 @@ export default function WeeklyOrder({
                     <option value="tray/12">tray/12</option>
                     <option value="tray/30">tray/30</option>
                   </select>
+                ) : newItemName !== "__custom__" ? (
+                  <input
+                    value={newItemUnit || ""}
+                    disabled
+                    placeholder="Select unit"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
+                  />
                 ) : (
                   <select
                     value={newItemUnit}

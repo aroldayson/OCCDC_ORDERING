@@ -464,9 +464,8 @@ export default function AdminDashboard() {
                           <div
                             key={order.id}
                             onClick={() => handleItemClick(order)}
-                            className={`flex gap-3 py-3 cursor-pointer transition hover:bg-slate-50/50 relative ${
-                              isUnread ? "bg-blue-50/10" : ""
-                            }`}
+                            className={`flex gap-3 py-3 cursor-pointer transition hover:bg-slate-50/50 relative ${isUnread ? "bg-blue-50/10" : ""
+                              }`}
                           >
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-50 text-orange-500">
                               <Bell className="h-4.5 w-4.5" strokeWidth={2} />
@@ -524,15 +523,14 @@ export default function AdminDashboard() {
         </header>
 
         <main
-          className={`min-h-0 flex-1 p-4 sm:p-6 ${
-            activeView === "place-order" ||
+          className={`min-h-0 flex-1 p-4 sm:p-6 ${activeView === "place-order" ||
             activeView.startsWith("other-order") ||
             activeView === "orders" ||
             activeView === "products" ||
             activeView === "notifications"
-              ? "flex flex-col lg:overflow-hidden overflow-y-auto"
-              : "overflow-y-auto"
-          }`}
+            ? "flex flex-col lg:overflow-hidden overflow-y-auto"
+            : "overflow-y-auto"
+            }`}
         >
           {activeView === "overview" && (
             <RestaurantDashboard orders={visibleOrders} />
@@ -701,11 +699,10 @@ export default function AdminDashboard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-bold shadow-lg transition-all duration-300 animate-slide-in ${
-              toast.type === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-800"
-                : "border-blue-100 bg-blue-50 text-blue-800"
-            }`}
+            className={`flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-bold shadow-lg transition-all duration-300 animate-slide-in ${toast.type === "success"
+              ? "border-emerald-100 bg-emerald-50 text-emerald-800"
+              : "border-blue-100 bg-blue-50 text-blue-800"
+              }`}
           >
             {toast.type === "success" ? (
               <Check className="h-4 w-4" />

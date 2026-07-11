@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     schoolAddress?: string,
     coopId?: string,
   ) => {
-    // 1. Create the user using the Server API (which bypasses confirmation)
+    // 1. Create the user using the Server API (which handles standard signUp)
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -140,14 +140,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(json.error || "Failed to create account");
     }
 
-    // 2. Sign in the user on the client using password
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // 2. Only sign in the user if they are pre-confirmed (e.g. if email confirmation is disabled in Supabase)
+    if (json.isConfirmed) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      throw signInError;
+      if (signInError) {
+        throw signInError;
+      }
+    } else {
+      // Throw a custom token indicating that the verification email was successfully sent
+      throw new Error("CONFIRMATION_REQUIRED");
     }
   };
 
