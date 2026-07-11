@@ -892,8 +892,8 @@ export function downloadClientSummaryPdf(
       </thead>
       <tbody>
         ${printableItems
-          .map(
-            (item, index) => `
+      .map(
+        (item, index) => `
           <tr>
             <td class="number-col">${index + 1}</td>
             <td>${item.name}</td>
@@ -903,17 +903,16 @@ export function downloadClientSummaryPdf(
             <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
             <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
           </tr>`,
-          )
-          .join("")}
-        ${
-          deliveryPrice > 0
-            ? `<tr>
+      )
+      .join("")}
+        ${deliveryPrice > 0
+      ? `<tr>
             <td class="number-col"></td>
             <td colspan="5" style="text-align:right;font-weight:bold;">Delivery Fee</td>
             <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
           </tr>`
-            : ""
-        }
+      : ""
+    }
       </tbody>
     </table>
     <div style="text-align:right;font-weight:bold;margin-bottom:30px;">
@@ -1017,6 +1016,557 @@ export async function downloadClientSummaryExcel(
   const safeWeek = weekLabel.replace(/[^a-z0-9]/gi, "_");
   XLSX.writeFile(wb, `${safeName}_${safeWeek}_Summary.xlsx`);
 }
+
+export async function downloadSingleOrderExcel(
+  order: WeeklyOrderRecord,
+  client?: ClientRecord,
+) {
+  const XLSX = await import("xlsx");
+  
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client for Single Order Excel:", e);
+    }
+  }
+
+  // Retrieve delivery price directly from schools table for maximum reliability
+  let deliveryPrice = resolvedClient?.delivery_price || 0;
+  try {
+    const { data: schoolRecord } = await supabase
+      .from("schools")
+      .select("delivery_price")
+      .ilike("name", order.clientName.trim())
+      .maybeSingle();
+
+    if (schoolRecord && schoolRecord.delivery_price !== null && schoolRecord.delivery_price !== undefined) {
+      deliveryPrice = Number(schoolRecord.delivery_price);
+    }
+  } catch (e) {
+    console.error("Failed to fetch delivery price directly from schools table:", e);
+  }
+
+  const address = resolvedClient?.address || "Address not provided";
+  const printableItems = order.items.filter((it) => !it.deleted);
+
+  // Meta rows at the top
+  const metaRows = [
+    ["Purchase Request Form"],
+    [],
+    ["Order ID", order.id],
+    ["Client", order.clientName],
+    ["Address", address],
+    ["Week", order.weekLabel],
+    ["Date", order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-PH") : new Date().toLocaleDateString("en-PH")],
+    ["Status", order.status.toUpperCase()],
+    [],
+    // Header row
+    ["#", "Description", "Category", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
+  ];
+
+  // Data rows
+  const dataRows = printableItems.map((item, i) => [
+    i + 1,
+    item.name,
+    categoryLabels[item.category] ?? item.category,
+    item.qty,
+    item.unit,
+    item.price || 0,
+    (item.qty || 0) * (item.price || 0),
+  ]);
+
+  // Delivery fee row
+  if (deliveryPrice > 0) {
+    dataRows.push(["", "", "", "", "", "Delivery Fee", deliveryPrice]);
+  }
+
+  // Grand total row
+  const grandTotal =
+    printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+  dataRows.push(["", "", "", "", "Grand Total", grandTotal]);
+
+  const allRows = [...metaRows, ...dataRows];
+
+  const ws = XLSX.utils.aoa_to_sheet(allRows);
+
+  // Set column widths
+  ws["!cols"] = [
+    { wch: 4 },  // #
+    { wch: 30 }, // Description
+    { wch: 14 }, // Category
+    { wch: 6 },  // Qty
+    { wch: 8 },  // Unit
+    { wch: 14 }, // Unit Price
+    { wch: 14 }, // Total Cost
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Order Details");
+
+  const safeName = order.clientName.replace(/[^a-z0-9]/gi, "_");
+  const safeId = order.id.replace(/[^a-z0-9]/gi, "_");
+  XLSX.writeFile(wb, `${safeName}_${safeId}_Order.xlsx`);
+}
+
+export async function downloadDeliveryReceiptExcel(
+  order: WeeklyOrderRecord,
+  client?: ClientRecord
+) {
+  const XLSX = await import("xlsx");
+
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client for Delivery Receipt Excel:", e);
+    }
+  }
+
+  // Retrieve delivery price directly from schools table for maximum reliability
+  let deliveryPrice = resolvedClient?.delivery_price || 0;
+  try {
+    const { data: schoolRecord } = await supabase
+      .from("schools")
+      .select("delivery_price")
+      .ilike("name", order.clientName.trim())
+      .maybeSingle();
+
+    if (schoolRecord && schoolRecord.delivery_price !== null && schoolRecord.delivery_price !== undefined) {
+      deliveryPrice = Number(schoolRecord.delivery_price);
+    }
+  } catch (e) {
+    console.error("Failed to fetch delivery price directly from schools table:", e);
+  }
+
+  const address = resolvedClient?.address || "Address not provided";
+  const printableItems = order.items.filter(it => !it.deleted && it.qty && it.qty > 0);
+
+  // Retrieve delivery receipt details from DB if available
+  let contactPerson = resolvedClient?.contact_person || "";
+  let contactNumber = resolvedClient?.contact_number || "";
+  let hasSignature = false;
+  let dateReceived: string | null = null;
+  try {
+    const { data: receiptRec } = await supabase
+      .from("delivery_receipt_records")
+      .select("contact_person, contact_number, signature_data, date_received")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (receiptRec) {
+      if (receiptRec.contact_person) contactPerson = receiptRec.contact_person;
+      if (receiptRec.contact_number) contactNumber = receiptRec.contact_number;
+      if (receiptRec.signature_data) hasSignature = true;
+      if (receiptRec.date_received) dateReceived = receiptRec.date_received;
+    }
+  } catch (e) {
+    console.error("Failed to query details for delivery receipt excel:", e);
+  }
+
+  const metaRows = [
+    ["DELIVERY RECEIPT"],
+    [],
+    ["Order ID", order.id],
+    ["Client", order.clientName],
+    ["Address", address],
+    ["Date", order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-PH") : new Date().toLocaleDateString("en-PH")],
+    ["Status", order.status.toUpperCase()],
+    [],
+    ["#", "Description", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
+  ];
+
+  const dataRows = printableItems.map((item, i) => [
+    i + 1,
+    item.name,
+    item.qty,
+    item.unit,
+    item.price || 0,
+    (item.qty || 0) * (item.price || 0),
+  ]);
+
+  if (deliveryPrice > 0) {
+    dataRows.push(["", "", "", "", "Delivery Fee", deliveryPrice]);
+  }
+
+  const grandTotal = printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+  dataRows.push(["", "", "", "", "Grand Total", grandTotal]);
+
+  dataRows.push([]);
+  dataRows.push(["RECEIVED BY: (NAME & SIGN)", contactPerson || "(Not Set)"]);
+  if (contactNumber) {
+    dataRows.push(["Contact Number", contactNumber]);
+  }
+  if (dateReceived) {
+    const formattedDate = new Date(dateReceived).toLocaleDateString("en-PH", {
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+    dataRows.push(["Date Received", formattedDate]);
+  }
+  dataRows.push(["Has Digital Signature", hasSignature ? "YES" : "NO"]);
+
+  const allRows = [...metaRows, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(allRows);
+
+  // Set column widths
+  ws["!cols"] = [
+    { wch: 4 },  // #
+    { wch: 30 }, // Description
+    { wch: 6 },  // Qty
+    { wch: 8 },  // Unit
+    { wch: 14 }, // Unit Price
+    { wch: 14 }, // Total Cost
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Delivery Receipt");
+
+  const safeName = order.clientName.replace(/[^a-z0-9]/gi, "_");
+  const safeId = order.id.replace(/[^a-z0-9]/gi, "_");
+  XLSX.writeFile(wb, `${safeName}_${safeId}_DeliveryReceipt.xlsx`);
+}
+
+export async function downloadSingleOrderHtml(
+  order: WeeklyOrderRecord,
+  client?: ClientRecord,
+) {
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client for PO HTML:", e);
+    }
+  }
+
+  // Retrieve delivery price directly from schools table for maximum reliability
+  let deliveryPrice = resolvedClient?.delivery_price || 0;
+  try {
+    const { data: schoolRecord } = await supabase
+      .from("schools")
+      .select("delivery_price")
+      .ilike("name", order.clientName.trim())
+      .maybeSingle();
+
+    if (schoolRecord && schoolRecord.delivery_price !== null && schoolRecord.delivery_price !== undefined) {
+      deliveryPrice = Number(schoolRecord.delivery_price);
+    }
+  } catch (e) {
+    console.error("Failed to fetch delivery price directly from schools table:", e);
+  }
+
+  const address = resolvedClient?.address || "Address not provided";
+  const printableItems = order.items.filter((it) => !it.deleted);
+
+  const orderDateFormatted = order.createdAt
+    ? new Date(order.createdAt).toLocaleDateString("en-PH")
+    : new Date().toLocaleDateString("en-PH");
+
+  let deliveryDateFormatted = "Not set";
+  const dateStr = order.deliveryDate;
+  let dDate: Date | null = null;
+  if (dateStr) {
+    dDate = new Date(dateStr + "T12:00:00");
+  } else {
+    dDate = getFridayFromWeekLabel(order.weekLabel, order.createdAt);
+  }
+  if (dDate) {
+    deliveryDateFormatted = dDate.toLocaleDateString("en-PH");
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Purchase Request Form - ${order.clientName}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #fff; color: #000; }
+        .container { background: white; max-width: 800px; margin: 0 auto; padding: 40px; border: 3px solid #001f3f; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #001f3f; padding-bottom: 20px; }
+        .school-name { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; color: #000; }
+        .school-address { font-size: 14px; color: #000; }
+        .form-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px; text-decoration: underline; color: #000; }
+        .form-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; font-size: 12px; color: #000; }
+        .form-info-item { display: flex; }
+        .form-info-label { font-weight: bold; width: 120px; color: #000; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #000; }
+        td { border: 1px solid #999; padding: 12px; font-size: 12px; color: #000; }
+        td.number-col { text-align: center; width: 40px; }
+        td.total { text-align: right; font-weight: bold; }
+        .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; font-size: 12px; color: #000; }
+        .signature-line { border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 5px; }
+        .signature-label { font-size: 11px; color: #000; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="school-name">${order.clientName}</div>
+          <div class="school-address">${address}</div>
+        </div>
+        <div class="form-title">Purchase Request Form</div>
+        <div class="form-info">
+          <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
+          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${orderDateFormatted}</span></div>
+          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${order.weekLabel}</span></div>
+          <div class="form-info-item"><span class="form-info-label">TARGET DELIVER :</span><span>${deliveryDateFormatted}</span></div>
+          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${categoryLabels[order.clientRole] ?? order.clientRole}</span></div>
+          <div class="form-info-item"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${order.status}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ITEM NO.</th><th>DESCRIPTION</th><th>CATEGORY</th>
+              <th>QTY.</th><th>UNIT</th><th>UNIT PRICE</th><th>TOTAL COST</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${printableItems.map((item, index) => `
+              <tr>
+                <td class="number-col">${index + 1}</td>
+                <td>${item.name}</td>
+                <td>${categoryLabels[item.category] ?? item.category}</td>
+                <td class="number-col">${item.qty}</td>
+                <td>${item.unit}</td>
+                <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join("")}
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td class="number-col"></td>
+                <td colspan="5" style="text-align:right;font-weight:bold;">Delivery Fee</td>
+                <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
+          </tbody>
+        </table>
+        <div style="text-align:right;font-weight:bold;margin-bottom:30px;">
+          Grand Total: 
+          ₱${(printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+        </div>
+        ${signatureBlock(false)}
+      </div>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const safeName = order.clientName.replace(/[^a-z0-9]/gi, "_");
+  const safeId = order.id.replace(/[^a-z0-9]/gi, "_");
+  a.href = url;
+  a.download = `${safeName}_${safeId}_PurchaseOrder.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export async function downloadDeliveryReceiptHtml(
+  order: WeeklyOrderRecord,
+  client?: ClientRecord,
+) {
+  let resolvedClient = client;
+  if (!resolvedClient) {
+    try {
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      resolvedClient = await resolveClientBySchoolName(order.clientName);
+    } catch (e) {
+      console.error("Failed to resolve client for receipt download:", e);
+    }
+  }
+
+  // Retrieve delivery price directly from schools table for maximum reliability
+  let deliveryPrice = resolvedClient?.delivery_price || 0;
+  try {
+    const { data: schoolRecord } = await supabase
+      .from("schools")
+      .select("delivery_price")
+      .ilike("name", order.clientName.trim())
+      .maybeSingle();
+
+    if (schoolRecord && schoolRecord.delivery_price !== null && schoolRecord.delivery_price !== undefined) {
+      deliveryPrice = Number(schoolRecord.delivery_price);
+    }
+  } catch (e) {
+    console.error("Failed to fetch delivery price directly from schools table:", e);
+  }
+
+  const address = resolvedClient?.address || "Address not provided";
+  
+  // Retrieve delivery receipt details from DB
+  let contactPerson = resolvedClient?.contact_person || "";
+  let contactNumber = resolvedClient?.contact_number || "";
+  let signatureDataUrl = "";
+  let dateReceived: string | null = null;
+  try {
+    const { data: receiptRec } = await supabase
+      .from("delivery_receipt_records")
+      .select("contact_person, contact_number, signature_data, date_received")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (receiptRec) {
+      if (receiptRec.contact_person) contactPerson = receiptRec.contact_person;
+      if (receiptRec.contact_number) contactNumber = receiptRec.contact_number;
+      if (receiptRec.signature_data) signatureDataUrl = receiptRec.signature_data;
+      if (receiptRec.date_received) dateReceived = receiptRec.date_received;
+    }
+  } catch (e) {
+    console.error("Failed to query details for delivery receipt download:", e);
+  }
+
+  const printableItems = order.items.filter(it => !it.deleted && it.qty && it.qty > 0);
+  const deliveryDateFormatted = order.deliveryDate
+    ? new Date(order.deliveryDate + "T12:00:00").toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })
+    : getFridayFromWeekLabel(order.weekLabel, order.createdAt)?.toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" }) || "Not set";
+
+  const grandTotal = printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+
+  // Build the received-by block: show signature image if provided, else blank line
+  const receivedByBlock = signatureDataUrl
+    ? `<img src="${signatureDataUrl}" style="width: 220px; height: 70px; object-fit: contain; display: block; border-bottom: 1.5px solid #000;" alt="Signature" />`
+    : `<div style="border-bottom: 1.5px solid #000; width: 220px; height: 30px;"></div>`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Delivery Receipt - ${order.clientName}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background-color: #fff; color: #000; padding: 40px; }
+        .container {
+          background: white;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 45px;
+          border: 1px solid #ccc;
+        }
+        .header-container { text-align: center; margin-bottom: 25px; }
+        .supplier-title { font-size: 14px; font-weight: bold; text-transform: uppercase; line-height: 1.3; }
+        .supplier-address, .supplier-contact { font-size: 11px; color: #333; margin-top: 2px; }
+        .title-row { display: flex; align-items: center; justify-content: center; position: relative; margin: 25px 0 15px 0; }
+        .form-title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; text-align: center; }
+        .meta-box { border: 1px solid #000; margin-bottom: 20px; font-size: 12px; width: 100%; }
+        .meta-row { display: flex; border-bottom: 1px solid #000; }
+        .meta-row:last-child { border-bottom: none; }
+        .meta-label { width: 80px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
+        .meta-val { padding: 6px 10px; flex: 1; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
+        th { border: 1px solid #000; padding: 8px 10px; font-weight: bold; background-color: #fafafa; text-transform: uppercase; }
+        td { border: 1px solid #000; padding: 8px 10px; }
+        .footer-row { display: flex; justify-content: space-between; margin-top: 45px; font-size: 11px; }
+        .sig-block { width: 48%; }
+        .sig-line-container { display: flex; flex-direction: column; margin-bottom: 8px; }
+        .sig-label { font-size: 10px; font-weight: bold; margin-top: 4px; }
+        .contact-details { margin-top: 10px; font-size: 11px; font-weight: bold; line-height: 1.4; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header-container">
+          <div class="supplier-title">OLONGAPO CITY GOVERNMENT EMPLOYEES' MULTIPURPOSE COOPERATIVE (OCGEMPC)</div>
+          <div class="supplier-address">3rd Floor City Hall Annex, Rizal Ave., West Bajac-Bajac, Olongapo City</div>
+          <div class="supplier-contact">Contact No. 09323735919 / 09423124513</div>
+        </div>
+        <div class="title-row">
+          <div class="form-title">DELIVERY RECEIPT</div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-row">
+            <div class="meta-label">TO:</div>
+            <div class="meta-val">${order.clientName}</div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">DATE:</div>
+            <div class="meta-val">${deliveryDateFormatted}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 80px; text-align: center;">ITEM NO.</th>
+              <th>DESCRIPTION</th>
+              <th style="width: 80px; text-align: center;">Qty.</th>
+              <th style="width: 100px; text-align: center;">Unit</th>
+              <th style="width: 120px; text-align: right;">Unit Price</th>
+              <th style="width: 150px; text-align: right;">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${printableItems.map((item, index) => `
+              <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td>${item.name}</td>
+                <td style="text-align: center;">${item.qty}</td>
+                <td style="text-align: center;">${item.unit}</td>
+                <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join("")}
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td colspan="4" style="border: none;"></td>
+                <td style="text-align: right; border: 1px solid #000; font-weight: bold;">Delivery Fee</td>
+                <td style="text-align: right; border: 1px solid #000; font-weight: bold;">PHP ${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
+            <tr>
+              <td colspan="4" style="border: none;"></td>
+              <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa;">PHP</td>
+              <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa; font-size: 14px;">${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer-row">
+          <div class="sig-block">
+            <div class="sig-line-container">
+              ${receivedByBlock}
+              <div class="sig-label">RECEIVED BY: (NAME &amp; SIGN)</div>
+            </div>
+            ${contactPerson ? `
+              <div class="contact-details">
+                <div>Contact Person: ${contactPerson}</div>
+                ${contactNumber ? `<div>${contactNumber}</div>` : ""}
+                ${dateReceived ? `<div>Date Received: ${new Date(dateReceived).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</div>` : ""}
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const safeName = order.clientName.replace(/[^a-z0-9]/gi, "_");
+  const safeId = order.id.replace(/[^a-z0-9]/gi, "_");
+  a.href = url;
+  a.download = `${safeName}_${safeId}_DeliveryReceipt.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 
 // ─── Shared helper: encode a cell address ────────────────────────────────────
 function cellAddr(row: number, col: number): string {
@@ -1464,7 +2014,8 @@ export async function printDeliveryReceipt(
   adminCoopId?: string,
   adminCoopName?: string,
   adminCoopAddress?: string,
-  signatureDataUrl?: string
+  signatureDataUrl?: string,
+  dateReceived?: string
 ) {
   let resolvedClient = client;
   if (!resolvedClient) {
@@ -1502,6 +2053,32 @@ export async function printDeliveryReceipt(
   let coopContact = "Contact No. 09323735919 / 09423124513";
   let coopShort = adminCoopName || "OCGEMPC";
 
+  let resolvedDateReceived = dateReceived;
+
+  // Retrieve delivery receipt details from DB if needed
+  if (!signatureDataUrl || !resolvedDateReceived) {
+    try {
+      const { data: receiptRec } = await supabase
+        .from("delivery_receipt_records")
+        .select("signature_data, date_received")
+        .eq("order_id", order.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (receiptRec) {
+        if (!signatureDataUrl && receiptRec.signature_data) {
+          signatureDataUrl = receiptRec.signature_data as string;
+        }
+        if (!resolvedDateReceived && receiptRec.date_received) {
+          resolvedDateReceived = receiptRec.date_received as string;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to query details for delivery receipt:", e);
+    }
+  }
+
   if (!adminCoopName) {
     let targetCoopId = adminCoopId || resolvedClient?.coop_id || "coop-1";
     let resolvedCoopName = "";
@@ -1510,17 +2087,13 @@ export async function printDeliveryReceipt(
     try {
       const { data: receiptRec } = await supabase
         .from("delivery_receipt_records")
-        .select("coop_id, printed_by, signature_data")
+        .select("coop_id, printed_by")
         .eq("order_id", order.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (receiptRec) {
-        // Use saved signature from DB if none was passed in
-        if (!signatureDataUrl && receiptRec.signature_data) {
-          signatureDataUrl = receiptRec.signature_data as string;
-        }
         if (receiptRec.coop_id) {
           targetCoopId = receiptRec.coop_id;
         }
@@ -1705,6 +2278,7 @@ export async function printDeliveryReceipt(
               <div class="contact-details">
                 <div>Contact Person: ${resolvedContactPerson}</div>
                 ${resolvedContactNumber ? `<div>${resolvedContactNumber}</div>` : ""}
+                ${resolvedDateReceived ? `<div>Date Received: ${new Date(resolvedDateReceived).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</div>` : ""}
               </div>
             ` : ""}
           </div>

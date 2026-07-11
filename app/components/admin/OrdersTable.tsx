@@ -1,7 +1,7 @@
 import { useState, useMemo, Fragment } from "react";
-import { Eye, Printer, Truck, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, Printer, Truck, ChevronDown, ChevronRight, Download } from "lucide-react";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
-import { printOrderForm } from "./printOrder";
+import { printOrderForm, downloadSingleOrderExcel } from "./printOrder";
 import { orderRoleColors, orderRoleLabels } from "../order/roles";
 import { getFridayFromWeekLabel } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -61,6 +61,36 @@ export default function OrdersTable({
   const isAdmin = user?.role === "admin";
 
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
+  const [downloadOptionsOrder, setDownloadOptionsOrder] = useState<WeeklyOrderRecord | null>(null);
+  const [docType, setDocType] = useState<"po" | "dr">("po");
+  const [formatType, setFormatType] = useState<"pdf" | "html" | "excel">("pdf");
+
+  const handleExecuteDownload = async () => {
+    if (!downloadOptionsOrder) return;
+    const targetOrder = downloadOptionsOrder;
+    setDownloadOptionsOrder(null);
+
+    if (docType === "po") {
+      if (formatType === "pdf") {
+        printOrderForm(targetOrder);
+      } else if (formatType === "html") {
+        const { downloadSingleOrderHtml } = await import("./printOrder");
+        await downloadSingleOrderHtml(targetOrder);
+      } else {
+        downloadSingleOrderExcel(targetOrder);
+      }
+    } else {
+      if (formatType === "pdf") {
+        onPrintDeliveryReceipt(targetOrder);
+      } else if (formatType === "html") {
+        const { downloadDeliveryReceiptHtml } = await import("./printOrder");
+        await downloadDeliveryReceiptHtml(targetOrder);
+      } else {
+        const { downloadDeliveryReceiptExcel } = await import("./printOrder");
+        await downloadDeliveryReceiptExcel(targetOrder);
+      }
+    }
+  };
 
   const toggleSchool = (schoolName: string) => {
     setExpandedSchools((prev) => ({
@@ -150,28 +180,16 @@ export default function OrdersTable({
                         </div>
                         <div className="flex gap-1.5 shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => printOrderForm(order)}
-                            className="rounded p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
-                            title="Print order"
+                            onClick={() => {
+                              setDownloadOptionsOrder(order);
+                              setDocType("po");
+                              setFormatType("pdf");
+                            }}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                            title="Print / Download Options"
                           >
-                            <Printer className="h-3.5 w-3.5" />
+                            <Download className="h-3.5 w-3.5" />
                           </button>
-                          {(isAdmin || order.hasReceiptRecord) && (
-                            <button
-                              disabled={isAdmin && !!order.hasReceiptRecord}
-                              onClick={() => {
-                                if (isAdmin && order.hasReceiptRecord) return;
-                                onPrintDeliveryReceipt(order);
-                              }}
-                              className={`rounded p-1 transition ${isAdmin && order.hasReceiptRecord
-                                  ? "text-slate-200 cursor-not-allowed opacity-40"
-                                  : "text-slate-400 hover:bg-violet-100 hover:text-violet-600"
-                                }`}
-                              title={isAdmin && order.hasReceiptRecord ? "Receipt Already Saved" : "Print Delivery Receipt"}
-                            >
-                              <Truck className="h-3.5 w-3.5" />
-                            </button>
-                          )}
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${statusStyles[order.status]}`}
                           >
@@ -308,28 +326,16 @@ export default function OrdersTable({
                                 <Eye className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={() => printOrderForm(order)}
-                                className="rounded p-1 text-slate-400 hover:bg-blue-100 hover:text-blue-600 transition"
-                                title="Print order"
+                                onClick={() => {
+                                  setDownloadOptionsOrder(order);
+                                  setDocType("po");
+                                  setFormatType("pdf");
+                                }}
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                                title="Print / Download Options"
                               >
-                                <Printer className="h-4 w-4" />
+                                <Download className="h-4 w-4" />
                               </button>
-                              {(isAdmin || order.hasReceiptRecord) && (
-                                <button
-                                  disabled={isAdmin && !!order.hasReceiptRecord}
-                                  onClick={() => {
-                                    if (isAdmin && order.hasReceiptRecord) return;
-                                    onPrintDeliveryReceipt(order);
-                                  }}
-                                  className={`rounded p-1 transition ${isAdmin && order.hasReceiptRecord
-                                      ? "text-slate-200 cursor-not-allowed opacity-40"
-                                      : "text-slate-400 hover:bg-violet-100 hover:text-violet-600"
-                                    }`}
-                                  title={isAdmin && order.hasReceiptRecord ? "Receipt Already Saved" : "Print Delivery Receipt"}
-                                >
-                                  <Truck className="h-4 w-4" />
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -341,6 +347,104 @@ export default function OrdersTable({
           </table>
         </div>
       </div>
+      {downloadOptionsOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in" onClick={(e) => {
+          if (e.target === e.currentTarget) setDownloadOptionsOrder(null);
+        }}>
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-base font-bold text-slate-800 mb-4">Print / Download Options</h3>
+            <div className="space-y-4">
+              {/* Document selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Document Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setDocType("po")}
+                    className={`rounded-xl border p-3 text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      docType === "po"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <span>Purchase Order</span>
+                    <span className="text-[10px] opacity-75 font-normal">Purchase Request</span>
+                  </button>
+                  <button
+                    disabled={!isAdmin && !downloadOptionsOrder.hasReceiptRecord}
+                    onClick={() => setDocType("dr")}
+                    className={`rounded-xl border p-3 text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      docType === "dr"
+                        ? "border-violet-500 bg-violet-50 text-violet-700"
+                        : !isAdmin && !downloadOptionsOrder.hasReceiptRecord
+                        ? "border-slate-100 text-slate-300 cursor-not-allowed bg-slate-50/50"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                    title={!isAdmin && !downloadOptionsOrder.hasReceiptRecord ? "Delivery Receipt has not been saved yet" : ""}
+                  >
+                    <span>Delivery Receipt</span>
+                    <span className="text-[10px] opacity-75 font-normal">Signed Receipt</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Format selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Format</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setFormatType("pdf")}
+                    className={`rounded-xl border p-2 text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      formatType === "pdf"
+                        ? "border-orange-500 bg-orange-50 text-orange-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <span>PDF / Print</span>
+                    <span className="text-[9px] opacity-75 font-normal">Print Window</span>
+                  </button>
+                  <button
+                    onClick={() => setFormatType("html")}
+                    className={`rounded-xl border p-2 text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      formatType === "html"
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <span>Download PDF/HTML</span>
+                    <span className="text-[9px] opacity-75 font-normal">Offline Page</span>
+                  </button>
+                  <button
+                    onClick={() => setFormatType("excel")}
+                    className={`rounded-xl border p-2 text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      formatType === "excel"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <span>Excel</span>
+                    <span className="text-[9px] opacity-75 font-normal">Spreadsheet</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setDownloadOptionsOrder(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExecuteDownload}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition"
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

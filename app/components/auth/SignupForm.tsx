@@ -33,6 +33,7 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
   
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const availableCategories = [
     "fruits",
@@ -147,10 +148,37 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
       // Redirect to dashboard
       window.location.href = "/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign up");
-      setIsLoading(false);
+      if (err instanceof Error && err.message === "CONFIRMATION_REQUIRED") {
+        setIsSuccess(true);
+        setIsLoading(false);
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to sign up");
+        setIsLoading(false);
+      }
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6 text-center space-y-4">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100/80 shadow-inner">
+          <svg className="h-6 w-6 text-emerald-600 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0l-7.5-4.615a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-bold text-slate-900">Check your email</h3>
+        <p className="text-sm text-slate-600 leading-relaxed">
+          We've sent a verification link to <strong className="text-slate-800">{email}</strong>. Please click the link to confirm your email and finish signing up.
+        </p>
+        <button
+          onClick={() => window.location.href = "/auth/login"}
+          className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition"
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

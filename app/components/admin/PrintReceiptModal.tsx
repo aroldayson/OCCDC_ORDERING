@@ -30,6 +30,7 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [dateReceived, setDateReceived] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadClientData() {
@@ -54,11 +55,10 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
           console.error("Failed to load coop details for client profile:", coopErr);
         }
 
-        // Load previously saved signature and contact details from DB
         try {
           const { data: receiptRec } = await supabase
             .from("delivery_receipt_records")
-            .select("signature_data, contact_person, contact_number")
+            .select("signature_data, contact_person, contact_number, date_received")
             .eq("order_id", order.id)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -67,6 +67,7 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
           if (receiptRec) {
             setContactPerson(receiptRec.contact_person || "");
             setContactNumber(receiptRec.contact_number || "");
+            setDateReceived(receiptRec.date_received || null);
             if (receiptRec.signature_data) {
               // Draw saved signature onto canvas after it mounts
               const dataUrl = receiptRec.signature_data as string;
@@ -87,6 +88,7 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
             setContactPerson("");
             setContactNumber("");
             setHasSignature(false);
+            setDateReceived(null);
           }
         } catch (sigErr) {
           console.error("Failed to load saved signature:", sigErr);
@@ -161,9 +163,12 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
     try {
       const { data: existing } = await supabase
         .from("delivery_receipt_records")
-        .select("id")
+        .select("id, date_received")
         .eq("order_id", order.id)
         .maybeSingle();
+
+      const currentDate = new Date().toISOString();
+      const resolvedDateReceived = signatureData ? (existing?.date_received || currentDate) : null;
 
       if (existing) {
         const { error } = await supabase
@@ -176,11 +181,13 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
             printed_by: user?.email || null,
             coop_id: user?.coop_id || null,
             signature_data: signatureData || null,
-            updated_at: new Date().toISOString(),
+            updated_at: currentDate,
+            date_received: resolvedDateReceived,
           })
           .eq("id", existing.id);
 
         if (error) throw error;
+        setDateReceived(resolvedDateReceived);
       } else {
         const { error } = await supabase
           .from("delivery_receipt_records")
@@ -193,9 +200,11 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
             printed_by: user?.email || null,
             coop_id: user?.coop_id || null,
             signature_data: signatureData || null,
+            date_received: resolvedDateReceived,
           });
 
         if (error) throw error;
+        setDateReceived(resolvedDateReceived);
       }
     } catch (e) {
       console.error("Failed to save delivery receipt record to database:", e);
@@ -204,6 +213,23 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
   };
 
   const handleSaveDetails = async () => {
+    if (!contactPerson.trim()) {
+      alert("Please enter the contact person.");
+      return;
+    }
+    const cleanedNum = contactNumber.trim();
+    if (!cleanedNum) {
+      alert("Please enter the contact number.");
+      return;
+    }
+    if (cleanedNum.length !== 11) {
+      alert("Contact number must be exactly 11 digits.");
+      return;
+    }
+    if (!hasSignature) {
+      alert("Please provide a signature.");
+      return;
+    }
     setSaving(true);
     try {
       if (saveToProfile && clientRecord && user?.role !== "client") {
@@ -225,6 +251,23 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
   };
 
   const handlePrint = async () => {
+    if (!contactPerson.trim()) {
+      alert("Please enter the contact person.");
+      return;
+    }
+    const cleanedNum = contactNumber.trim();
+    if (!cleanedNum) {
+      alert("Please enter the contact number.");
+      return;
+    }
+    if (cleanedNum.length !== 11) {
+      alert("Contact number must be exactly 11 digits.");
+      return;
+    }
+    if (!hasSignature) {
+      alert("Please provide a signature.");
+      return;
+    }
     setPrinting(true);
     try {
       if (saveToProfile && clientRecord && user?.role !== "client") {
@@ -252,6 +295,9 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
           console.warn("Failed to update status on print:", statusErr);
         }
       }
+      const currentDate = new Date().toISOString();
+      const resolvedDateReceived = signatureDataUrl ? (dateReceived || currentDate) : undefined;
+
       await printDeliveryReceipt(
         order,
         undefined,
@@ -262,7 +308,8 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
         isAdmin ? user?.coop_id : undefined,
         isAdmin ? user?.school_name : undefined,
         isAdmin ? user?.school_address : undefined,
-        signatureDataUrl
+        signatureDataUrl,
+        resolvedDateReceived
       );
       onClose();
     } catch (e) {
@@ -340,7 +387,7 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
                       type="text"
                       value={contactPerson}
                       onChange={(e) => setContactPerson(e.target.value)}
-                      placeholder="Enter name (e.g. KRISTINE JOY BREGUERA)"
+                      placeholder="Enter name (e.g. JUAN DELA CRUZ)"
                       className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
                   </div>
@@ -357,8 +404,9 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
                     <Phone className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
                     <input
                       type="text"
+                      maxLength={11}
                       value={contactNumber}
-                      onChange={(e) => setContactNumber(e.target.value)}
+                      onChange={(e) => setContactNumber(e.target.value.replace(/\D/g, ""))}
                       placeholder="Enter phone (e.g. 9395595423)"
                       className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-3 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
@@ -421,6 +469,18 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Draw your signature above. It will appear on the printed receipt.</p>
+                {dateReceived && (
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1.5 flex items-center gap-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Date Signed:</span>
+                    {new Date(dateReceived).toLocaleDateString("en-PH", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </p>
+                )}
               </div>
             </>
           )}
