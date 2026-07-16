@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Printer,
   FileSpreadsheet,
+  Mail,
 } from "lucide-react";
 import {
   getWeeklyProducts,
@@ -83,9 +84,176 @@ export default function ProductCatalogManager({
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
   const [search, setSearch] = useState("");
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);
+  const [editingRow, setEditingRow] = useState<{
+    product: WeeklyProduct;
+    order?: WeeklyOrderRecord;
+  } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [isEmailing, setIsEmailing] = useState(false);
+
+  const handleEmailSOA = async (schoolName: string, weekLabel: string, weekOrders: WeeklyOrderRecord[]) => {
+    if (weekOrders.length === 0) {
+      alert("No active orders in this week to email.");
+      return;
+    }
+
+    setIsEmailing(true);
+    try {
+      // 1. Resolve client profile email
+      let clientEmail = "";
+      try {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("email")
+          .eq("school_name", schoolName)
+          .eq("role", "client")
+          .maybeSingle();
+        if (profile?.email) {
+          clientEmail = profile.email;
+        }
+      } catch (e) {
+        console.error("Failed to query user email:", e);
+      }
+
+      // 2. Automate recipient selection: use registered login email if found, otherwise prompt
+      let targetEmail = clientEmail ? clientEmail.trim() : "";
+      if (!targetEmail) {
+        targetEmail = prompt(
+          `No registered user email found for ${schoolName}. Enter recipient email to send Statement of Account (${weekLabel}) to:`,
+          ""
+        ) || "";
+      }
+      
+      if (!targetEmail || !targetEmail.trim()) {
+        setIsEmailing(false);
+        return;
+      }
+
+      // 3. Compile items list
+      const aggregatedItems: {
+        name: string;
+        qty: number;
+        unit: string;
+        category: string;
+        price: number;
+        orderId?: string;
+      }[] = [];
+
+      weekOrders.forEach((o) =>
+        o.items.forEach((i) => {
+          if (i.deleted) return;
+          aggregatedItems.push({
+            name: i.name,
+            qty: i.qty,
+            unit: i.unit,
+            category: i.category || "",
+            price: i.price || 0,
+            orderId: o.id,
+          });
+        })
+      );
+
+      aggregatedItems.sort((a, b) => {
+        const orderCompare = (a.orderId || "").localeCompare(b.orderId || "");
+        if (orderCompare !== 0) return orderCompare;
+        return a.name.localeCompare(b.name);
+      });
+
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      const clientRecord = await resolveClientBySchoolName(schoolName);
+
+      const isAdmin = user?.role === "admin";
+
+      // 4. Generate HTML Statement of Account
+      const { generateClientSummaryHtml } = await import("./printOrder");
+      const html = await generateClientSummaryHtml(
+        schoolName,
+        weekLabel,
+        aggregatedItems,
+        weekOrders,
+        clientRecord || undefined,
+        isAdmin
+      );
+
+      // 5. Send post request
+      let gmailUser = localStorage.getItem("gmail_user") || "";
+      let gmailPass = localStorage.getItem("gmail_pass") || "";
+
+      const sendReq = async (u?: string, p?: string) => {
+        return fetch("/api/send-soa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: targetEmail.trim(),
+            subject: `Statement of Account — ${schoolName} — ${weekLabel}`,
+            html,
+            gmailUser: u,
+            gmailPass: p,
+          }),
+        });
+      };
+
+      let res = await sendReq(gmailUser, gmailPass);
+      let data = await res.json();
+
+      if (res.status === 400 && data.needsCredentials) {
+        const inputUser = prompt(
+          "Enter your Gmail address to send from (e.g. sender@gmail.com):",
+          "aroldayson3@gmail.com"
+        );
+        if (!inputUser || !inputUser.trim()) {
+          setIsEmailing(false);
+          return;
+        }
+        const inputPass = prompt(
+          "Enter your Gmail 16-character App Password (not your regular Gmail password!).\n\n" +
+          "How to generate a Gmail App Password:\n" +
+          "1. Go to your Google Account (myaccount.google.com)\n" +
+          "2. In Security, turn ON '2-Step Verification'\n" +
+          "3. Search for 'App Passwords' in the search bar\n" +
+          "4. Select App: 'Mail', Select Device: 'Other' (type 'OCCDC')\n" +
+          "5. Click 'Generate' and paste the 16-character password here:"
+        );
+        if (!inputPass || !inputPass.trim()) {
+          setIsEmailing(false);
+          return;
+        }
+
+        const cleanedPass = inputPass.replace(/\s+/g, "");
+
+        localStorage.setItem("gmail_user", inputUser.trim());
+        localStorage.setItem("gmail_pass", cleanedPass);
+
+        res = await sendReq(inputUser.trim(), cleanedPass);
+        data = await res.json();
+      }
+
+      if (data.success) {
+        alert(`Statement of Account successfully emailed to ${targetEmail}!`);
+      } else {
+        const errorMsg = data.error || "Unknown error";
+        if (
+          errorMsg.includes("535") ||
+          errorMsg.toLowerCase().includes("login") ||
+          errorMsg.toLowerCase().includes("password") ||
+          errorMsg.toLowerCase().includes("credential")
+        ) {
+          localStorage.removeItem("gmail_user");
+          localStorage.removeItem("gmail_pass");
+          alert(`Failed to send email: ${errorMsg}\n\nGmail credentials have been reset. Click "Email SOA" again to register correct credentials.`);
+        } else {
+          alert(`Failed to send email: ${errorMsg}`);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`An error occurred: ${err.message || err}`);
+    } finally {
+      setIsEmailing(false);
+    }
+  };
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {
@@ -211,6 +379,7 @@ export default function ProductCatalogManager({
               product: {
                 ...product,
                 defaultQty: item.qty,
+                price: typeof item.price === "number" ? item.price : product.price,
               },
               order,
               schoolName: order.clientName,
@@ -283,6 +452,41 @@ export default function ProductCatalogManager({
       price: priceVal,
     };
 
+    if (editingRow && editingRow.order) {
+      const order = editingRow.order;
+      const updatedItems = order.items.map((item) => {
+        if (item.productId === editingRow.product.id && !item.deleted) {
+          return {
+            ...item,
+            name: data.name.trim(),
+            qty: qty,
+            unit: data.unit.trim(),
+            price: priceVal,
+          };
+        }
+        return item;
+      });
+
+      const newTotal = updatedItems.reduce((sum, item) => {
+        if (item.deleted) return sum;
+        return sum + (item.qty * item.price);
+      }, 0);
+
+      const updatedOrder: WeeklyOrderRecord = {
+        ...order,
+        items: updatedItems,
+        totalPrice: newTotal,
+      };
+
+      const { updateOrder } = await import("../order/orderStorage");
+      await updateOrder(updatedOrder);
+
+      setModalOpen(false);
+      setEditingItem(null);
+      setEditingRow(null);
+      return;
+    }
+
     if (editingItem) {
       await updateWeeklyProduct(editingItem.id, payload, selectedWeekLabel);
     } else {
@@ -290,15 +494,45 @@ export default function ProductCatalogManager({
     }
     setModalOpen(false);
     setEditingItem(null);
+    setEditingRow(null);
   };
 
-  const handleDeleteItem = async (id: string) => {
-    if (
-      confirm(
-        "Are you sure you want to delete this product from the weekly catalog?",
-      )
-    ) {
-      await removeWeeklyProduct(id, selectedWeekLabel);
+  const handleDeleteItem = async (productId: string, order?: WeeklyOrderRecord) => {
+    if (order) {
+      if (
+        confirm(
+          `Are you sure you want to remove this item from Order ${order.id}?`
+        )
+      ) {
+        const updatedItems = order.items.map((item) => {
+          if (item.productId === productId) {
+            return { ...item, deleted: true as const };
+          }
+          return item;
+        });
+
+        const newTotal = updatedItems.reduce((sum, item) => {
+          if (item.deleted) return sum;
+          return sum + (item.qty * item.price);
+        }, 0);
+
+        const updatedOrder: WeeklyOrderRecord = {
+          ...order,
+          items: updatedItems,
+          totalPrice: newTotal,
+        };
+
+        const { updateOrder } = await import("../order/orderStorage");
+        await updateOrder(updatedOrder);
+      }
+    } else {
+      if (
+        confirm(
+          "Are you sure you want to delete this product from the weekly catalog?",
+        )
+      ) {
+        await removeWeeklyProduct(productId, selectedWeekLabel);
+      }
     }
   };
 
@@ -332,6 +566,19 @@ export default function ProductCatalogManager({
           >
             <FileSpreadsheet className="h-4 w-4" />
             Export Excel
+          </button>
+          <button
+            onClick={() => {
+              if (confirm("Are you sure you want to reset/change the stored Gmail Sender address and App Password?")) {
+                localStorage.removeItem("gmail_user");
+                localStorage.removeItem("gmail_pass");
+                alert("Gmail sender credentials have been reset. You will be prompted to register new credentials next time you email a Statement of Account.");
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 shadow-sm"
+            title="Reset cached Gmail Sender credentials"
+          >
+            Reset Gmail Credentials
           </button>
         </div>
       </div>
@@ -464,24 +711,37 @@ export default function ProductCatalogManager({
                             </div>
                           </td>
                           {row.schoolName !== "Z_NO_ORDERS" && (
-                            <td className="px-3 py-2 border-y border-slate-200 text-right w-16">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const schoolRows = filtered.filter(
-                                    (r) => r.schoolName === row.schoolName,
-                                  );
-                                  printCatalogForSchool(
-                                    selectedWeekLabel,
-                                    row.schoolName,
-                                    schoolRows,
-                                  );
-                                }}
-                                title={`Print ${schoolLabel}`}
-                                className="inline-flex items-center justify-center rounded-lg p-1.5 text-blue-600 hover:bg-blue-100 transition"
-                              >
-                                <Printer className="h-4 w-4" />
-                              </button>
+                            <td className="px-3 py-2 border-y border-slate-200 text-right w-24">
+                              <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const schoolRows = filtered.filter(
+                                      (r) => r.schoolName === row.schoolName,
+                                    );
+                                    printCatalogForSchool(
+                                      selectedWeekLabel,
+                                      row.schoolName,
+                                      schoolRows,
+                                    );
+                                  }}
+                                  title={`Print ${schoolLabel}`}
+                                  className="inline-flex items-center justify-center rounded-lg p-1.5 text-blue-600 hover:bg-blue-100 transition"
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEmailSOA(row.schoolName, selectedWeekLabel, schoolOrders);
+                                  }}
+                                  disabled={isEmailing}
+                                  title={`Email Statement of Account for ${schoolLabel}`}
+                                  className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
+                                >
+                                  <Mail className="h-4 w-4 text-slate-500" />
+                                </button>
+                              </div>
                             </td>
                           )}
                           {row.schoolName === "Z_NO_ORDERS" && (
@@ -619,30 +879,34 @@ export default function ProductCatalogManager({
                         <td className="px-4 py-3 sm:px-5">
                           <div className="flex items-center justify-end gap-1">
                             <button
-                              onClick={() => {
-                                setEditingItem(row.product);
-                                setModalOpen(true);
-                              }}
-                              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
-                              aria-label={`Edit ${row.product.name}`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteItem(row.product.id)}
-                              disabled={
-                                !row.product.price || row.product.price === 0
-                              }
-                              title={
-                                !row.product.price || row.product.price === 0
-                                  ? "Set a price before deleting"
-                                  : `Delete ${row.product.name}`
-                              }
-                              className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                              aria-label={`Delete ${row.product.name}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                               onClick={() => {
+                                 setEditingRow({
+                                   product: row.product,
+                                   order: row.order,
+                                 });
+                                 setEditingItem(row.product);
+                                 setModalOpen(true);
+                               }}
+                               className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+                               aria-label={`Edit ${row.product.name}`}
+                             >
+                               <Pencil className="h-4 w-4" />
+                             </button>
+                             <button
+                               onClick={() => handleDeleteItem(row.product.id, row.order)}
+                               disabled={
+                                 !row.product.price || row.product.price === 0
+                               }
+                               title={
+                                 !row.product.price || row.product.price === 0
+                                   ? "Set a price before deleting"
+                                   : `Delete ${row.product.name}`
+                               }
+                               className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                               aria-label={`Delete ${row.product.name}`}
+                             >
+                               <Trash2 className="h-4 w-4" />
+                             </button>
                           </div>
                         </td>
                       </tr>,
@@ -663,6 +927,7 @@ export default function ProductCatalogManager({
         onClose={() => {
           setModalOpen(false);
           setEditingItem(null);
+          setEditingRow(null);
         }}
         onSave={handleSaveItem}
         disablePriceEdit={false}
