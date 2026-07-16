@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Menu, Bell, Check, ChevronRight, Printer } from "lucide-react";
+import { Menu, Bell, Check, ChevronRight } from "lucide-react";
 import NotificationsView from "./NotificationsView";
 import { getOrders } from "../order/orderStorage";
 import { filterOrdersForSchool } from "../order/orderAccess";
@@ -181,82 +181,6 @@ export default function AdminDashboard() {
       setDrPrintOrder(order);
     }
   }, [user?.role]);
-
-  const handlePrintAllSchoolSummaries = useCallback(async () => {
-    let targetWeek = ordersWeek;
-    if (targetWeek === "all") {
-      const weeks = [...new Set(orders.map(o => o.weekLabel))].sort();
-      if (weeks.length > 0) {
-        targetWeek = weeks[weeks.length - 1];
-      } else {
-        alert("No weeks available to print.");
-        return;
-      }
-    }
-
-    const weekOrders = orders.filter(o => o.weekLabel === targetWeek && o.status !== "cancelled");
-    if (weekOrders.length === 0) {
-      alert(`No active orders for ${targetWeek} to print.`);
-      return;
-    }
-
-    const ordersBySchool: Record<string, WeeklyOrderRecord[]> = {};
-    weekOrders.forEach(o => {
-      if (!ordersBySchool[o.clientName]) {
-        ordersBySchool[o.clientName] = [];
-      }
-      ordersBySchool[o.clientName].push(o);
-    });
-
-    try {
-      showToast("Loading printer files, please wait...", "info");
-      const { resolveClientBySchoolName } = await import("../order/clientStorage");
-      const { printAllSchoolSummaries } = await import("./printOrder");
-
-      const summaries = await Promise.all(
-        Object.entries(ordersBySchool).map(async ([schoolName, schoolOrders]) => {
-          const clientRecord = await resolveClientBySchoolName(schoolName);
-
-          const aggregatedItems: {
-            name: string;
-            qty: number;
-            unit: string;
-            category: string;
-            price: number;
-            orderId?: string;
-          }[] = [];
-
-          schoolOrders.forEach((o) =>
-            o.items.forEach((i) => {
-              if (i.deleted) return;
-              aggregatedItems.push({
-                name: i.name,
-                qty: i.qty,
-                unit: i.unit,
-                category: i.category || "",
-                price: i.price || 0,
-                orderId: o.id,
-              });
-            })
-          );
-
-          return {
-            schoolName,
-            address: clientRecord?.address || "Address not provided",
-            deliveryPrice: clientRecord?.delivery_price || 0,
-            items: aggregatedItems,
-            orders: schoolOrders.map(o => ({ status: o.status })),
-          };
-        })
-      );
-
-      await printAllSchoolSummaries(targetWeek, summaries);
-      showToast("Printer window opened successfully.", "success");
-    } catch (e) {
-      console.error("Print all school summaries error:", e);
-      alert("An error occurred while preparing the print job.");
-    }
-  }, [orders, ordersWeek, showToast]);
 
   useEffect(() => {
     loadOrders();
@@ -517,21 +441,8 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {activeView === "orders" && (
-              <button
-                onClick={handlePrintAllSchoolSummaries}
-                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer"
-                title="Print all school summaries for the selected week"
-              >
-                <Printer className="h-4 w-4 text-blue-600" />
-                <span className="hidden sm:inline">Print All (Per School)</span>
-                <span className="sm:hidden">Print All</span>
-              </button>
-            )}
-
-            {user && (
-              <div className="relative">
+          {user && (
+            <div className="relative">
               <button
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 focus:outline-none"
@@ -638,7 +549,6 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
-          </div>
         </header>
 
         <main
@@ -700,10 +610,92 @@ export default function AdminDashboard() {
           {activeView === "orders" && (
             <div className="flex min-h-0 flex-1 flex-col gap-4 w-full">
               {/* Filters row */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm shrink-0">
-                {/* Search query */}
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm shrink-0">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 flex-1">
+                  {/* Search query */}
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </span>
+                    <input
+                      type="text"
+                      value={ordersSearch}
+                      onChange={(e) => setOrdersSearch(e.target.value)}
+                      placeholder="Search orders..."
+                      className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  {/* Category filter */}
+                  <select
+                    value={ordersCategory}
+                    onChange={(e) => setOrdersCategory(e.target.value)}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="vegetables">Vegetables</option>
+                    <option value="fruits">Fruits</option>
+                    <option value="fish">Fish</option>
+                    <option value="egg">Egg</option>
+                    <option value="meat">Meat</option>
+                    <option value="groceries">Groceries</option>
+                    <option value="rice">Rice</option>
+                    <option value="other_order">Other Order</option>
+                  </select>
+
+                  {/* Status filter */}
+                  <select
+                    value={ordersStatus}
+                    onChange={(e) => setOrdersStatus(e.target.value)}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="accepted">Approved</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+
+                  {/* Week filter */}
+                  <select
+                    value={ordersWeek}
+                    onChange={(e) => setOrdersWeek(e.target.value)}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="all">All Weeks</option>
+                    {getJuneAugustWeeks().map((w) => (
+                      <option key={w.weekLabel} value={w.weekLabel}>
+                        {w.weekLabel}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex shrink-0">
+                  <button
+                    onClick={async () => {
+                      const { printAllSchoolSummaries } = await import("./printOrder");
+                      await printAllSchoolSummaries(
+                        filteredOrders,
+                        ordersWeek === "all" ? "All Weeks" : ordersWeek
+                      );
+                    }}
+                    className="w-full md:w-auto flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 active:bg-blue-800 shadow-sm border border-blue-500"
+                    title="Print all consolidated school summaries"
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
@@ -715,63 +707,13 @@ export default function AdminDashboard() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <circle cx="11" cy="11" r="8" />
-                      <path d="m21 21-4.3-4.3" />
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                      <path d="M6 14h12v8H6z" />
+                      <path d="M6 2h12v4H6z" />
                     </svg>
-                  </span>
-                  <input
-                    type="text"
-                    value={ordersSearch}
-                    onChange={(e) => setOrdersSearch(e.target.value)}
-                    placeholder="Search orders..."
-                    className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  />
+                    <span>Print All (Per School)</span>
+                  </button>
                 </div>
-
-                {/* Category filter */}
-                <select
-                  value={ordersCategory}
-                  onChange={(e) => setOrdersCategory(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="vegetables">Vegetables</option>
-                  <option value="fruits">Fruits</option>
-                  <option value="fish">Fish</option>
-                  <option value="egg">Egg</option>
-                  <option value="meat">Meat</option>
-                  <option value="groceries">Groceries</option>
-                  <option value="rice">Rice</option>
-                  <option value="other_order">Other Order</option>
-                </select>
-
-                {/* Status filter */}
-                <select
-                  value={ordersStatus}
-                  onChange={(e) => setOrdersStatus(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="accepted">Approved</option>
-                  <option value="processing">Processing</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-
-                {/* Week filter */}
-                <select
-                  value={ordersWeek}
-                  onChange={(e) => setOrdersWeek(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                >
-                  <option value="all">All Weeks</option>
-                  {getJuneAugustWeeks().map((w) => (
-                    <option key={w.weekLabel} value={w.weekLabel}>
-                      {w.weekLabel}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <OrdersTable

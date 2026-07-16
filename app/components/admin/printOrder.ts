@@ -627,194 +627,6 @@ export async function printClientSummary(
   }
 }
 
-export async function printAllSchoolSummaries(
-  weekLabel: string,
-  schoolSummaries: {
-    schoolName: string;
-    address: string;
-    deliveryPrice: number;
-    items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[];
-    orders: { status: string }[];
-  }[],
-  loggedInSupplierCoopName?: string
-) {
-  const containersHtml = await Promise.all(schoolSummaries.map(async (summary) => {
-    const { schoolName, address, deliveryPrice, items, orders } = summary;
-    const printableItems = items.filter(it => !it.deleted);
-    const ordersCount = orders.length;
-
-    const statusSummary = (() => {
-      const counts: Record<string, number> = {};
-      for (const o of orders) {
-        counts[o.status] = (counts[o.status] || 0) + 1;
-      }
-      return Object.entries(counts)
-        .map(([s, c]) => `${s.toUpperCase()}${c > 1 ? ` (${c})` : ""}`)
-        .join(" / ");
-    })();
-
-    // Sort printableItems by category, then by order ID, then by name
-    const sortedItems = [...printableItems].sort((a, b) => {
-      const catA = categoryLabels[a.category] ?? a.category;
-      const catB = categoryLabels[b.category] ?? b.category;
-      const catCompare = catA.localeCompare(catB);
-      if (catCompare !== 0) return catCompare;
-
-      const oidA = a.orderId || "";
-      const oidB = b.orderId || "";
-      const oidCompare = oidA.localeCompare(oidB);
-      if (oidCompare !== 0) return oidCompare;
-
-      return a.name.localeCompare(b.name);
-    });
-
-    // Pre-calculate order group sizes for rowspan
-    const orderGroups = new Map<string, number>();
-    sortedItems.forEach(item => {
-      const oid = item.orderId || "N/A";
-      orderGroups.set(oid, (orderGroups.get(oid) || 0) + 1);
-    });
-
-    // Pre-calculate category group sizes for rowspan
-    const categoryGroups = new Map<string, number>();
-    sortedItems.forEach(item => {
-      const cat = item.category || "Other";
-      categoryGroups.set(cat, (categoryGroups.get(cat) || 0) + 1);
-    });
-
-    const renderedOrderIds = new Set<string>();
-    const renderedCategories = new Set<string>();
-
-    const tbodyRows = sortedItems.map((item, index) => {
-      const oid = item.orderId || "N/A";
-      const cat = item.category || "Other";
-
-      const showOrderCell = !renderedOrderIds.has(oid);
-      if (showOrderCell) {
-        renderedOrderIds.add(oid);
-      }
-      const orderGroupCount = orderGroups.get(oid) || 1;
-      const orderIdCell = showOrderCell
-        ? `<td rowspan="${orderGroupCount}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #999;">${oid}</td>`
-        : "";
-
-      const showCategoryCell = !renderedCategories.has(cat);
-      if (showCategoryCell) {
-        renderedCategories.add(cat);
-      }
-      const catGroupCount = categoryGroups.get(cat) || 1;
-      const categoryCell = showCategoryCell
-        ? `<td rowspan="${catGroupCount}" style="vertical-align: middle; text-align: center; border: 1px solid #999;">${categoryLabels[cat] ?? cat}</td>`
-        : "";
-
-      return `
-        <tr>
-          <td class="number-col" style="text-align: center; border: 1px solid #999;">${index + 1}</td>
-          ${orderIdCell}
-          <td style="border: 1px solid #999;">${item.name}</td>
-          ${categoryCell}
-          <td class="number-col" style="text-align: center; border: 1px solid #999;">${item.qty}</td>
-          <td style="text-align: center; border: 1px solid #999;">${item.unit}</td>
-          <td class="number-col" style="text-align: right; border: 1px solid #999;">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-          <td class="total" style="text-align: right; border: 1px solid #999;">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-        </tr>
-      `;
-    }).join("");
-
-    const activeCategories = [...new Set(sortedItems.map(it => categoryLabels[it.category] ?? it.category))];
-
-    return `
-      <div class="container page-break">
-        <div class="header">
-          <div class="school-name">${schoolName}</div>
-          <div class="school-address">${address}</div>
-        </div>
-        <div class="form-title">Purchase Request Form (Summary)</div>
-        <div class="form-info">
-          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${weekLabel}</span></div>
-          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
-          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${activeCategories.join(" / ")}</span></div>
-          <div class="form-info-item"><span class="form-info-label">ORDERS :</span><span>Total ${ordersCount} Category Orders</span></div>
-          <div class="form-info-item" style="grid-column: span 2;"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="text-align: center; width: 60px;">ITEM NO.</th>
-              <th style="text-align: center; min-width: 110px;">ORDER ID</th>
-              <th style="text-align: left;">DESCRIPTION</th>
-              <th style="text-align: center;">CATEGORY</th>
-              <th style="text-align: center; width: 60px;">QTY.</th>
-              <th style="text-align: center; width: 65px;">UNIT</th>
-              <th style="text-align: right; width: 100px;">UNIT PRICE</th>
-              <th style="text-align: right; width: 120px;">TOTAL COST</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tbodyRows}
-            ${deliveryPrice > 0 ? `
-              <tr>
-                <td class="number-col" style="border: 1px solid #999;"></td>
-                <td colspan="6" style="text-align:right;font-weight:bold;border: 1px solid #999;">Delivery Fee</td>
-                <td class="total" style="border: 1px solid #999;">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-              </tr>
-            ` : ""}
-          </tbody>
-        </table>
-        <div style="text-align:right;font-weight:bold;margin-bottom:30px;">
-          Grand Total: <span style="border-bottom:1px solid #333;padding:0 20px;">
-            ₱${(printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-          </span>
-        </div>
-        ${signatureBlock(false)}
-      </div>
-    `;
-  }));
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Purchase Request Summaries - All Schools - ${weekLabel}</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f5f5f5; color: #000; }
-        .container { background: white; max-width: 900px; margin: 0 auto 40px auto; padding: 40px; border: 3px solid #001f3f; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #001f3f; padding-bottom: 20px; }
-        .school-name { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; color: #000; }
-        .school-address { font-size: 14px; color: #000; }
-        .form-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px; text-decoration: underline; color: #000; }
-        .form-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; font-size: 12px; color: #000; }
-        .form-info-item { display: flex; }
-        .form-info-label { font-weight: bold; width: 120px; color: #000; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #000; }
-        td { border: 1px solid #999; padding: 12px; font-size: 12px; color: #000; }
-        td.number-col { text-align: center; width: 40px; }
-        td.total { text-align: right; font-weight: bold; }
-        .page-break { page-break-after: always; }
-        @media print {
-          body { background: white; padding: 0; color: #000; }
-          .container { border: none !important; box-shadow: none !important; padding: 20px 0 !important; margin: 0 0 40px 0 !important; max-width: 100% !important; page-break-after: always; }
-          .container:last-child { page-break-after: avoid !important; }
-          * { color: #000 !important; }
-        }
-      </style>
-    </head>
-    <body>
-      ${containersHtml.join("")}
-    </body>
-    </html>
-  `;
-
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.print();
-  }
-}
-
 /**
  * Itemized Tally Print — styled to match the Purchase Request Form.
  * One row per unique item (name + unit + price), tallied across all schools.
@@ -2998,5 +2810,216 @@ export async function printDeliveryReceipt(
     printWindow.document.close();
     // print() is triggered by the inline window load listener inside the HTML,
     // ensuring data-URI signature images are fully decoded before the print dialog opens.
+  }
+}
+
+export async function printAllSchoolSummaries(orders: WeeklyOrderRecord[], weekLabel: string) {
+  const activeOrders = orders.filter(o => o.status !== "cancelled");
+  if (activeOrders.length === 0) {
+    alert("No active orders to print.");
+    return;
+  }
+
+  // Pre-fetch schools lookup for address and delivery price
+  const schoolsMap = new Map<string, any>();
+  try {
+    const { data: schoolsList } = await supabase
+      .from("schools")
+      .select("name, address, delivery_price, coop_id");
+    if (schoolsList) {
+      schoolsList.forEach(s => {
+        schoolsMap.set(s.name.trim().toLowerCase(), s);
+      });
+    }
+  } catch (e) {
+    console.error("Failed to pre-fetch schools database list:", e);
+  }
+
+  // Group orders by school
+  const ordersBySchool = new Map<string, WeeklyOrderRecord[]>();
+  activeOrders.forEach(order => {
+    const list = ordersBySchool.get(order.clientName) || [];
+    list.push(order);
+    ordersBySchool.set(order.clientName, list);
+  });
+
+  const sortedSchools = [...ordersBySchool.keys()].sort();
+
+  const schoolPagesHtml = sortedSchools.map((schoolName, schoolIdx) => {
+    const schoolOrders = ordersBySchool.get(schoolName) || [];
+    
+    // Aggregate items across all categories for this school
+    const aggregated: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[] = [];
+    schoolOrders.forEach(o => {
+      o.items.forEach(i => {
+        if (i.deleted || !i.qty || i.qty <= 0) return;
+        aggregated.push({
+          name: i.name,
+          qty: i.qty,
+          unit: i.unit,
+          category: o.clientRole, // category key
+          price: i.price,
+          orderId: o.id
+        });
+      });
+    });
+
+    if (aggregated.length === 0) return "";
+
+    // Sort items by Category, then by Order ID, then by Name
+    aggregated.sort((a, b) => {
+      const catCompare = (categoryLabels[a.category] ?? a.category).localeCompare(categoryLabels[b.category] ?? b.category);
+      if (catCompare !== 0) return catCompare;
+      const orderCompare = (a.orderId || "").localeCompare(b.orderId || "");
+      if (orderCompare !== 0) return orderCompare;
+      return a.name.localeCompare(b.name);
+    });
+
+    // Compute rowspans/groups for categories and orders
+    const categoryGroups = new Map<string, number>();
+    const orderGroups = new Map<string, number>();
+    aggregated.forEach(it => {
+      categoryGroups.set(it.category, (categoryGroups.get(it.category) || 0) + 1);
+      if (it.orderId) {
+        orderGroups.set(it.orderId, (orderGroups.get(it.orderId) || 0) + 1);
+      }
+    });
+
+    const renderedCategories = new Set<string>();
+    const renderedOrderIds = new Set<string>();
+
+    const tbodyRows = aggregated.map((item, index) => {
+      const oid = item.orderId || "N/A";
+      const cat = item.category || "Other";
+
+      const showOrderCell = !renderedOrderIds.has(oid);
+      if (showOrderCell) renderedOrderIds.add(oid);
+      const orderGroupCount = orderGroups.get(oid) || 1;
+      const orderIdCell = showOrderCell
+        ? `<td rowspan="${orderGroupCount}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #999;">${oid}</td>`
+        : "";
+
+      const showCategoryCell = !renderedCategories.has(cat);
+      if (showCategoryCell) renderedCategories.add(cat);
+      const catGroupCount = categoryGroups.get(cat) || 1;
+      const categoryCell = showCategoryCell
+        ? `<td rowspan="${catGroupCount}" style="vertical-align: middle; text-align: center; border: 1px solid #999;">${categoryLabels[cat] ?? cat}</td>`
+        : "";
+
+      return `
+        <tr>
+          <td class="number-col" style="text-align: center; border: 1px solid #999;">${index + 1}</td>
+          ${orderIdCell}
+          <td style="border: 1px solid #999;">${item.name}</td>
+          ${categoryCell}
+          <td class="number-col" style="text-align: center; border: 1px solid #999;">${item.qty}</td>
+          <td style="text-align: center; border: 1px solid #999;">${item.unit}</td>
+          <td class="number-col" style="text-align: right; border: 1px solid #999;">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+          <td class="total" style="text-align: right; border: 1px solid #999;">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+        </tr>
+      `;
+    }).join("");
+
+    // Resolve school specific details
+    const schoolDbInfo = schoolsMap.get(schoolName.trim().toLowerCase());
+    const address = schoolDbInfo?.address || "Address not provided";
+    const deliveryPrice = schoolDbInfo?.delivery_price ? Number(schoolDbInfo.delivery_price) : 0;
+
+    const itemsTotal = aggregated.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0);
+    const grandTotal = itemsTotal + deliveryPrice;
+
+    const activeCategories = [...new Set(aggregated.map(it => categoryLabels[it.category] ?? it.category))];
+    const statusSummary = [...new Set(schoolOrders.map(o => o.status))].join(" / ");
+
+    const isLast = schoolIdx === sortedSchools.length - 1;
+
+    return `
+      <div class="container ${isLast ? "" : "page-break"}">
+        <div class="header">
+          <div class="school-name">${schoolName}</div>
+          <div class="school-address">${address}</div>
+        </div>
+        <div class="form-title">Purchase Request Form (Summary)</div>
+        <div class="form-info">
+          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${weekLabel}</span></div>
+          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
+          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${activeCategories.join(" / ")}</span></div>
+          <div class="form-info-item"><span class="form-info-label">ORDERS :</span><span>Total ${schoolOrders.length} Category Orders</span></div>
+          <div class="form-info-item" style="grid-column: span 2;"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 60px;">ITEM NO.</th>
+              <th style="text-align: center; min-width: 110px;">ORDER ID</th>
+              <th style="text-align: left;">DESCRIPTION</th>
+              <th style="text-align: center;">CATEGORY</th>
+              <th style="text-align: center; width: 60px;">QTY.</th>
+              <th style="text-align: center; width: 65px;">UNIT</th>
+              <th style="text-align: right; width: 100px;">UNIT PRICE</th>
+              <th style="text-align: right; width: 120px;">TOTAL COST</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tbodyRows}
+            ${deliveryPrice > 0 ? `
+              <tr>
+                <td class="number-col" style="border: 1px solid #999;"></td>
+                <td colspan="6" style="text-align:right;font-weight:bold;border: 1px solid #999;">Delivery Fee</td>
+                <td class="total" style="border: 1px solid #999;">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+              </tr>
+            ` : ""}
+          </tbody>
+        </table>
+        <div style="text-align:right;font-weight:bold;margin-bottom:30px;">
+          Grand Total: <span style="border-bottom:1px solid #333;padding:0 20px;">
+            ₱${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+        ${signatureBlock(false)}
+      </div>
+    `;
+  }).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Purchase Request Summaries - ${weekLabel}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f5f5f5; color: #000; }
+        .container { background: white; max-width: 900px; margin: 0 auto 40px auto; padding: 40px; border: 3px solid #001f3f; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #001f3f; padding-bottom: 20px; }
+        .school-name { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; color: #000; }
+        .school-address { font-size: 14px; color: #000; }
+        .form-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px; text-decoration: underline; color: #000; }
+        .form-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; font-size: 12px; color: #000; }
+        .form-info-item { display: flex; }
+        .form-info-label { font-weight: bold; width: 120px; color: #000; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #000; }
+        td { border: 1px solid #999; padding: 12px; font-size: 12px; color: #000; }
+        td.number-col { text-align: center; width: 40px; }
+        td.total { text-align: right; font-weight: bold; }
+        @media print {
+          body { background: white; padding: 0; color: #000; }
+          .container { border: 1px solid #999; box-shadow: none; margin-bottom: 0; padding: 20px; }
+          .page-break { page-break-after: always; }
+          * { color: #000 !important; }
+        }
+      </style>
+    </head>
+    <body>
+      ${schoolPagesHtml}
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
   }
 }
