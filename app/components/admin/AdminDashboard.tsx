@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Menu, Bell, Check, ChevronRight } from "lucide-react";
+import { Menu, Bell, Check, ChevronRight, Printer } from "lucide-react";
 import NotificationsView from "./NotificationsView";
 import { getOrders } from "../order/orderStorage";
 import { filterOrdersForSchool } from "../order/orderAccess";
@@ -181,6 +181,82 @@ export default function AdminDashboard() {
       setDrPrintOrder(order);
     }
   }, [user?.role]);
+
+  const handlePrintAllSchoolSummaries = useCallback(async () => {
+    let targetWeek = ordersWeek;
+    if (targetWeek === "all") {
+      const weeks = [...new Set(orders.map(o => o.weekLabel))].sort();
+      if (weeks.length > 0) {
+        targetWeek = weeks[weeks.length - 1];
+      } else {
+        alert("No weeks available to print.");
+        return;
+      }
+    }
+
+    const weekOrders = orders.filter(o => o.weekLabel === targetWeek && o.status !== "cancelled");
+    if (weekOrders.length === 0) {
+      alert(`No active orders for ${targetWeek} to print.`);
+      return;
+    }
+
+    const ordersBySchool: Record<string, WeeklyOrderRecord[]> = {};
+    weekOrders.forEach(o => {
+      if (!ordersBySchool[o.clientName]) {
+        ordersBySchool[o.clientName] = [];
+      }
+      ordersBySchool[o.clientName].push(o);
+    });
+
+    try {
+      showToast("Loading printer files, please wait...", "info");
+      const { resolveClientBySchoolName } = await import("../order/clientStorage");
+      const { printAllSchoolSummaries } = await import("./printOrder");
+
+      const summaries = await Promise.all(
+        Object.entries(ordersBySchool).map(async ([schoolName, schoolOrders]) => {
+          const clientRecord = await resolveClientBySchoolName(schoolName);
+
+          const aggregatedItems: {
+            name: string;
+            qty: number;
+            unit: string;
+            category: string;
+            price: number;
+            orderId?: string;
+          }[] = [];
+
+          schoolOrders.forEach((o) =>
+            o.items.forEach((i) => {
+              if (i.deleted) return;
+              aggregatedItems.push({
+                name: i.name,
+                qty: i.qty,
+                unit: i.unit,
+                category: i.category || "",
+                price: i.price || 0,
+                orderId: o.id,
+              });
+            })
+          );
+
+          return {
+            schoolName,
+            address: clientRecord?.address || "Address not provided",
+            deliveryPrice: clientRecord?.delivery_price || 0,
+            items: aggregatedItems,
+            orders: schoolOrders.map(o => ({ status: o.status })),
+          };
+        })
+      );
+
+      await printAllSchoolSummaries(targetWeek, summaries);
+      showToast("Printer window opened successfully.", "success");
+    } catch (e) {
+      console.error("Print all school summaries error:", e);
+      alert("An error occurred while preparing the print job.");
+    }
+  }, [orders, ordersWeek, showToast]);
 
   useEffect(() => {
     loadOrders();
@@ -441,8 +517,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {user && (
-            <div className="relative">
+          <div className="flex items-center gap-2">
+            {activeView === "orders" && (
+              <button
+                onClick={handlePrintAllSchoolSummaries}
+                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer"
+                title="Print all school summaries for the selected week"
+              >
+                <Printer className="h-4 w-4 text-blue-600" />
+                <span className="hidden sm:inline">Print All (Per School)</span>
+                <span className="sm:hidden">Print All</span>
+              </button>
+            )}
+
+            {user && (
+              <div className="relative">
               <button
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 focus:outline-none"
@@ -549,6 +638,7 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+          </div>
         </header>
 
         <main
