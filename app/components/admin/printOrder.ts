@@ -2855,20 +2855,31 @@ export async function printAllSchoolSummaries(orders: WeeklyOrderRecord[], weekL
     console.error("Failed to pre-fetch schools database list:", e);
   }
 
-  // Group orders by school
-  const ordersBySchool = new Map<string, WeeklyOrderRecord[]>();
+  // Group orders by school AND week
+  const grouped = new Map<string, { schoolName: string; weekLabel: string; orders: WeeklyOrderRecord[] }>();
   activeOrders.forEach(order => {
-    const list = ordersBySchool.get(order.clientName) || [];
-    list.push(order);
-    ordersBySchool.set(order.clientName, list);
+    const key = `${order.clientName}|${order.weekLabel}`;
+    const entry = grouped.get(key) || {
+      schoolName: order.clientName,
+      weekLabel: order.weekLabel,
+      orders: [],
+    };
+    entry.orders.push(order);
+    grouped.set(key, entry);
   });
 
-  const sortedSchools = [...ordersBySchool.keys()].sort();
+  const sortedKeys = [...grouped.keys()].sort((a, b) => {
+    const entryA = grouped.get(a)!;
+    const entryB = grouped.get(b)!;
+    const schoolCompare = entryA.schoolName.localeCompare(entryB.schoolName);
+    if (schoolCompare !== 0) return schoolCompare;
+    return entryA.weekLabel.localeCompare(entryB.weekLabel);
+  });
 
-  const schoolPagesHtml = sortedSchools.map((schoolName, schoolIdx) => {
-    const schoolOrders = ordersBySchool.get(schoolName) || [];
+  const schoolPagesHtml = sortedKeys.map((key, keyIdx) => {
+    const { schoolName, weekLabel: groupWeekLabel, orders: schoolOrders } = grouped.get(key)!;
     
-    // Aggregate items across all categories for this school
+    // Aggregate items across all categories for this school/week combination
     const aggregated: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[] = [];
     schoolOrders.forEach(o => {
       o.items.forEach(i => {
@@ -2951,7 +2962,7 @@ export async function printAllSchoolSummaries(orders: WeeklyOrderRecord[], weekL
     const activeCategories = [...new Set(aggregated.map(it => categoryLabels[it.category] ?? it.category))];
     const statusSummary = [...new Set(schoolOrders.map(o => o.status))].join(" / ");
 
-    const isLast = schoolIdx === sortedSchools.length - 1;
+    const isLast = keyIdx === sortedKeys.length - 1;
 
     return `
       <div class="container ${isLast ? "" : "page-break"}">
@@ -2961,7 +2972,7 @@ export async function printAllSchoolSummaries(orders: WeeklyOrderRecord[], weekL
         </div>
         <div class="form-title">Purchase Request Form (Summary)</div>
         <div class="form-info">
-          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${weekLabel}</span></div>
+          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${groupWeekLabel}</span></div>
           <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
           <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${activeCategories.join(" / ")}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDERS :</span><span>Total ${schoolOrders.length} Category Orders</span></div>
