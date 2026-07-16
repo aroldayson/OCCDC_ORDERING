@@ -132,32 +132,48 @@ function SchoolGroupBlock({
           <button
             onClick={async (e) => {
               e.stopPropagation();
-              const itemsMap: Record<
-                string,
-                {
-                  name: string;
-                  qty: number;
-                  unit: string;
-                  category: string;
-                  price: number;
-                }
-              > = {};
-              clientOrders.forEach((o) =>
+              const activeOrders = clientOrders.filter((o) => o.status !== "cancelled");
+              if (activeOrders.length === 0) {
+                alert("No active orders to print (all orders are cancelled).");
+                return;
+              }
+              const aggregatedItems: {
+                name: string;
+                qty: number;
+                unit: string;
+                category: string;
+                price: number;
+                orderId?: string;
+              }[] = [];
+
+              activeOrders.forEach((o) =>
                 o.items.forEach((i) => {
-                  const k = `${i.productId}-${i.price}`;
-                  if (!itemsMap[k]) itemsMap[k] = { ...i };
-                  else itemsMap[k].qty += i.qty;
-                }),
+                  aggregatedItems.push({
+                    name: i.name,
+                    qty: i.qty,
+                    unit: i.unit,
+                    category: i.category || "",
+                    price: i.price || 0,
+                    orderId: o.id,
+                  });
+                })
               );
+
+              aggregatedItems.sort((a, b) => {
+                const orderCompare = (a.orderId || "").localeCompare(b.orderId || "");
+                if (orderCompare !== 0) return orderCompare;
+                return a.name.localeCompare(b.name);
+              });
+
               const { resolveClientBySchoolName } =
                 await import("../order/clientStorage");
               const clientRecord = await resolveClientBySchoolName(clientName);
-              printClientSummary(
+              await printClientSummary(
                 clientName,
-                clientOrders[0]?.weekLabel || "",
-                Object.values(itemsMap),
-                clientOrders,
-                clientRecord,
+                activeOrders[0]?.weekLabel || "",
+                aggregatedItems,
+                activeOrders,
+                clientRecord || undefined,
               );
             }}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
@@ -194,13 +210,12 @@ function SchoolGroupBlock({
                   <div>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          order.status === "completed"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : order.status === "pending"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-blue-50 text-blue-700"
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${order.status === "completed"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : order.status === "pending"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-blue-50 text-blue-700"
+                          }`}
                       >
                         {order.status === "pending"
                           ? "Pending Approval"
@@ -319,11 +334,10 @@ function SchoolGroupBlock({
                           onClick={() =>
                             handleStatusChange(order.id, status as OrderStatus)
                           }
-                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
-                            order.status === status
-                              ? statusStyles[status as OrderStatus]
-                              : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
-                          }`}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === status
+                            ? statusStyles[status as OrderStatus]
+                            : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
+                            }`}
                         >
                           {status}
                         </button>
@@ -398,6 +412,9 @@ export default function WeeklyOrderView({
 }: WeeklyOrderViewProps) {
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
+  const showAllButtons = useMemo(() => {
+    return !user?.categories || user.categories.length > 1;
+  }, [user?.categories]);
   const isWednesday = new Date().getDay() === 3;
   const schoolName = user?.school_name?.trim() ?? "";
 
@@ -625,21 +642,19 @@ export default function WeeklyOrderView({
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
-                  tab === id
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${tab === id
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
+                  }`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
                 {id === "process" && pendingCount > 0 && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                      tab === id
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${tab === id
+                      ? "bg-white/20 text-white"
+                      : "bg-blue-100 text-blue-700"
+                      }`}
                   >
                     {pendingCount}
                   </span>
@@ -723,6 +738,90 @@ export default function WeeklyOrderView({
           <div className="flex flex-col gap-8">
             {isAdmin && fixedCategory !== "other_order" && (
               <div className="flex flex-wrap justify-end gap-3">
+                {showAllButtons && (
+                  <>
+                    <button
+                      disabled={printLoading}
+                      onClick={async () => {
+                        const categoriesToPrint = user?.categories && user.categories.length > 0
+                          ? user.categories
+                          : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
+                        
+                        setPrintLoading(true);
+                        try {
+                          const allOrdersPromises = categoriesToPrint.map((cat) =>
+                            getOrdersByCategoryAndWeek(cat as OrderRole, selectedWeekLabel)
+                          );
+                          const ordersResults = await Promise.all(allOrdersPromises);
+                          const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
+                          
+                          if (combinedOrders.length > 0) {
+                            const title = categoriesToPrint.length === 1
+                              ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
+                              : "All Categories";
+                            await printAllOrders(
+                              title,
+                              selectedWeekLabel,
+                              combinedOrders,
+                            );
+                          } else {
+                            alert("No active orders found to print.");
+                          }
+                        } catch (err) {
+                          console.error("Error printing all categories:", err);
+                        } finally {
+                          setPrintLoading(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Printer className="h-4 w-4 text-blue-500" />
+                      {printLoading ? "Loading…" : "Print All Categories"}
+                    </button>
+                    <button
+                      disabled={printLoading}
+                      onClick={async () => {
+                        const categoriesToPrint = user?.categories && user.categories.length > 0
+                          ? user.categories
+                          : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
+                        
+                        setPrintLoading(true);
+                        try {
+                          const allClients = await getClients();
+                          const allSchoolNames = allClients.map((c) => c.name);
+
+                          const allOrdersPromises = categoriesToPrint.map((cat) =>
+                            getOrdersByCategoryAndWeek(cat as OrderRole, selectedWeekLabel)
+                          );
+                          const ordersResults = await Promise.all(allOrdersPromises);
+                          const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
+
+                          if (combinedOrders.length > 0) {
+                            const title = categoriesToPrint.length === 1
+                              ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
+                              : "All Categories";
+                            await printItemizedTally(
+                              title,
+                              selectedWeekLabel,
+                              combinedOrders,
+                              allSchoolNames,
+                            );
+                          } else {
+                            alert("No active orders found to print.");
+                          }
+                        } catch (err) {
+                          console.error("Error printing itemized tally:", err);
+                        } finally {
+                          setPrintLoading(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Printer className="h-4 w-4 text-indigo-500" />
+                      {printLoading ? "Loading…" : "Print Itemized Tally (All)"}
+                    </button>
+                  </>
+                )}
                 <button
                   disabled={printLoading}
                   onClick={async () => {
@@ -733,10 +832,15 @@ export default function WeeklyOrderView({
                         fixedCategory,
                         selectedWeekLabel,
                       );
-                      printAllOrders(
+                      const activeOrders = freshOrders.filter((o) => o.status !== "cancelled");
+                      if (activeOrders.length === 0) {
+                        alert("No active orders to print (all orders are cancelled).");
+                        return;
+                      }
+                      await printAllOrders(
                         orderRoleLabels[fixedCategory],
                         selectedWeekLabel,
-                        freshOrders,
+                        activeOrders,
                       );
                     } finally {
                       setPrintLoading(false);
@@ -745,7 +849,7 @@ export default function WeeklyOrderView({
                   className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Printer className="h-4 w-4 text-slate-500" />
-                  {printLoading ? "Loading…" : "Print All Orders"}
+                  {printLoading ? "Loading…" : `Print ${orderRoleLabels[fixedCategory!] || "Category"}`}
                 </button>
                 <button
                   disabled={printLoading}
@@ -760,22 +864,27 @@ export default function WeeklyOrderView({
                         ),
                         import("../order/clientStorage"),
                       ]);
+                      const activeOrders = freshOrders.filter((o) => o.status !== "cancelled");
+                      if (activeOrders.length === 0) {
+                        alert("No active orders to print (all orders are cancelled).");
+                        return;
+                      }
                       const allClients = await getClients();
                       const allSchoolNames = allClients.map((c) => c.name);
-                      printItemizedTally(
+                      await printItemizedTally(
                         orderRoleLabels[fixedCategory],
                         selectedWeekLabel,
-                        freshOrders,
+                        activeOrders,
                         allSchoolNames,
                       );
                     } finally {
                       setPrintLoading(false);
                     }
                   }}
-                  className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Printer className="h-4 w-4 text-indigo-500" />
-                  {printLoading ? "Loading…" : "Print Itemized Tally"}
+                  <Printer className="h-4 w-4 text-slate-500" />
+                  {printLoading ? "Loading…" : `Tally ${orderRoleLabels[fixedCategory!] || "Category"}`}
                 </button>
 
                 {/* Export dropdown */}
@@ -849,6 +958,84 @@ export default function WeeklyOrderView({
                         >
                           Itemized Tally (.xlsx)
                         </button>
+                        {showAllButtons && (
+                          <>
+                            <button
+                              className="flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition border-t border-slate-100"
+                              onClick={async () => {
+                                const categoriesToPrint = user?.categories && user.categories.length > 0
+                                  ? user.categories
+                                  : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
+                                setExportOpen(false);
+                                setPrintLoading(true);
+                                try {
+                                  const allOrdersPromises = categoriesToPrint.map((cat) =>
+                                    getOrdersByCategoryAndWeek(cat as OrderRole, selectedWeekLabel)
+                                  );
+                                  const ordersResults = await Promise.all(allOrdersPromises);
+                                  const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
+                                  
+                                  if (combinedOrders.length > 0) {
+                                    const title = categoriesToPrint.length === 1
+                                      ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
+                                      : "All Categories";
+                                    await downloadAllOrdersExcel(
+                                      title,
+                                      selectedWeekLabel,
+                                      combinedOrders,
+                                    );
+                                  } else {
+                                    alert("No orders found to export.");
+                                  }
+                                } catch (err) {
+                                  console.error("Error exporting all categories:", err);
+                                } finally {
+                                  setPrintLoading(false);
+                                }
+                              }}
+                            >
+                              All Categories (.xlsx)
+                            </button>
+                            <button
+                              className="flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition border-t border-slate-100"
+                              onClick={async () => {
+                                const categoriesToPrint = user?.categories && user.categories.length > 0
+                                  ? user.categories
+                                  : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
+                                setExportOpen(false);
+                                setPrintLoading(true);
+                                try {
+                                  const allClients = await getClients();
+                                  const allOrdersPromises = categoriesToPrint.map((cat) =>
+                                    getOrdersByCategoryAndWeek(cat as OrderRole, selectedWeekLabel)
+                                  );
+                                  const ordersResults = await Promise.all(allOrdersPromises);
+                                  const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
+                                  
+                                  if (combinedOrders.length > 0) {
+                                    const title = categoriesToPrint.length === 1
+                                      ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
+                                      : "All Categories";
+                                    await downloadItemizedTallyExcel(
+                                      title,
+                                      selectedWeekLabel,
+                                      combinedOrders,
+                                      allClients.map((c) => c.name),
+                                    );
+                                  } else {
+                                    alert("No orders found to export.");
+                                  }
+                                } catch (err) {
+                                  console.error("Error exporting itemized tally:", err);
+                                } finally {
+                                  setPrintLoading(false);
+                                }
+                              }}
+                            >
+                              Itemized Tally (All) (.xlsx)
+                            </button>
+                          </>
+                        )}
                       </div>
                     </>
                   )}
@@ -883,11 +1070,10 @@ export default function WeeklyOrderView({
                   {/* Card 1: Pending */}
                   <div
                     onClick={() => setCategoryStatusFilter("pending")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
-                      categoryStatusFilter === "pending"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "pending"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <Clock className="h-4 w-4 text-blue-500" />
@@ -901,11 +1087,10 @@ export default function WeeklyOrderView({
                   {/* Card 2: Approved */}
                   <div
                     onClick={() => setCategoryStatusFilter("approved")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
-                      categoryStatusFilter === "approved"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "approved"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -919,11 +1104,10 @@ export default function WeeklyOrderView({
                   {/* Card 3: Completed */}
                   <div
                     onClick={() => setCategoryStatusFilter("completed")}
-                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${
-                      categoryStatusFilter === "completed"
-                        ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
+                    className={`rounded-2xl border p-5 shadow-sm cursor-pointer transition-all ${categoryStatusFilter === "completed"
+                      ? "border-blue-500 bg-blue-50/20 ring-2 ring-blue-100"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
                   >
                     <div className="flex items-center gap-2 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                       <CheckCircle className="h-4 w-4 text-slate-400" />
@@ -959,11 +1143,10 @@ export default function WeeklyOrderView({
                       <button
                         key={filter}
                         onClick={() => setCategoryStatusFilter(filter)}
-                        className={`rounded-full px-3 py-1.5 capitalize transition ${
-                          categoryStatusFilter === filter
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
+                        className={`rounded-full px-3 py-1.5 capitalize transition ${categoryStatusFilter === filter
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
                       >
                         {filter}
                       </button>

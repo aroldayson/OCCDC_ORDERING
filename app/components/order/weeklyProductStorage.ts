@@ -172,7 +172,7 @@ export async function updateWeeklyProduct(
   weekLabel?: string,
 ): Promise<void> {
   const activeWeek = weekLabel?.trim() || "default";
-  
+
   const payload: Partial<{
     name: string;
     default_qty: number;
@@ -222,7 +222,7 @@ export async function updateWeeklyProduct(
 
       if (!ordErr && orders) {
         for (const order of orders) {
-          const items = order.items as Array<{ productId: string; price?: number; qty: number; [key: string]: unknown }> | null;
+          const items = order.items as Array<{ productId: string; price?: number; qty: number;[key: string]: unknown }> | null;
           if (!Array.isArray(items)) continue;
 
           const needsUpdate = items.some((it) => it.productId === id);
@@ -313,16 +313,16 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
       const { error: archiveError } = await supabase
         .from("deleted_weekly_products")
         .insert({
-          id:           `${productData.id}-${Date.now()}`,
-          original_id:  productData.id,
-          week_label:   productData.week_label,
-          name:         productData.name,
-          default_qty:  productData.default_qty,
-          unit:         productData.unit,
-          price:        productData.price,
-          category:     productData.category,
-          created_at:   productData.created_at,
-          deleted_at:   new Date().toISOString(),
+          id: `${productData.id}-${Date.now()}`,
+          original_id: productData.id,
+          week_label: productData.week_label,
+          name: productData.name,
+          default_qty: productData.default_qty,
+          unit: productData.unit,
+          price: productData.price,
+          category: productData.category,
+          created_at: productData.created_at,
+          deleted_at: new Date().toISOString(),
         });
       if (archiveError) {
         console.error(

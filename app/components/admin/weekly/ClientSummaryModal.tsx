@@ -1,7 +1,7 @@
 "use client";
 
 import { User, X, Printer, FileDown, Sheet } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import type { OrderRole } from "../../order/roles";
 import type { WeeklyOrderRecord } from "../../order/types";
@@ -10,7 +10,10 @@ import {
   printClientSummary,
   downloadClientSummaryPdf,
   downloadClientSummaryExcel,
+  printOrderForm,
+  downloadSingleOrderExcel,
 } from "../printOrder";
+import { mergeOrdersByCategory } from "../../order/orderStorage";
 
 type ClientSummaryModalProps = {
   open: boolean;
@@ -24,42 +27,43 @@ type ClientSummaryModalProps = {
 export default function ClientSummaryModal({
   open,
   clientName,
-  categories,
-  orders,
+  categories: rawCategories,
+  orders: rawOrders,
   onClose,
   weekLabel,
 }: ClientSummaryModalProps) {
+  const [loading, setLoading] = useState(false);
+  const orders = useMemo(() => rawOrders.filter(o => o.status !== "cancelled"), [rawOrders]);
+  const categories = useMemo(() => {
+    return Array.from(new Set(orders.map((o) => o.clientRole)));
+  }, [orders]);
+
   const aggregated = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        name: string;
-        qty: number;
-        unit: string;
-        category: string;
-        price: number;
-      }
-    >();
+    const list: {
+      name: string;
+      qty: number;
+      unit: string;
+      category: string;
+      price: number;
+      orderId?: string;
+    }[] = [];
     for (const order of orders) {
       for (const item of order.items) {
-        const key = `${item.productId}-${item.unit}`;
-        const existing = map.get(key);
-        if (existing) {
-          existing.qty += item.qty;
-        } else {
-          map.set(key, {
-            name: item.name,
-            qty: item.qty,
-            unit: item.unit,
-            category: getCategoryDisplayFromItem(item),
-            price: item.price || 0,
-          });
-        }
+        list.push({
+          name: item.name,
+          qty: item.qty,
+          unit: item.unit,
+          category: getCategoryDisplayFromItem(item),
+          price: item.price || 0,
+          orderId: order.id,
+        });
       }
     }
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    return list.sort((a, b) => {
+      const orderCompare = (a.orderId || "").localeCompare(b.orderId || "");
+      if (orderCompare !== 0) return orderCompare;
+      return a.name.localeCompare(b.name);
+    });
   }, [orders]);
 
   if (!open || !clientName) return null;
@@ -87,46 +91,86 @@ export default function ClientSummaryModal({
                     {orderRoleLabels[cat]}
                   </span>
                 ))}
-                <p className="text-xs text-slate-500">Order Summary</p>
+                <p className="text-xs text-slate-500">
+                  {loading ? "Processing print files..." : "Order Summary"}
+                </p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() =>
-                printClientSummary(clientName, weekLabel, aggregated, orders)
-              }
-              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const { resolveClientBySchoolName } = await import("../../order/clientStorage");
+                  const clientRecord = await resolveClientBySchoolName(clientName);
+                  await printClientSummary(
+                    clientName,
+                    weekLabel,
+                    aggregated,
+                    orders,
+                    clientRecord || undefined,
+                  );
+                } catch (e) {
+                  console.error("Print summary error:", e);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
               aria-label="Print summary"
               title="Print"
             >
               <Printer className="h-5 w-5" />
             </button>
             <button
-              onClick={() =>
-                downloadClientSummaryPdf(
-                  clientName,
-                  weekLabel,
-                  aggregated,
-                  orders,
-                )
-              }
-              className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const { resolveClientBySchoolName } = await import("../../order/clientStorage");
+                  const clientRecord = await resolveClientBySchoolName(clientName);
+                  await downloadClientSummaryPdf(
+                    clientName,
+                    weekLabel,
+                    aggregated,
+                    orders,
+                    clientRecord || undefined,
+                  );
+                } catch (e) {
+                  console.error("Download PDF summary error:", e);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
               aria-label="Download PDF"
               title="Download PDF"
             >
               <FileDown className="h-5 w-5" />
             </button>
             <button
-              onClick={() =>
-                downloadClientSummaryExcel(
-                  clientName,
-                  weekLabel,
-                  aggregated,
-                  orders,
-                )
-              }
-              className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
+              disabled={loading}
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const { resolveClientBySchoolName } = await import("../../order/clientStorage");
+                  const clientRecord = await resolveClientBySchoolName(clientName);
+                  await downloadClientSummaryExcel(
+                    clientName,
+                    weekLabel,
+                    aggregated,
+                    orders,
+                    clientRecord || undefined,
+                  );
+                } catch (e) {
+                  console.error("Download Excel summary error:", e);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="rounded-lg p-1.5 text-green-600 hover:bg-green-50 disabled:opacity-50"
               aria-label="Download Excel"
               title="Download Excel"
             >
@@ -149,12 +193,12 @@ export default function ClientSummaryModal({
           <ul className="space-y-2">
             {aggregated.map((item) => (
               <li
-                key={`${item.name}-${item.unit}`}
+                key={`${item.name}-${item.unit}-${item.orderId || ""}`}
                 className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-sm"
               >
                 <div>
                   <p className="font-medium text-slate-800">{item.name}</p>
-                  <p className="text-xs text-slate-500">{item.category}</p>
+                  <p className="text-xs text-slate-500">{item.category} • {item.orderId}</p>
                 </div>
                 <span className="font-bold text-blue-700">
                   {item.qty} {item.unit}

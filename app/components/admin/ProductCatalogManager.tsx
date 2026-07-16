@@ -6,7 +6,6 @@ import {
   Search,
   Pencil,
   Trash2,
-  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Printer,
@@ -28,8 +27,6 @@ import {
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
 import { supabase } from "@/lib/supabase";
-
-const PAGE_SIZES = [10, 20, 50];
 
 function formatProductId(id: string) {
   const match = id.match(/-(\d+)$/);
@@ -57,7 +54,11 @@ const categoryLabels: Record<string, string> = {
 
 import { filterOrdersForWeek } from "../order/orderAccess";
 import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
-import { printCatalog, exportCatalogExcel } from "./printOrder";
+import {
+  printCatalog,
+  printCatalogForSchool,
+  exportCatalogExcel,
+} from "./printOrder";
 
 const statusStyles: Record<OrderStatus, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -81,8 +82,6 @@ export default function ProductCatalogManager({
   });
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -93,6 +92,19 @@ export default function ProductCatalogManager({
       const next = new Set(prev);
       if (next.has(groupId)) next.delete(groupId);
       else next.add(groupId);
+      return next;
+    });
+  };
+
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleCategory = (catGroupId: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(catGroupId)) next.delete(catGroupId);
+      else next.add(catGroupId);
       return next;
     });
   };
@@ -196,7 +208,10 @@ export default function ProductCatalogManager({
           if (product) {
             list.push({
               id: `${product.id}-${order.id}`,
-              product,
+              product: {
+                ...product,
+                defaultQty: item.qty,
+              },
               order,
               schoolName: order.clientName,
             });
@@ -219,10 +234,8 @@ export default function ProductCatalogManager({
     list.sort((a, b) => {
       const schoolDiff = a.schoolName.localeCompare(b.schoolName);
       if (schoolDiff !== 0) return schoolDiff;
-      const orderA = a.order?.id || "no-order";
-      const orderB = b.order?.id || "no-order";
-      const orderDiff = orderA.localeCompare(orderB);
-      if (orderDiff !== 0) return orderDiff;
+      const catDiff = a.product.category.localeCompare(b.product.category);
+      if (catDiff !== 0) return catDiff;
       return a.product.name.localeCompare(b.product.name);
     });
     return list;
@@ -249,12 +262,6 @@ export default function ProductCatalogManager({
           .includes(q),
     );
   }, [rowItems, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(safePage * pageSize, filtered.length);
 
   const handleSaveItem = async (data: ItemFormData) => {
     const qty = parseFloat(data.defaultQty);
@@ -341,7 +348,6 @@ export default function ProductCatalogManager({
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
               }}
               placeholder="Search products..."
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -358,20 +364,24 @@ export default function ProductCatalogManager({
                     type="checkbox"
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                     checked={
-                      paged.length > 0 &&
-                      paged.every((row) => selectedIds.has(row.product.id))
+                      filtered.length > 0 &&
+                      filtered.every((row) => selectedIds.has(row.product.id))
                     }
                     onChange={() => {
                       const newSelected = new Set(selectedIds);
                       const allSelected =
-                        paged.length > 0 &&
-                        paged.every((row) => selectedIds.has(row.product.id));
+                        filtered.length > 0 &&
+                        filtered.every((row) =>
+                          selectedIds.has(row.product.id),
+                        );
                       if (allSelected) {
-                        paged.forEach((row) =>
+                        filtered.forEach((row) =>
                           newSelected.delete(row.product.id),
                         );
                       } else {
-                        paged.forEach((row) => newSelected.add(row.product.id));
+                        filtered.forEach((row) =>
+                          newSelected.add(row.product.id),
+                        );
                       }
                       setSelectedIds(newSelected);
                     }}
@@ -382,14 +392,15 @@ export default function ProductCatalogManager({
                 <th className="px-4 py-3 sm:px-5">Qty</th>
                 <th className="px-4 py-3 sm:px-5">Unit</th>
                 <th className="px-4 py-3 sm:px-5">Price</th>
+                <th className="px-4 py-3 sm:px-5">Total Price</th>
                 <th className="px-4 py-3 text-right sm:px-5">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-5 py-10 text-center text-sm text-slate-500"
                   >
                     No products found in catalog.
@@ -399,27 +410,41 @@ export default function ProductCatalogManager({
                 (() => {
                   const rows: React.ReactNode[] = [];
                   let currentGroupId: string | null = null;
+                  let currentCategoryGroupId: string | null = null;
 
-                  paged.forEach((row) => {
-                    const groupId = row.order
-                      ? row.order.id
-                      : `no-order-${row.schoolName}`;
+                  filtered.forEach((row) => {
+                    const groupId =
+                      row.schoolName === "Z_NO_ORDERS"
+                        ? "no-order"
+                        : `school-${row.schoolName}`;
+
+                    const schoolOrders =
+                      orders && row.schoolName !== "Z_NO_ORDERS"
+                        ? filterOrdersForWeek(orders, selectedWeekLabel).filter(
+                            (o) =>
+                              o.clientName === row.schoolName &&
+                              o.status !== "cancelled",
+                          )
+                        : [];
+
                     if (groupId !== currentGroupId) {
                       currentGroupId = groupId;
+                      currentCategoryGroupId = null; // Reset category tracking for new school
                       const schoolLabel =
                         row.schoolName === "Z_NO_ORDERS"
-                          ? "No Orders"
+                          ? "No Orders / Catalog Defaults"
                           : row.schoolName;
                       const isExpanded = expandedGroups.has(groupId);
+
                       rows.push(
                         <tr
                           key={`group-${groupId}`}
-                          className="bg-slate-100/60 cursor-pointer hover:bg-slate-100/90 transition-colors"
-                          onClick={() => toggleGroup(groupId)}
+                          className="bg-slate-100/60 hover:bg-slate-100/90 transition-colors"
                         >
                           <td
                             colSpan={7}
-                            className="px-4 py-3 border-y border-slate-200"
+                            className="px-4 py-3 border-y border-slate-200 cursor-pointer"
+                            onClick={() => toggleGroup(groupId)}
                           >
                             <div className="flex items-center gap-3">
                               {isExpanded ? (
@@ -430,26 +455,80 @@ export default function ProductCatalogManager({
                               <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                                 {schoolLabel}
                               </span>
-                              {row.order && (
-                                <div className="inline-flex items-center gap-2">
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusStyles[row.order.status as OrderStatus] || "bg-slate-50 text-slate-700 border-slate-200"}`}
-                                  >
-                                    {row.order.status}
-                                  </span>
-                                  <span className="font-semibold text-slate-500 text-[10px]">
-                                    ID: {row.order.id}
-                                  </span>
-                                </div>
+                              {schoolOrders.length > 0 && (
+                                <span className="font-semibold text-slate-500 text-[10px]">
+                                  {schoolOrders.length} Order
+                                  {schoolOrders.length !== 1 ? "s" : ""}
+                                </span>
                               )}
                             </div>
                           </td>
+                          {row.schoolName !== "Z_NO_ORDERS" && (
+                            <td className="px-3 py-2 border-y border-slate-200 text-right w-16">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const schoolRows = filtered.filter(
+                                    (r) => r.schoolName === row.schoolName,
+                                  );
+                                  printCatalogForSchool(
+                                    selectedWeekLabel,
+                                    row.schoolName,
+                                    schoolRows,
+                                  );
+                                }}
+                                title={`Print ${schoolLabel}`}
+                                className="inline-flex items-center justify-center rounded-lg p-1.5 text-blue-600 hover:bg-blue-100 transition"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </button>
+                            </td>
+                          )}
+                          {row.schoolName === "Z_NO_ORDERS" && (
+                            <td className="border-y border-slate-200" />
+                          )}
                         </tr>,
                       );
                     }
 
                     if (!expandedGroups.has(currentGroupId)) {
                       return; // Skip rendering rows for this group if it's not expanded
+                    }
+
+                    // Render Category Sub-header if it changes within this school
+                    const catGroupId = `${currentGroupId}-${row.product.category}`;
+                    const isCatCollapsed = collapsedCategories.has(catGroupId);
+                    if (catGroupId !== currentCategoryGroupId) {
+                      currentCategoryGroupId = catGroupId;
+
+                      rows.push(
+                        <tr
+                          key={`cat-header-${catGroupId}`}
+                          className="bg-slate-50/30 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors select-none"
+                          onClick={() => toggleCategory(catGroupId)}
+                        >
+                          <td
+                            colSpan={8}
+                            className="pl-8 pr-4 py-2 font-bold text-[10px] text-slate-500 uppercase tracking-wider bg-slate-50/20"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isCatCollapsed ? (
+                                <ChevronRight className="h-3 w-3 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3 text-slate-400" />
+                              )}
+                              <span>
+                                {categoryLabels[row.product.category] ??
+                                  row.product.category}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>,
+                      );
+                    }
+
+                    if (isCatCollapsed) {
+                      return; // Skip rendering items under this category if collapsed
                     }
 
                     rows.push(
@@ -474,17 +553,32 @@ export default function ProductCatalogManager({
                           />
                         </td>
                         <td className="px-4 py-3 sm:px-5">
-                          <span
-                            className={`font-medium ${
-                              !row.product.price || row.product.price === 0
-                                ? "text-red-600 underline decoration-red-500 decoration-2"
-                                : "text-slate-800"
-                            }`}
-                          >
-                            {row.product.name}
-                          </span>
+                          <div className="flex flex-col">
+                            <span
+                              className={`font-medium ${
+                                !row.product.price || row.product.price === 0
+                                  ? "text-red-600 underline decoration-red-500 decoration-2"
+                                  : "text-slate-800"
+                              }`}
+                            >
+                              {row.product.name}
+                            </span>
+                            {row.order && (
+                              <span className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                Order:{" "}
+                                <span className="font-semibold text-slate-600">
+                                  {row.order.id}
+                                </span>{" "}
+                                (
+                                {row.order.status === "pending"
+                                  ? "Pending Approval"
+                                  : row.order.status}
+                                )
+                              </span>
+                            )}
+                          </div>
                           {(!row.product.price || row.product.price === 0) && (
-                            <span className="ml-2 text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-wider">
+                            <span className="ml-2 text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-wider inline-block mt-1">
                               No Price
                             </span>
                           )}
@@ -508,6 +602,16 @@ export default function ProductCatalogManager({
                         >
                           ₱
                           {row.product.price.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="px-4 py-3 font-semibold sm:px-5 text-slate-800">
+                          ₱
+                          {(
+                            (row.product.defaultQty || 0) *
+                            (row.product.price || 0)
+                          ).toLocaleString("en-PH", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
@@ -549,49 +653,6 @@ export default function ProductCatalogManager({
               )}
             </tbody>
           </table>
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p>
-            Showing {rangeStart} to {rangeEnd} of {filtered.length} products
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400"
-            >
-              {PAGE_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size} / page
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-                className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="min-w-[2rem] text-center font-medium text-slate-700">
-                {safePage}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage >= totalPages}
-                className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 

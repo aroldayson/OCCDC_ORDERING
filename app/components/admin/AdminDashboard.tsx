@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Menu, Bell, Check, ChevronRight } from "lucide-react";
 import NotificationsView from "./NotificationsView";
 import { getOrders } from "../order/orderStorage";
@@ -65,10 +66,34 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const [activeView, setActiveView] = useState<AdminView>(
-    user?.role === "admin" ? "overview" : "place-order",
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [activeView, setActiveView] = useState<AdminView>(() => {
+    const initialView = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("view")
+      : null;
+    if (initialView) return initialView;
+    return user?.role === "admin" ? "overview" : "place-order";
+  });
+
+  // Sync activeView with URL search parameter "view" when it changes
+  useEffect(() => {
+    const viewParam = searchParams?.get("view");
+    if (viewParam) {
+      setActiveView(viewParam);
+    }
+  }, [searchParams]);
+
+  // Handler to change view and update URL query param
+  const handleViewChange = useCallback((view: AdminView) => {
+    setActiveView(view);
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", view);
+    router.push(`${window.location.pathname}?${params.toString()}`);
+  }, [router]);
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -115,19 +140,24 @@ export default function AdminDashboard() {
   );
 
   const loadOrders = useCallback(async () => {
-    const data = await getOrders();
-    setOrders(data);
-    // Prune readOrderIds — remove IDs of orders that no longer exist
-    setReadOrderIds((prev) => {
-      if (prev.length === 0) return prev;
-      const existingIds = new Set(data.map((o) => o.id));
-      const pruned = prev.filter((id) => existingIds.has(id));
-      if (pruned.length !== prev.length) {
-        localStorage.setItem("occdc-read-order-ids", JSON.stringify(pruned));
-        return pruned;
-      }
-      return prev;
-    });
+    setOrdersLoading(true);
+    try {
+      const data = await getOrders();
+      setOrders(data);
+      // Prune readOrderIds — remove IDs of orders that no longer exist
+      setReadOrderIds((prev) => {
+        if (prev.length === 0) return prev;
+        const existingIds = new Set(data.map((o) => o.id));
+        const pruned = prev.filter((id) => existingIds.has(id));
+        if (pruned.length !== prev.length) {
+          localStorage.setItem("occdc-read-order-ids", JSON.stringify(pruned));
+          return pruned;
+        }
+        return prev;
+      });
+    } finally {
+      setOrdersLoading(false);
+    }
   }, []);
 
   const handlePrintDeliveryReceipt = useCallback(async (order: WeeklyOrderRecord) => {
@@ -287,20 +317,19 @@ export default function AdminDashboard() {
     return meta;
   }, [activeView]);
 
-  // Enforce role-based access control constraints during render phase
-  if (user) {
-    const isUserAdmin = user.role === "admin";
-    if (!isUserAdmin) {
+  // Enforce role-based access control constraints
+  useEffect(() => {
+    if (user && user.role !== "admin") {
       if (
         activeView === "overview" ||
         activeView.startsWith("other-order") ||
         activeView === "products" ||
         activeView === "delivery-fees"
       ) {
-        setActiveView("place-order");
+        handleViewChange("place-order");
       }
     }
-  }
+  }, [user, activeView, handleViewChange]);
 
   const selectedOrder = visibleOrders.find((o) => o.id === selectedId) ?? null;
 
@@ -335,9 +364,9 @@ export default function AdminDashboard() {
       );
   }, [visibleOrders, isAdmin]);
 
-  // Compute unread count based on localStorage (only count unread PENDING notifications for badge alerts)
+  // Compute unread count based on localStorage (only count unread notifications in the list for badge alerts)
   const pendingCount = useMemo(() => {
-    return notifOrders.filter((o) => o.status === "pending" && !readOrderIds.includes(o.id)).length;
+    return notifOrders.filter((o) => !readOrderIds.includes(o.id)).length;
   }, [notifOrders, readOrderIds]);
 
   const handleMarkAllAsRead = () => {
@@ -356,9 +385,9 @@ export default function AdminDashboard() {
         order.clientRole === "other_order"
           ? "other-order"
           : `other-order-${order.clientRole}`;
-      setActiveView(view);
+      handleViewChange(view);
     } else {
-      setActiveView("orders");
+      handleViewChange("orders");
     }
   };
 
@@ -366,7 +395,7 @@ export default function AdminDashboard() {
     <div className="flex h-dvh w-full overflow-hidden bg-slate-50 relative">
       <AdminSidebar
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         sidebarOpen={sidebarOpen}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
@@ -507,7 +536,7 @@ export default function AdminDashboard() {
                       <button
                         onClick={() => {
                           setNotifDropdownOpen(false);
-                          setActiveView("notifications");
+                          handleViewChange("notifications");
                         }}
                         className="text-xs font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
                       >
@@ -540,7 +569,7 @@ export default function AdminDashboard() {
             <NotificationsView
               orders={visibleOrders}
               onOrdersUpdated={loadOrders}
-              onViewChange={setActiveView}
+              onViewChange={handleViewChange}
               onSelectOrder={setSelectedId}
               isAdmin={isAdmin}
               readOrderIds={readOrderIds}
@@ -552,7 +581,7 @@ export default function AdminDashboard() {
             <WeeklyOrderView
               orders={visibleOrders}
               onOrdersUpdated={loadOrders}
-              onViewChange={setActiveView}
+              onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
             />
           )}
@@ -567,7 +596,7 @@ export default function AdminDashboard() {
                   ? "other_order"
                   : (activeView.replace("other-order-", "") as OrderRole)
               }
-              onViewChange={setActiveView}
+              onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
             />
           )}
@@ -660,6 +689,7 @@ export default function AdminDashboard() {
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+                loading={ordersLoading}
               />
 
               {/* Centered modal overlay for order detail */}

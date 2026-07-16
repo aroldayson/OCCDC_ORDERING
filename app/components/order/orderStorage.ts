@@ -893,3 +893,47 @@ export function buildOrderItems(
     category: p.category,
   }));
 }
+
+export function mergeOrdersByCategory(ordersList: WeeklyOrderRecord[]): WeeklyOrderRecord[] {
+  const categoryGroups: Record<string, WeeklyOrderRecord[]> = {};
+  for (const order of ordersList) {
+    const cat = order.clientRole || "other";
+    if (!categoryGroups[cat]) {
+      categoryGroups[cat] = [];
+    }
+    categoryGroups[cat].push(order);
+  }
+
+  const mergedList: WeeklyOrderRecord[] = [];
+
+  for (const [category, group] of Object.entries(categoryGroups)) {
+    if (group.length === 0) continue;
+    
+    const itemMap = new Map<string, OrderItem>();
+    
+    for (const order of group) {
+      for (const item of order.items) {
+        if (item.deleted) continue;
+        const key = `${item.name.trim().toLowerCase()}-${item.unit.trim().toLowerCase()}-${item.price || 0}`;
+        const existing = itemMap.get(key);
+        if (existing) {
+          existing.qty += item.qty;
+        } else {
+          itemMap.set(key, { ...item });
+        }
+      }
+    }
+    
+    const aggregatedItems = Array.from(itemMap.values());
+    const primaryOrder = group[0];
+    
+    mergedList.push({
+      ...primaryOrder,
+      items: aggregatedItems,
+      itemCount: aggregatedItems.length,
+      deliveryDate: group.map(o => o.deliveryDate).filter(Boolean)[0] || primaryOrder.deliveryDate,
+    });
+  }
+
+  return mergedList;
+}

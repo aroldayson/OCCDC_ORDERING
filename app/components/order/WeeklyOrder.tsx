@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Printer, CalendarOff } from "lucide-react";
 import { weekLabel, type WeeklyProduct } from "./products";
+import { getFridayFromWeekLabel, toDateInputValue } from "./weekUtils";
 import {
   buildOrderItems,
   createOrderId,
@@ -63,7 +64,7 @@ export default function WeeklyOrder({
   // }, []);
   // /* eslint-enable react-hooks/set-state-in-effect */
 
-  const isOrderingDisabled = new Date().getDay() === 3;
+  const isOrderingDisabled = false;
 
   const [allProducts, setAllProducts] = useState<WeeklyProduct[]>([]);
   const [catalogItems, setCatalogItems] = useState<ItemCatalogEntry[]>([]);
@@ -94,6 +95,18 @@ export default function WeeklyOrder({
   const [submitted, setSubmitted] = useState(false);
   const [lastOrders, setLastOrders] = useState<WeeklyOrderRecord[]>([]);
   const [validationError, setValidationError] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+
+  // Sync default target delivery date when activeWeekLabel changes
+  useEffect(() => {
+    const d = getFridayFromWeekLabel(activeWeekLabel);
+    if (d) {
+      setDeliveryDate(toDateInputValue(d));
+    } else {
+      setDeliveryDate("");
+    }
+  }, [activeWeekLabel]);
+
   // Tracks custom items added locally — only written to Supabase on Submit
   const [localCustomProducts, setLocalCustomProducts] = useState<
     WeeklyProduct[]
@@ -166,7 +179,7 @@ export default function WeeklyOrder({
     } else if (selectedCategory === "egg") {
       setNewItemUnit("tray/30");
       setNewItemSize("Medium");
-      setNewItemName("Egg");
+      setNewItemName("");
       setNewItemCustomName("");
     } else if (selectedCategory === "all") {
       setNewItemUnit("pc");
@@ -339,6 +352,7 @@ export default function WeeklyOrder({
         createdAt: new Date().toISOString(),
         items,
         totalPrice,
+        deliveryDate: deliveryDate || undefined,
       };
 
       await saveOrder(orderRecord);
@@ -411,56 +425,64 @@ export default function WeeklyOrder({
           <div className="mt-3 space-y-2">
             {/* Row 1: Item Name */}
             <div>
-              {selectedCategory === "egg" ? (
-                <input
+              <>
+                <select
                   value={newItemName}
-                  disabled
-                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
-                />
-              ) : (
-                <>
-                  <select
-                    value={newItemName}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewItemName(val);
-                      setNewItemCustomName("");
-                      setValidationError("");
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewItemName(val);
+                    setNewItemCustomName("");
+                    setValidationError("");
 
-                      const matched = catalogItems.find((item) => item.name === val);
-                      if (matched && matched.default_unit) {
-                        setNewItemUnit(matched.default_unit);
+                    const matched = catalogItems.find((item) => item.name === val);
+                    if (matched && matched.default_unit) {
+                      setNewItemUnit(matched.default_unit);
+                    } else {
+                      // Reset back to category default if no matched item (e.g., "Select item" or custom)
+                      if (
+                        selectedCategory === "vegetables" ||
+                        selectedCategory === "meat" ||
+                        selectedCategory === "fruits" ||
+                        selectedCategory === "fish"
+                      ) {
+                        setNewItemUnit("kg");
+                      } else if (selectedCategory === "rice") {
+                        setNewItemUnit("sack");
+                      } else if ((selectedCategory as string) === "egg") {
+                        setNewItemUnit("tray/30");
+                      } else if (selectedCategory === "all") {
+                        setNewItemUnit("pc");
+                      } else {
+                        setNewItemUnit("");
                       }
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Select item</option>
+                  {catalogItems.map((item) => (
+                    <option key={item.id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                  <option value="__custom__">+ Type custom name…</option>
+                </select>
+                {newItemName === "__custom__" && (
+                  <input
+                    value={newItemCustomName}
+                    onChange={(e) => {
+                      setNewItemCustomName(e.target.value);
+                      setValidationError("");
                     }}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="">Select item</option>
-                    {catalogItems.map((item) => (
-                      <option key={item.id} value={item.name}>
-                        {item.name}
-                      </option>
-                    ))}
-                    <option value="__custom__">+ Type custom name…</option>
-                  </select>
-                  {newItemName === "__custom__" && (
-                    <input
-                      value={newItemCustomName}
-                      onChange={(e) => {
-                        setNewItemCustomName(e.target.value);
-                        setValidationError("");
-                      }}
-                      placeholder="Enter item name"
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                    />
-                  )}
-                </>
-              )}
+                    placeholder="Enter item name"
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                )}
+              </>
             </div>
 
-            {/* Row 2: Qty, Unit, and (optional) Size */}
-            <div
-              className={`grid gap-2 ${selectedCategory === "egg" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
-            >
+            {/* Row 2: Qty, Unit */}
+            <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <input
                   value={newItemQty}
@@ -477,34 +499,7 @@ export default function WeeklyOrder({
               </div>
               <div>
                 {/* Conditional Unit Selector */}
-                {selectedCategory === "rice" ? (
-                  <input
-                    value="sack"
-                    disabled
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
-                  />
-                ) : selectedCategory === "vegetables" ||
-                  selectedCategory === "meat" ||
-                  selectedCategory === "fruits" ||
-                  selectedCategory === "fish" ? (
-                  <input
-                    value="kg"
-                    disabled
-                    className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none cursor-not-allowed"
-                  />
-                ) : selectedCategory === "egg" ? (
-                  <select
-                    value={newItemUnit}
-                    onChange={(e) => {
-                      setNewItemUnit(e.target.value);
-                      setValidationError("");
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                  >
-                    <option value="tray/12">tray/12</option>
-                    <option value="tray/30">tray/30</option>
-                  </select>
-                ) : newItemName !== "__custom__" ? (
+                {newItemName !== "__custom__" ? (
                   <input
                     value={newItemUnit || ""}
                     disabled
@@ -538,22 +533,6 @@ export default function WeeklyOrder({
                   </select>
                 )}
               </div>
-              {selectedCategory === "egg" && (
-                <div>
-                  <select
-                    value={newItemSize}
-                    onChange={(e) => {
-                      setNewItemSize(e.target.value);
-                      setValidationError("");
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                  >
-                    <option value="">Select size</option>
-                    <option value="Small">Small</option>
-                    <option value="Medium">Medium</option>
-                  </select>
-                </div>
-              )}
             </div>
           </div>
           {validationError && (
@@ -566,8 +545,7 @@ export default function WeeklyOrder({
               !newItemName.trim() ||
               (newItemName === "__custom__" && !newItemCustomName.trim()) ||
               !newItemQty.trim() ||
-              !newItemUnit.trim() ||
-              (selectedCategory === "egg" && !newItemSize.trim())
+              !newItemUnit.trim()
             }
             onClick={() => {
               const qty = parseFloat(newItemQty);
@@ -590,28 +568,12 @@ export default function WeeklyOrder({
                 setValidationError("Please select a unit");
                 return;
               }
-              if (selectedCategory === "egg" && !newItemSize.trim()) {
-                setValidationError("Please select an egg size");
-                return;
-              }
 
               // Resolve the final display name the same way handleAddCustom does,
               // so the duplicate check matches what would actually be added.
-              const resolvedName = (() => {
-                let name = (
-                  newItemName === "__custom__" ? newItemCustomName : newItemName
-                ).trim();
-                if (selectedCategory === "egg") {
-                  const sizeSuffix = `(${newItemSize.trim()})`;
-                  if (name.toLowerCase().includes("egg")) {
-                    if (!name.includes(sizeSuffix))
-                      name = `${name} ${sizeSuffix}`;
-                  } else {
-                    name = `${name} Egg ${sizeSuffix}`;
-                  }
-                }
-                return name;
-              })();
+              const resolvedName = (
+                newItemName === "__custom__" ? newItemCustomName : newItemName
+              ).trim();
 
               const selectedCatalogItem = catalogItems.find((c) => c.name === newItemName);
               const targetCategory = selectedCatalogItem
@@ -638,16 +600,6 @@ export default function WeeklyOrder({
                   let finalName = (
                     newItemName === "__custom__" ? newItemCustomName : newItemName
                   ).trim();
-                  if (selectedCategory === "egg") {
-                    const sizeSuffix = `(${newItemSize.trim()})`;
-                    if (finalName.toLowerCase().includes("egg")) {
-                      if (!finalName.includes(sizeSuffix)) {
-                        finalName = `${finalName} ${sizeSuffix}`;
-                      }
-                    } else {
-                      finalName = `${finalName} Egg ${sizeSuffix}`;
-                    }
-                  }
 
                   // Build a local-only product entry — NOT saved to Supabase yet
                   const slug =
@@ -676,11 +628,7 @@ export default function WeeklyOrder({
                 };
                 handleAddCustom();
               }
-              setNewItemName(
-                selectedCategory === "egg"
-                  ? "Egg"
-                  : "",
-              );
+              setNewItemName("");
               setNewItemCustomName("");
               setNewItemQty("");
               setNewItemUnit(
@@ -695,7 +643,7 @@ export default function WeeklyOrder({
                       ? "tray/30"
                       : "",
               );
-              setNewItemSize(selectedCategory === "egg" ? "Medium" : "");
+              setNewItemSize("");
               setValidationError("");
             }}
             className="mt-3 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -718,10 +666,10 @@ export default function WeeklyOrder({
             Important Order Notice
           </h4>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Please note that we are closed for ordering every Wednesday as our
-            suppliers compile our weekly shipments. Final pricing for all orders
-            will be updated and sent out every Thursday. Thank you for planning
-            ahead with us!
+            Please note that orders placed from Friday to Tuesday will be
+            delivered by next Wednesday. Orders placed from Wednesday to
+            Thursday will be delivered on Friday of the same week. Thank you
+            for planning ahead with us!
           </p>
         </div>
       </div>
@@ -768,10 +716,24 @@ export default function WeeklyOrder({
               {activeWeekLabel}
             </p>
             {readyToOrder ? (
-              <p className="mt-1 text-sm text-blue-700">
-                Ordering as <strong>{selectedClient?.name}</strong> —{" "}
-                {categoryLabel} items only
-              </p>
+              <>
+                <p className="mt-1 text-sm text-blue-700">
+                  Ordering as <strong>{selectedClient?.name}</strong> —{" "}
+                  {categoryLabel} items only
+                </p>
+                <div className="mt-3.5 border-t border-blue-200/60 pt-3">
+                  <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1.5">
+                    Target Delivery Date
+                  </label>
+                  <input
+                    type="date"
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                    className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                    required
+                  />
+                </div>
+              </>
             ) : (
               <p className="mt-1 text-sm text-blue-700">
                 Select a school and order category to see available items.

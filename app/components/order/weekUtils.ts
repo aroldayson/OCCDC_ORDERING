@@ -167,10 +167,11 @@ export function getFridayFromWeekLabel(weekLabel: string, createdAt?: string | D
       timeZone: "Asia/Manila",
       weekday: "short"
     });
+    const isWednesday = phDayStr === "Wed";
     const isThursday = phDayStr === "Thu";
 
-    if (isThursday) {
-      return addDays(monday, 9); // Friday of the following week (next Friday)
+    if (isWednesday || isThursday) {
+      return addDays(monday, 2); // Friday of the same week (this Friday)
     }
     return addDays(monday, 7); // Wednesday of the following week (next Wednesday)
   }
@@ -197,4 +198,29 @@ export function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns a list of delivery date options (Wednesday and Friday of the following week)
+ * for a given weekLabel.
+ */
+export function getDeliveryDateOptions(weekLabel: string): { value: string; label: string }[] {
+  const weeks = getJuneAugustWeeks();
+  const match = weeks.find((w) => w.weekLabel === weekLabel);
+  if (match) {
+    const monday = addDays(PERIOD_START_MONDAY, (match.periodWeek - 1) * 7);
+    const wednesday = addDays(monday, 7); // next Wednesday
+    const friday = addDays(monday, 9); // next Friday
+    return [
+      {
+        value: toDateInputValue(wednesday),
+        label: formatDeliveryDate(wednesday),
+      },
+      {
+        value: toDateInputValue(friday),
+        label: formatDeliveryDate(friday),
+      },
+    ];
+  }
+  return [];
 }
