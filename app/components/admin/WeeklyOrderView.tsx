@@ -746,7 +746,7 @@ export default function WeeklyOrderView({
                         const categoriesToPrint = user?.categories && user.categories.length > 0
                           ? user.categories
                           : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
-                        
+
                         setPrintLoading(true);
                         try {
                           const allOrdersPromises = categoriesToPrint.map((cat) =>
@@ -754,7 +754,7 @@ export default function WeeklyOrderView({
                           );
                           const ordersResults = await Promise.all(allOrdersPromises);
                           const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
-                          
+
                           if (combinedOrders.length > 0) {
                             const title = categoriesToPrint.length === 1
                               ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
@@ -784,7 +784,7 @@ export default function WeeklyOrderView({
                         const categoriesToPrint = user?.categories && user.categories.length > 0
                           ? user.categories
                           : ["egg", "meat", "rice", "fish", "fruits", "groceries", "vegetables"];
-                        
+
                         setPrintLoading(true);
                         try {
                           const allClients = await getClients();
@@ -974,7 +974,7 @@ export default function WeeklyOrderView({
                                   );
                                   const ordersResults = await Promise.all(allOrdersPromises);
                                   const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
-                                  
+
                                   if (combinedOrders.length > 0) {
                                     const title = categoriesToPrint.length === 1
                                       ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
@@ -1011,7 +1011,7 @@ export default function WeeklyOrderView({
                                   );
                                   const ordersResults = await Promise.all(allOrdersPromises);
                                   const combinedOrders = ordersResults.flat().filter((o) => o.status !== "cancelled");
-                                  
+
                                   if (combinedOrders.length > 0) {
                                     const title = categoriesToPrint.length === 1
                                       ? (orderRoleLabels[categoriesToPrint[0] as keyof typeof orderRoleLabels] || categoriesToPrint[0])
