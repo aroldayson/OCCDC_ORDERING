@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Plus,
   Search,
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 import type { WeeklyOrderRecord } from "../order/types";
 
-const PAGE_SIZES = [10, 20, 50];
 
 type AggregatedItem = {
   productId: string;
@@ -75,15 +72,8 @@ export default function WeeklyItemsManager({
   categoryFilter,
 }: WeeklyItemsManagerProps) {
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [viewItem, setViewItem] = useState<AggregatedItem | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    setPage(1);
-  }, [categoryFilter]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const aggregated = useMemo(() => {
     if (!orders || orders.length === 0) return [];
@@ -107,13 +97,6 @@ export default function WeeklyItemsManager({
     );
   }, [aggregated, search, categoryFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(safePage * pageSize, filtered.length);
-
-
 
   return (
     <>
@@ -135,7 +118,6 @@ export default function WeeklyItemsManager({
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
               }}
               placeholder="Search items..."
               className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -158,14 +140,14 @@ export default function WeeklyItemsManager({
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">
                     No items found for this week.
                   </td>
                 </tr>
               ) : (
-                paged.map((item) => (
+                filtered.map((item) => (
                   <tr key={item.productId} className="border-b border-slate-50 hover:bg-slate-50/80">
                     <td className="px-4 py-3 font-medium text-slate-800 sm:px-5">{item.name}</td>
                     <td className="px-4 py-3 text-slate-600 sm:px-5">
@@ -204,46 +186,6 @@ export default function WeeklyItemsManager({
           </table>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <p>
-            Showing {rangeStart} to {rangeEnd} of {filtered.length} items
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400"
-            >
-              {PAGE_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size} / page
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-                className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="min-w-[2rem] text-center font-medium text-slate-700">{safePage}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage >= totalPages}
-                className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {viewItem && (

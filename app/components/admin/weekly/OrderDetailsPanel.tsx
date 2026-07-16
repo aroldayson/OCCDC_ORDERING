@@ -210,13 +210,12 @@ function OrderItemsTable({
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <p
-                        className={`font-medium ${
-                          isDeleted
+                        className={`font-medium ${isDeleted
                             ? "text-red-600 line-through decoration-red-500 decoration-2"
                             : isUnpriced
                               ? "text-blue-600 underline decoration-blue-500 decoration-2"
                               : "text-slate-800"
-                        }`}
+                          }`}
                       >
                         {item.name}
                       </p>
@@ -301,31 +300,38 @@ function OrderItemsTable({
                         <button
                           type="button"
                           onClick={() => {
-                            if (isWednesday) return;
+                            if (isWednesday || isDeleted) return;
                             setEditingProductId(item.productId);
                             setEditQty(item.qty);
                           }}
-                          disabled={isWednesday}
-                          aria-disabled={isWednesday}
-                          className={`rounded p-1 text-blue-600 transition ${isWednesday ? "cursor-not-allowed opacity-60" : "hover:bg-blue-50"}`}
+                          disabled={isWednesday || isDeleted}
+                          aria-disabled={isWednesday || isDeleted}
+                          className={`rounded p-1 text-blue-600 transition ${isWednesday || isDeleted ? "cursor-not-allowed opacity-40" : "hover:bg-blue-50"}`}
                           title={
-                            isWednesday
-                              ? "Disabled on Wednesday"
-                              : "Edit quantity"
+                            isDeleted
+                              ? "Item deleted"
+                              : isWednesday
+                                ? "Disabled on Wednesday"
+                                : "Edit quantity"
                           }
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteItem(item.productId)}
-                          disabled={isWednesday}
-                          aria-disabled={isWednesday}
-                          className={`rounded p-1 text-red-500 transition ${isWednesday ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
+                          onClick={() => {
+                            if (isWednesday || isDeleted) return;
+                            handleDeleteItem(item.productId);
+                          }}
+                          disabled={isWednesday || isDeleted}
+                          aria-disabled={isWednesday || isDeleted}
+                          className={`rounded p-1 text-red-500 transition ${isWednesday || isDeleted ? "cursor-not-allowed opacity-40" : "hover:bg-red-50"}`}
                           title={
-                            isWednesday
-                              ? "Disabled on Wednesday"
-                              : "Delete item"
+                            isDeleted
+                              ? "Item already deleted"
+                              : isWednesday
+                                ? "Disabled on Wednesday"
+                                : "Delete item"
                           }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -394,11 +400,10 @@ function OrderAccordion({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border bg-white ${
-        order.status === "cancelled"
+      className={`overflow-hidden rounded-xl border bg-white ${order.status === "cancelled"
           ? "border-red-200 bg-red-50/20"
           : "border-slate-200"
-      }`}
+        }`}
     >
       <div className="px-4 py-3 sm:px-5">
         {/* Row 1: Category badge + Order ID + status + chevron + actions */}

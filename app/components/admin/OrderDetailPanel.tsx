@@ -112,7 +112,7 @@ export default function OrderDetailPanel({
   async function handleProofUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!order || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    
+
     if (!file.type.startsWith("image/")) {
       alert("Please select or capture an image file.");
       return;
@@ -140,7 +140,7 @@ export default function OrderDetailPanel({
   async function handleProofDelete() {
     if (!order) return;
     if (!confirm("Are you sure you want to remove the proof of delivery?")) return;
-    
+
     try {
       await deleteDeliveryProof(order.id);
     } catch (err) {
@@ -375,7 +375,7 @@ export default function OrderDetailPanel({
           <div className="flex gap-1 items-center text-xs font-medium text-slate-500 sm:gap-2">
             <span className="hidden sm:inline">Actions</span>
             <button
-              onClick={() => printOrderForm(order, undefined, clientRecord)}
+              onClick={async () => await printOrderForm(order, undefined, clientRecord)}
               className="rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition sm:p-1.5"
               title="Print order"
             >
@@ -408,10 +408,10 @@ export default function OrderDetailPanel({
               disabled={!isAdmin}
               onClick={() => handleStatusChange(s)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${order.status === s
-                  ? statusStyles[s]
-                  : isAdmin
-                    ? "border-slate-200 text-slate-500 hover:border-slate-300"
-                    : "border-slate-100 text-slate-300 opacity-40"
+                ? statusStyles[s]
+                : isAdmin
+                  ? "border-slate-200 text-slate-500 hover:border-slate-300"
+                  : "border-slate-100 text-slate-300 opacity-40"
                 }`}
             >
               {s}
@@ -490,9 +490,8 @@ export default function OrderDetailPanel({
                   />
                   <label
                     htmlFor="proof-upload-input"
-                    className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 cursor-pointer hover:bg-blue-100 transition ${
-                      uploadingProof ? "opacity-60 pointer-events-none" : ""
-                    }`}
+                    className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 cursor-pointer hover:bg-blue-100 transition ${uploadingProof ? "opacity-60 pointer-events-none" : ""
+                      }`}
                   >
                     <Camera className="h-3.5 w-3.5" />
                     {uploadingProof ? "Uploading..." : "Capture / Upload Proof"}
@@ -524,10 +523,10 @@ export default function OrderDetailPanel({
                       <div className="flex items-center gap-2">
                         <p
                           className={`text-sm font-medium ${isDeleted
-                              ? "text-red-600 line-through decoration-red-500 decoration-2"
-                              : isUnpriced
-                                ? "text-blue-600 underline decoration-blue-500 decoration-2"
-                                : "text-slate-800"
+                            ? "text-red-600 line-through decoration-red-500 decoration-2"
+                            : isUnpriced
+                              ? "text-blue-600 underline decoration-blue-500 decoration-2"
+                              : "text-slate-800"
                             }`}
                         >
                           {item.name}

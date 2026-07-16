@@ -364,8 +364,8 @@ export default function PrintReceiptModal({ order, onClose }: PrintReceiptModalP
                         type="button"
                         onClick={() => setCopyType(type)}
                         className={`rounded-xl border px-3 py-2 text-xs font-semibold capitalize transition-all text-center ${copyType === type
-                            ? "border-violet-600 bg-violet-50 text-violet-700 ring-2 ring-violet-100"
-                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "border-violet-600 bg-violet-50 text-violet-700 ring-2 ring-violet-100"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
                           }`}
                       >
                         {labels[type]}

@@ -4,6 +4,41 @@ import { ClientRecord } from "../order/clientStorage";
 import { getFridayFromWeekLabel } from "../order/weekUtils";
 import { supabase } from "@/lib/supabase";
 
+export async function resolveCoopNameForCategory(category: string): Promise<string> {
+  try {
+    const { data: suppliers, error: supError } = await supabase
+      .from("user_profiles")
+      .select("coop_id, categories")
+      .eq("role", "supplier");
+
+    if (supError || !suppliers) return "OCCDHPC";
+
+    const matchingSupplier = suppliers.find(s => {
+      if (Array.isArray(s.categories)) {
+        return s.categories.includes(category);
+      }
+      if (typeof s.categories === 'string') {
+        return s.categories.toLowerCase().includes(category.toLowerCase());
+      }
+      return false;
+    });
+
+    if (!matchingSupplier || !matchingSupplier.coop_id) return "OCCDHPC";
+
+    const { data: coop, error: coopError } = await supabase
+      .from("coop_profile")
+      .select("name, short_name")
+      .eq("id", matchingSupplier.coop_id)
+      .single();
+
+    if (coopError || !coop) return "OCCDHPC";
+    return coop.name || coop.short_name || "OCCDHPC";
+  } catch (err) {
+    console.error("Error resolving coop name for category:", err);
+    return "OCCDHPC";
+  }
+}
+
 function normalizeProductName(name: string): string {
   return name
     .toLowerCase()
@@ -74,6 +109,31 @@ function signatureBlock(isSupplier = false): string {
 }
 
 export function printCatalog(weekLabel: string, rows: any[]) {
+  const grandTotal = rows.reduce((sum, row) => {
+    const qty = Number(row.product.defaultQty) || 0;
+    const price = Number(row.product.price) || 0;
+    return sum + qty * price;
+  }, 0);
+
+  // Pre-calculate rowspans for schoolName column
+  const schoolRowSpans = new Map<string, number>();
+  let lastSchoolName = "";
+  let runStartIdx = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const sName = rows[i].schoolName === "Z_NO_ORDERS" ? "No Orders" : rows[i].schoolName;
+    if (sName !== lastSchoolName) {
+      if (lastSchoolName !== "") {
+        schoolRowSpans.set(`${runStartIdx}_${lastSchoolName}`, i - runStartIdx);
+      }
+      lastSchoolName = sName;
+      runStartIdx = i;
+    }
+  }
+  if (lastSchoolName !== "") {
+    schoolRowSpans.set(`${runStartIdx}_${lastSchoolName}`, rows.length - runStartIdx);
+  }
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -87,8 +147,11 @@ export function printCatalog(weekLabel: string, rows: any[]) {
         .form-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; }
         .form-info { display: flex; gap: 40px; margin-bottom: 30px; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; }
-        td { border: 1px solid #999; padding: 12px; font-size: 12px; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px 10px; font-weight: bold; font-size: 12px; text-transform: uppercase; white-space: nowrap; }
+        td { border: 1px solid #999; padding: 10px; font-size: 12px; }
+        td.school-name-col { min-width: 140px; font-weight: bold; vertical-align: middle; }
+        td.item-name-col { min-width: 220px; }
+        .grand-total-row td { background-color: #001f3f; color: #fff; font-weight: bold; font-size: 13px; }
         @media print {
           body { background: white; padding: 0; }
           .container { border: 1px solid #999; box-shadow: none; }
@@ -108,26 +171,135 @@ export function printCatalog(weekLabel: string, rows: any[]) {
         <table>
           <thead>
             <tr>
-              <th>SCHOOL NAME</th>
-              <th>ITEM</th>
-              <th>CATEGORY</th>
-              <th>DEFAULT QTY</th>
-              <th>UNIT</th>
-              <th>PRICE</th>
+              <th style="text-align: center; width: 40px;">#</th>
+              <th style="text-align: left;">SCHOOL NAME</th>
+              <th style="text-align: left;">ITEM</th>
+              <th style="text-align: left;">CATEGORY</th>
+              <th style="text-align: center;">DEFAULT QTY</th>
+              <th style="text-align: center;">UNIT</th>
+              <th style="text-align: right;">PRICE</th>
+              <th style="text-align: right;">TOTAL PRICE</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map(row => `
+            ${rows.map((row, index) => {
+    const totalPrice = (Number(row.product.defaultQty) || 0) * (Number(row.product.price) || 0);
+    const sName = row.schoolName === "Z_NO_ORDERS" ? "No Orders" : row.schoolName;
+    const runKey = `${index}_${sName}`;
+    const rowSpanVal = schoolRowSpans.get(runKey);
+    const showSchoolCell = rowSpanVal !== undefined;
+
+    const schoolCell = showSchoolCell
+      ? `<td rowspan="${rowSpanVal}" class="school-name-col">${row.schoolName === "Z_NO_ORDERS" ? "<i>No Orders</i>" : row.schoolName}</td>`
+      : "";
+
+    return `
               <tr>
-                <td>${row.schoolName === "Z_NO_ORDERS" ? "<i>No Orders</i>" : row.schoolName}</td>
-                <td>${row.product.name}</td>
+                <td style="text-align: center;">${index + 1}</td>
+                ${schoolCell}
+                <td class="item-name-col">${row.product.name}</td>
                 <td>${categoryLabels[row.product.category] ?? row.product.category}</td>
-                <td>${row.product.defaultQty}</td>
-                <td>${row.product.unit}</td>
-                <td>₱${(row.product.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: center;">${row.product.defaultQty}</td>
+                <td style="text-align: center;">${row.product.unit}</td>
+                <td style="text-align: right; white-space: nowrap;">₱${(row.product.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right; white-space: nowrap;">₱${totalPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
-            `).join("")}
+            `}).join("")}
           </tbody>
+          <tfoot>
+            <tr class="grand-total-row">
+              <td colspan="7" style="text-align:right; letter-spacing:0.05em; padding-right: 15px;">GRAND TOTAL</td>
+              <td style="text-align:right;">₱${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </body>
+    </html>
+  `;
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  }
+}
+
+export function printCatalogForSchool(weekLabel: string, schoolName: string, rows: any[]) {
+  const grandTotal = rows.reduce((sum, row) => {
+    const qty = Number(row.product.defaultQty) || 0;
+    const price = Number(row.product.price) || 0;
+    return sum + qty * price;
+  }, 0);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Pricing Update - ${schoolName} - ${weekLabel}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 40px; background-color: #f5f5f5; }
+        .container { background: white; max-width: 900px; margin: 0 auto; padding: 40px; border: 3px solid #001f3f; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #001f3f; padding-bottom: 20px; }
+        .form-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
+        .school-name { font-size: 15px; font-weight: bold; color: #003080; margin-bottom: 4px; }
+        .form-info { display: flex; gap: 40px; margin-bottom: 30px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px 10px; font-weight: bold; font-size: 12px; text-transform: uppercase; white-space: nowrap; }
+        td { border: 1px solid #999; padding: 10px; font-size: 12px; }
+        td.item-name-col { min-width: 220px; }
+        .grand-total-row td { background-color: #001f3f; color: #fff; font-weight: bold; font-size: 13px; }
+        @media print {
+          body { background: white; padding: 0; }
+          .container { border: 1px solid #999; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="form-title">Pricing Update</div>
+          <div class="school-name">${schoolName}</div>
+          <div>Manage and view pricing for the selected week</div>
+        </div>
+        <div class="form-info">
+          <div><strong>WEEK :</strong> ${weekLabel}</div>
+          <div><strong>DATE PRINTED :</strong> ${new Date().toLocaleDateString("en-PH")}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 40px;">#</th>
+              <th style="text-align: left;">ITEM</th>
+              <th style="text-align: left;">CATEGORY</th>
+              <th style="text-align: center;">DEFAULT QTY</th>
+              <th style="text-align: center;">UNIT</th>
+              <th style="text-align: right;">PRICE</th>
+              <th style="text-align: right;">TOTAL PRICE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row, index) => {
+    const totalPrice = (Number(row.product.defaultQty) || 0) * (Number(row.product.price) || 0);
+    return `
+              <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td class="item-name-col">${row.product.name}</td>
+                <td>${categoryLabels[row.product.category] ?? row.product.category}</td>
+                <td style="text-align: center;">${row.product.defaultQty}</td>
+                <td style="text-align: center;">${row.product.unit}</td>
+                <td style="text-align: right; white-space: nowrap;">₱${(row.product.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right; white-space: nowrap;">₱${totalPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              </tr>
+            `}).join("")}
+          </tbody>
+          <tfoot>
+            <tr class="grand-total-row">
+              <td colspan="6" style="text-align:right; letter-spacing:0.05em; padding-right: 15px;">GRAND TOTAL</td>
+              <td style="text-align:right;">₱${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </body>
@@ -142,8 +314,10 @@ export function printCatalog(weekLabel: string, rows: any[]) {
 }
 
 
+
 export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, client?: ClientRecord, isSupplier = false) {
   let resolvedClient = client;
+
   if (!resolvedClient) {
     try {
       const { resolveClientBySchoolName } = await import("../order/clientStorage");
@@ -213,12 +387,12 @@ export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, c
         </div>
         <div class="form-title">Purchase Request Form</div>
         <div class="form-info">
-          <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
           <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${orderDateFormatted}</span></div>
-          <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${order.weekLabel}</span></div>
+          <div class="form-info-item"><span class="form-info-label">ORDER NO:</span><span style="font-weight:bold;font-family:monospace;">${order.id.toUpperCase()}</span></div>
           <div class="form-info-item"><span class="form-info-label">TARGET DELIVER :</span><span>${deliveryDateFormatted}</span></div>
-          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${categoryLabels[order.clientRole] ?? order.clientRole}</span></div>
+          <div class="form-info-item"><span class="form-info-label">ORDER WEEK:</span><span>${order.weekLabel}</span></div>
           <div class="form-info-item"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${order.status}</span></div>
+          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${categoryLabels[order.clientRole] ?? order.clientRole}</span></div>
         </div>
         <table>
           <thead>
@@ -253,7 +427,7 @@ export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, c
             ₱${(printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
           </span>
         </div>
-        ${signatureBlock(isSupplier)}
+        ${signatureBlock(false)}
       </div>
     </body>
     </html>
@@ -267,13 +441,14 @@ export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, c
   }
 }
 
-export function printClientSummary(
+export async function printClientSummary(
   clientName: string,
   weekLabel: string,
-  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean }[],
+  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[],
   orders: { status: string }[],
   clientRecord?: ClientRecord,
   isSupplier = false,
+  loggedInSupplierCoopName?: string,
 ) {
   const address = clientRecord?.address || "Address not provided";
   const deliveryPrice = clientRecord?.delivery_price || 0;
@@ -292,6 +467,78 @@ export function printClientSummary(
       .join(" / ");
   })();
 
+  // Sort printableItems by category, then by order ID, then by name
+  const sortedItems = [...printableItems].sort((a, b) => {
+    const catA = categoryLabels[a.category] ?? a.category;
+    const catB = categoryLabels[b.category] ?? b.category;
+    const catCompare = catA.localeCompare(catB);
+    if (catCompare !== 0) return catCompare;
+
+    const oidA = a.orderId || "";
+    const oidB = b.orderId || "";
+    const oidCompare = oidA.localeCompare(oidB);
+    if (oidCompare !== 0) return oidCompare;
+
+    return a.name.localeCompare(b.name);
+  });
+
+  // Pre-calculate order group sizes for rowspan
+  const orderGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const oid = item.orderId || "N/A";
+    orderGroups.set(oid, (orderGroups.get(oid) || 0) + 1);
+  });
+
+  // Pre-calculate category group sizes for rowspan
+  const categoryGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const cat = item.category || "Other";
+    categoryGroups.set(cat, (categoryGroups.get(cat) || 0) + 1);
+  });
+
+  const renderedOrderIds = new Set<string>();
+  const renderedCategories = new Set<string>();
+
+  const tbodyRows = sortedItems.map((item, index) => {
+    const oid = item.orderId || "N/A";
+    const cat = item.category || "Other";
+
+    const showOrderCell = !renderedOrderIds.has(oid);
+    if (showOrderCell) {
+      renderedOrderIds.add(oid);
+    }
+    const orderGroupCount = orderGroups.get(oid) || 1;
+    const orderIdCell = showOrderCell
+      ? `<td rowspan="${orderGroupCount}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #999;">${oid}</td>`
+      : "";
+
+    const showCategoryCell = !renderedCategories.has(cat);
+    if (showCategoryCell) {
+      renderedCategories.add(cat);
+    }
+    const catGroupCount = categoryGroups.get(cat) || 1;
+    const categoryCell = showCategoryCell
+      ? `<td rowspan="${catGroupCount}" style="vertical-align: middle; text-align: center; border: 1px solid #999;">${categoryLabels[cat] ?? cat}</td>`
+      : "";
+
+    return `
+      <tr>
+        <td class="number-col" style="text-align: center; border: 1px solid #999;">${index + 1}</td>
+        ${orderIdCell}
+        <td style="border: 1px solid #999;">${item.name}</td>
+        ${categoryCell}
+        <td class="number-col" style="text-align: center; border: 1px solid #999;">${item.qty}</td>
+        <td style="text-align: center; border: 1px solid #999;">${item.unit}</td>
+        <td class="number-col" style="text-align: right; border: 1px solid #999;">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+        <td class="total" style="text-align: right; border: 1px solid #999;">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const activeCategories = [...new Set(sortedItems.map(it => categoryLabels[it.category] ?? it.category))];
+  const categoryKey = sortedItems[0]?.category || "";
+  const coopName = loggedInSupplierCoopName || (categoryKey ? await resolveCoopNameForCategory(categoryKey) : "OCCDHPC");
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -309,7 +556,7 @@ export function printClientSummary(
         .form-info-item { display: flex; }
         .form-info-label { font-weight: bold; width: 120px; color: #000; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #000; }
+        th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: #000; }
         td { border: 1px solid #999; padding: 12px; font-size: 12px; color: #000; }
         td.number-col { text-align: center; width: 40px; }
         td.total { text-align: right; font-weight: bold; }
@@ -331,37 +578,32 @@ export function printClientSummary(
         </div>
         <div class="form-title">Purchase Request Form (Summary)</div>
         <div class="form-info">
-          <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
-          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${weekLabel}</span></div>
+          <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
+          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${activeCategories.join(" / ")}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDERS :</span><span>Total ${ordersCount} Category Orders</span></div>
-          <div class="form-info-item"><span class="form-info-label">CATEGORY :</span><span style="font-weight:bold;text-transform:uppercase;">${[...new Set(printableItems.map(it => categoryLabels[it.category] ?? it.category))].join(" / ")}</span></div>
-          <div class="form-info-item"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
+          <div class="form-info-item" style="grid-column: span 2;"><span class="form-info-label">STATUS :</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
         </div>
         <table>
           <thead>
             <tr>
-              <th>ITEM NO.</th><th>DESCRIPTION</th><th>CATEGORY</th>
-              <th>QTY.</th><th>UNIT</th><th>UNIT PRICE</th><th>TOTAL COST</th>
+              <th style="text-align: center; width: 60px;">ITEM NO.</th>
+              <th style="text-align: center; min-width: 110px;">ORDER ID</th>
+              <th style="text-align: left;">DESCRIPTION</th>
+              <th style="text-align: center;">CATEGORY</th>
+              <th style="text-align: center; width: 60px;">QTY.</th>
+              <th style="text-align: center; width: 65px;">UNIT</th>
+              <th style="text-align: right; width: 100px;">UNIT PRICE</th>
+              <th style="text-align: right; width: 120px;">TOTAL COST</th>
             </tr>
           </thead>
           <tbody>
-            ${printableItems.map((item, index) => `
-              <tr>
-                <td class="number-col">${index + 1}</td>
-                <td>${item.name}</td>
-                <td>${categoryLabels[item.category] ?? item.category}</td>
-                <td class="number-col">${item.qty}</td>
-                <td>${item.unit}</td>
-                <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-                <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-              </tr>
-            `).join("")}
+            ${tbodyRows}
             ${deliveryPrice > 0 ? `
               <tr>
-                <td class="number-col"></td>
-                <td colspan="5" style="text-align:right;font-weight:bold;">Delivery Fee</td>
-                <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td class="number-col" style="border: 1px solid #999;"></td>
+                <td colspan="6" style="text-align:right;font-weight:bold;border: 1px solid #999;">Delivery Fee</td>
+                <td class="total" style="border: 1px solid #999;">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             ` : ""}
           </tbody>
@@ -371,7 +613,7 @@ export function printClientSummary(
             ₱${(printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
           </span>
         </div>
-        ${signatureBlock(isSupplier)}
+        ${signatureBlock(false)}
       </div>
     </body>
     </html>
@@ -767,7 +1009,6 @@ export function printAllOrders(
         </div>
         <div class="form-title">Purchase Request Form (Summary)</div>
         <div class="form-info">
-          <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
           <div class="form-info-item"><span class="form-info-label">DATE :</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDER :</span><span>${weekLabel}</span></div>
           <div class="form-info-item"><span class="form-info-label">ORDERS :</span><span>Total ${orders.length} Order${orders.length !== 1 ? "s" : ""}</span></div>
@@ -821,13 +1062,14 @@ export function printAllOrders(
 
 // ─── Client Summary: Download as PDF ────────────────────────────────────────
 
-export function downloadClientSummaryPdf(
+export async function downloadClientSummaryPdf(
   clientName: string,
   weekLabel: string,
-  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean }[],
+  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[],
   orders: { status: string }[],
   clientRecord?: ClientRecord,
   isSupplier = false,
+  loggedInSupplierCoopName?: string,
 ) {
   const address = clientRecord?.address || "Address not provided";
   const deliveryPrice = clientRecord?.delivery_price || 0;
@@ -844,6 +1086,74 @@ export function downloadClientSummaryPdf(
 
   const grandTotal =
     printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+
+  // Sort printableItems by category, then by order ID, then by name
+  const sortedItems = [...printableItems].sort((a, b) => {
+    const catA = categoryLabels[a.category] ?? a.category;
+    const catB = categoryLabels[b.category] ?? b.category;
+    const catCompare = catA.localeCompare(catB);
+    if (catCompare !== 0) return catCompare;
+
+    const oidA = a.orderId || "";
+    const oidB = b.orderId || "";
+    const oidCompare = oidA.localeCompare(oidB);
+    if (oidCompare !== 0) return oidCompare;
+
+    return a.name.localeCompare(b.name);
+  });
+
+  // Pre-calculate order group sizes for rowspan
+  const orderGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const oid = item.orderId || "N/A";
+    orderGroups.set(oid, (orderGroups.get(oid) || 0) + 1);
+  });
+
+  // Pre-calculate category group sizes for rowspan
+  const categoryGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const cat = item.category || "Other";
+    categoryGroups.set(cat, (categoryGroups.get(cat) || 0) + 1);
+  });
+
+  const renderedOrderIds = new Set<string>();
+  const renderedCategories = new Set<string>();
+
+  const tbodyRows = sortedItems.map((item, index) => {
+    const oid = item.orderId || "N/A";
+    const cat = item.category || "Other";
+
+    const showOrderCell = !renderedOrderIds.has(oid);
+    if (showOrderCell) {
+      renderedOrderIds.add(oid);
+    }
+    const orderGroupCount = orderGroups.get(oid) || 1;
+    const orderIdCell = showOrderCell
+      ? `<td rowspan="${orderGroupCount}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #999;">${oid}</td>`
+      : "";
+
+    const showCategoryCell = !renderedCategories.has(cat);
+    if (showCategoryCell) {
+      renderedCategories.add(cat);
+    }
+    const catGroupCount = categoryGroups.get(cat) || 1;
+    const categoryCell = showCategoryCell
+      ? `<td rowspan="${catGroupCount}" style="vertical-align: middle; text-align: center; border: 1px solid #999;">${categoryLabels[cat] ?? cat}</td>`
+      : "";
+
+    return `
+      <tr>
+        <td class="number-col" style="text-align: center; border: 1px solid #999;">${index + 1}</td>
+        ${orderIdCell}
+        <td style="border: 1px solid #999;">${item.name}</td>
+        ${categoryCell}
+        <td class="number-col" style="text-align: center; border: 1px solid #999;">${item.qty}</td>
+        <td style="text-align: center; border: 1px solid #999;">${item.unit}</td>
+        <td class="number-col" style="text-align: right; border: 1px solid #999;">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+        <td class="total" style="text-align: right; border: 1px solid #999;">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+      </tr>
+    `;
+  }).join("");
 
   const html = `<!DOCTYPE html>
 <html>
@@ -862,7 +1172,7 @@ export function downloadClientSummaryPdf(
     .form-info-item { display: flex; }
     .form-info-label { font-weight: bold; width: 120px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; text-align: left; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+    th { background-color: #f0f0f0; border: 1px solid #999; padding: 12px; font-weight: bold; font-size: 12px; text-transform: uppercase; }
     td { border: 1px solid #999; padding: 12px; font-size: 12px; }
     td.number-col { text-align: center; width: 40px; }
     td.total { text-align: right; font-weight: bold; }
@@ -876,40 +1186,32 @@ export function downloadClientSummaryPdf(
     </div>
     <div class="form-title">Purchase Request Form (Summary)</div>
     <div class="form-info">
-      <div class="form-info-item"><span class="form-info-label">TO:</span><span>OCCDHPC</span></div>
-      <div class="form-info-item"><span class="form-info-label">DATE:</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
       <div class="form-info-item"><span class="form-info-label">ORDER:</span><span>${weekLabel}</span></div>
-      <div class="form-info-item"><span class="form-info-label">ORDERS:</span><span>Total ${ordersCount} Category Orders</span></div>
+      <div class="form-info-item"><span class="form-info-label">DATE:</span><span>${new Date().toLocaleDateString("en-PH")}</span></div>
       <div class="form-info-item"><span class="form-info-label">CATEGORY:</span><span style="font-weight:bold;text-transform:uppercase;">${[...new Set(printableItems.map((it) => categoryLabels[it.category] ?? it.category))].join(" / ")}</span></div>
-      <div class="form-info-item"><span class="form-info-label">STATUS:</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
+      <div class="form-info-item"><span class="form-info-label">ORDERS:</span><span>Total ${ordersCount} Category Orders</span></div>
+      <div class="form-info-item" style="grid-column: span 2;"><span class="form-info-label">STATUS:</span><span style="font-weight:bold;text-transform:uppercase;">${statusSummary}</span></div>
     </div>
     <table>
       <thead>
         <tr>
-          <th>ITEM NO.</th><th>DESCRIPTION</th><th>CATEGORY</th>
-          <th>QTY.</th><th>UNIT</th><th>UNIT PRICE</th><th>TOTAL COST</th>
+          <th style="text-align: center; width: 60px;">ITEM NO.</th>
+          <th style="text-align: center; min-width: 110px;">ORDER ID</th>
+          <th style="text-align: left;">DESCRIPTION</th>
+          <th style="text-align: center;">CATEGORY</th>
+          <th style="text-align: center; width: 60px;">QTY.</th>
+          <th style="text-align: center; width: 65px;">UNIT</th>
+          <th style="text-align: right; width: 100px;">UNIT PRICE</th>
+          <th style="text-align: right; width: 120px;">TOTAL COST</th>
         </tr>
       </thead>
       <tbody>
-        ${printableItems
-      .map(
-        (item, index) => `
-          <tr>
-            <td class="number-col">${index + 1}</td>
-            <td>${item.name}</td>
-            <td>${categoryLabels[item.category] ?? item.category}</td>
-            <td class="number-col">${item.qty}</td>
-            <td>${item.unit}</td>
-            <td class="number-col">₱${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-            <td class="total">₱${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-          </tr>`,
-      )
-      .join("")}
+        ${tbodyRows}
         ${deliveryPrice > 0
       ? `<tr>
-            <td class="number-col"></td>
-            <td colspan="5" style="text-align:right;font-weight:bold;">Delivery Fee</td>
-            <td class="total">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+            <td class="number-col" style="border: 1px solid #999;"></td>
+            <td colspan="6" style="text-align:right;font-weight:bold;border: 1px solid #999;">Delivery Fee</td>
+            <td class="total" style="border: 1px solid #999;">₱${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
           </tr>`
       : ""
     }
@@ -918,7 +1220,7 @@ export function downloadClientSummaryPdf(
     <div style="text-align:right;font-weight:bold;margin-bottom:30px;">
       Grand Total: ₱${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
     </div>
-    ${signatureBlock(isSupplier)}
+    ${signatureBlock(false)}
   </div>
 </body>
 </html>`;
@@ -941,7 +1243,7 @@ export function downloadClientSummaryPdf(
 export async function downloadClientSummaryExcel(
   clientName: string,
   weekLabel: string,
-  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean }[],
+  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[],
   orders: { status: string }[],
   clientRecord?: ClientRecord,
 ) {
@@ -970,12 +1272,28 @@ export async function downloadClientSummaryExcel(
     ["Status", statusSummary],
     [],
     // Header row
-    ["#", "Description", "Category", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
+    ["#", "Order ID", "Description", "Category", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
   ];
 
+  // Sort printableItems by category, then by order ID, then by name
+  const sortedItems = [...printableItems].sort((a, b) => {
+    const catA = categoryLabels[a.category] ?? a.category;
+    const catB = categoryLabels[b.category] ?? b.category;
+    const catCompare = catA.localeCompare(catB);
+    if (catCompare !== 0) return catCompare;
+
+    const oidA = a.orderId || "";
+    const oidB = b.orderId || "";
+    const oidCompare = oidA.localeCompare(oidB);
+    if (oidCompare !== 0) return oidCompare;
+
+    return a.name.localeCompare(b.name);
+  });
+
   // Data rows
-  const dataRows = printableItems.map((item, i) => [
+  const dataRows = sortedItems.map((item, i) => [
     i + 1,
+    item.orderId || "N/A",
     item.name,
     categoryLabels[item.category] ?? item.category,
     item.qty,
@@ -986,21 +1304,66 @@ export async function downloadClientSummaryExcel(
 
   // Delivery fee row
   if (deliveryPrice > 0) {
-    dataRows.push(["", "", "", "", "", "Delivery Fee", deliveryPrice]);
+    dataRows.push(["", "", "", "", "", "", "Delivery Fee", deliveryPrice]);
   }
 
   // Grand total row
   const grandTotal =
-    printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
-  dataRows.push(["", "", "", "", "", "Grand Total", grandTotal]);
+    sortedItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
+  dataRows.push(["", "", "", "", "", "", "Grand Total", grandTotal]);
 
   const allRows = [...metaRows, ...dataRows];
 
   const ws = XLSX.utils.aoa_to_sheet(allRows);
 
+  // Pre-calculate order group sizes for merges
+  const orderGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const oid = item.orderId || "N/A";
+    orderGroups.set(oid, (orderGroups.get(oid) || 0) + 1);
+  });
+
+  // Pre-calculate category group sizes for merges
+  const categoryGroups = new Map<string, number>();
+  sortedItems.forEach(item => {
+    const cat = item.category || "Other";
+    categoryGroups.set(cat, (categoryGroups.get(cat) || 0) + 1);
+  });
+
+  // Apply merges
+  let currentRow = metaRows.length; // usually 9
+  const renderedOrderIds = new Set<string>();
+  const renderedCategories = new Set<string>();
+
+  sortedItems.forEach((item) => {
+    const oid = item.orderId || "N/A";
+    const cat = item.category || "Other";
+
+    if (!renderedOrderIds.has(oid)) {
+      renderedOrderIds.add(oid);
+      const count = orderGroups.get(oid) || 1;
+      if (count > 1) {
+        // Merge Order ID (col index 1)
+        addMerge(ws, currentRow, currentRow + count - 1, 1, 1);
+      }
+    }
+
+    if (!renderedCategories.has(cat)) {
+      renderedCategories.add(cat);
+      const count = categoryGroups.get(cat) || 1;
+      if (count > 1) {
+        // Merge Category (col index 3)
+        addMerge(ws, currentRow, currentRow + count - 1, 3, 3);
+      }
+    }
+
+    currentRow++;
+  });
+
   // Set column widths
   ws["!cols"] = [
     { wch: 4 },  // #
+    { wch: 16 }, // Order ID
     { wch: 30 }, // Description
     { wch: 14 }, // Category
     { wch: 6 },  // Qty
@@ -1022,7 +1385,7 @@ export async function downloadSingleOrderExcel(
   client?: ClientRecord,
 ) {
   const XLSX = await import("xlsx");
-  
+
   let resolvedClient = client;
   if (!resolvedClient) {
     try {
@@ -1170,21 +1533,36 @@ export async function downloadDeliveryReceiptExcel(
     console.error("Failed to query details for delivery receipt excel:", e);
   }
 
+  let deliveryDateFormatted = "Not set";
+  const dateStr = order.deliveryDate;
+  let dDate: Date | null = null;
+  if (dateStr) {
+    dDate = new Date(dateStr + "T12:00:00");
+  } else {
+    dDate = getFridayFromWeekLabel(order.weekLabel, order.createdAt);
+  }
+  if (dDate) {
+    deliveryDateFormatted = dDate.toLocaleDateString("en-PH");
+  }
+
   const metaRows = [
     ["DELIVERY RECEIPT"],
     [],
     ["Order ID", order.id],
     ["Client", order.clientName],
     ["Address", address],
-    ["Date", order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-PH") : new Date().toLocaleDateString("en-PH")],
+    ["Target Deliver Date", deliveryDateFormatted],
     ["Status", order.status.toUpperCase()],
     [],
-    ["#", "Description", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
+    // Header row
+    ["#", "Order ID", "Description", "Category", "Qty", "Unit", "Unit Price (₱)", "Total Cost (₱)"],
   ];
 
   const dataRows = printableItems.map((item, i) => [
     i + 1,
+    order.id,
     item.name,
+    categoryLabels[item.category] ?? item.category,
     item.qty,
     item.unit,
     item.price || 0,
@@ -1192,11 +1570,11 @@ export async function downloadDeliveryReceiptExcel(
   ]);
 
   if (deliveryPrice > 0) {
-    dataRows.push(["", "", "", "", "Delivery Fee", deliveryPrice]);
+    dataRows.push(["", "", "", "", "", "", "Delivery Fee", deliveryPrice]);
   }
 
   const grandTotal = printableItems.reduce((sum, it) => sum + (it.qty || 0) * (it.price || 0), 0) + deliveryPrice;
-  dataRows.push(["", "", "", "", "Grand Total", grandTotal]);
+  dataRows.push(["", "", "", "", "", "", "Grand Total", grandTotal]);
 
   dataRows.push([]);
   dataRows.push(["RECEIVED BY: (NAME & SIGN)", contactPerson || "(Not Set)"]);
@@ -1216,10 +1594,19 @@ export async function downloadDeliveryReceiptExcel(
   const allRows = [...metaRows, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(allRows);
 
+  if (printableItems.length > 1) {
+    const startRow = metaRows.length;
+    const endRow = startRow + printableItems.length - 1;
+    addMerge(ws, startRow, endRow, 1, 1);
+    addMerge(ws, startRow, endRow, 3, 3);
+  }
+
   // Set column widths
   ws["!cols"] = [
     { wch: 4 },  // #
+    { wch: 16 }, // Order ID
     { wch: 30 }, // Description
+    { wch: 14 }, // Category
     { wch: 6 },  // Qty
     { wch: 8 },  // Unit
     { wch: 14 }, // Unit Price
@@ -1406,7 +1793,7 @@ export async function downloadDeliveryReceiptHtml(
   }
 
   const address = resolvedClient?.address || "Address not provided";
-  
+
   // Retrieve delivery receipt details from DB
   let contactPerson = resolvedClient?.contact_person || "";
   let contactNumber = resolvedClient?.contact_number || "";
@@ -1466,7 +1853,7 @@ export async function downloadDeliveryReceiptHtml(
         .meta-box { border: 1px solid #000; margin-bottom: 20px; font-size: 12px; width: 100%; }
         .meta-row { display: flex; border-bottom: 1px solid #000; }
         .meta-row:last-child { border-bottom: none; }
-        .meta-label { width: 80px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
+        .meta-label { width: 140px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
         .meta-val { padding: 6px 10px; flex: 1; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
         th { border: 1px solid #000; padding: 8px 10px; font-weight: bold; background-color: #fafafa; text-transform: uppercase; }
@@ -1494,41 +1881,54 @@ export async function downloadDeliveryReceiptHtml(
             <div class="meta-val">${order.clientName}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">DATE:</div>
+            <div class="meta-label">TARGET DELIVER:</div>
             <div class="meta-val">${deliveryDateFormatted}</div>
           </div>
         </div>
         <table>
           <thead>
             <tr>
-              <th style="width: 80px; text-align: center;">ITEM NO.</th>
-              <th>DESCRIPTION</th>
-              <th style="width: 80px; text-align: center;">Qty.</th>
-              <th style="width: 100px; text-align: center;">Unit</th>
-              <th style="width: 120px; text-align: right;">Unit Price</th>
-              <th style="width: 150px; text-align: right;">Total Cost</th>
+              <th style="width: 60px; text-align: center;">ITEM NO.</th>
+              <th style="text-align: center; min-width: 110px;">ORDER ID</th>
+              <th style="text-align: left;">DESCRIPTION</th>
+              <th style="text-align: center;">CATEGORY</th>
+              <th style="width: 60px; text-align: center;">Qty.</th>
+              <th style="width: 65px; text-align: center;">Unit</th>
+              <th style="width: 100px; text-align: right;">Unit Price</th>
+              <th style="width: 120px; text-align: right;">Total Cost</th>
             </tr>
           </thead>
           <tbody>
-            ${printableItems.map((item, index) => `
-              <tr>
-                <td style="text-align: center;">${index + 1}</td>
-                <td>${item.name}</td>
-                <td style="text-align: center;">${item.qty}</td>
-                <td style="text-align: center;">${item.unit}</td>
-                <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-                <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
-              </tr>
-            `).join("")}
+            ${printableItems.map((item, index) => {
+    const orderIdCell = index === 0
+      ? `<td rowspan="${printableItems.length}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #000;">${order.id}</td>`
+      : "";
+    const categoryCell = index === 0
+      ? `<td rowspan="${printableItems.length}" style="vertical-align: middle; text-align: center; border: 1px solid #000;">${categoryLabels[item.category] ?? item.category}</td>`
+      : "";
+
+    return `
+                <tr>
+                  <td style="text-align: center;">${index + 1}</td>
+                  ${orderIdCell}
+                  <td>${item.name}</td>
+                  ${categoryCell}
+                  <td style="text-align: center;">${item.qty}</td>
+                  <td style="text-align: center;">${item.unit}</td>
+                  <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                  <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                </tr>
+              `;
+  }).join("")}
             ${deliveryPrice > 0 ? `
               <tr>
-                <td colspan="4" style="border: none;"></td>
+                <td colspan="6" style="border: none;"></td>
                 <td style="text-align: right; border: 1px solid #000; font-weight: bold;">Delivery Fee</td>
                 <td style="text-align: right; border: 1px solid #000; font-weight: bold;">PHP ${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
               </tr>
             ` : ""}
             <tr>
-              <td colspan="4" style="border: none;"></td>
+              <td colspan="6" style="border: none;"></td>
               <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa;">PHP</td>
               <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa; font-size: 14px;">${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
             </tr>
@@ -1987,6 +2387,17 @@ export async function exportCatalogExcel(
     r++;
   });
 
+  // ── Grand Total row ─────────────────────────────────────────────────────────
+  const grandTotal = rows.reduce((sum, row) => {
+    const qty = Number(row.product.defaultQty) || 0;
+    const price = Number(row.product.price) || 0;
+    return sum + qty * price;
+  }, 0);
+  r++; // blank spacer
+  setCell(ws, r, 0, "GRAND TOTAL"); addMerge(ws, r, r, 0, 4);
+  setCell(ws, r, 5, grandTotal, "n");
+  r++;
+
   ws["!ref"] = `A1:${cellAddr(r - 1, 5)}`;
   ws["!cols"] = [
     { wch: 30 }, // School Name
@@ -2017,6 +2428,16 @@ export async function printDeliveryReceipt(
   signatureDataUrl?: string,
   dateReceived?: string
 ) {
+  function getShortCoopName(name: string): string {
+    if (!name) return "OCGEMPC";
+    if (name.length <= 20) return name;
+    const parenMatch = name.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1]) {
+      return parenMatch[1];
+    }
+    return name.slice(0, 15) + "...";
+  }
+
   let resolvedClient = client;
   if (!resolvedClient) {
     try {
@@ -2051,7 +2472,7 @@ export async function printDeliveryReceipt(
   let coopName = adminCoopName || "OLONGAPO CITY GOVERNMENT EMPLOYEES' MULTIPURPOSE COOPERATIVE (OCGEMPC)";
   let coopAddress = adminCoopAddress || "3rd Floor City Hall Annex, Rizal Ave., West Bajac-Bajac, Olongapo City";
   let coopContact = "Contact No. 09323735919 / 09423124513";
-  let coopShort = adminCoopName || "OCGEMPC";
+  let coopShort = getShortCoopName(adminCoopName || "OCGEMPC");
 
   let resolvedDateReceived = dateReceived;
 
@@ -2127,7 +2548,7 @@ export async function printDeliveryReceipt(
     if (!isDefaultCoopName) {
       coopName = resolvedCoopName;
       coopAddress = resolvedCoopAddress;
-      coopShort = resolvedCoopName;
+      coopShort = getShortCoopName(resolvedCoopName);
     } else {
       try {
         const { data: coop } = await supabase
@@ -2140,7 +2561,7 @@ export async function printDeliveryReceipt(
           coopName = coop.name;
           coopAddress = coop.address || "";
           coopContact = coop.contact_no ? `Contact No. ${coop.contact_no}` : "";
-          coopShort = coop.short_name || "OCGEMPC";
+          coopShort = coop.short_name || getShortCoopName(coop.name || "OCGEMPC");
         }
       } catch (e) {
         console.error("Failed to fetch coop profile from database:", e);
@@ -2214,7 +2635,7 @@ export async function printDeliveryReceipt(
             <div class="meta-val">${order.clientName}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">DATE:</div>
+            <div class="meta-label">TARGET DELIVER:</div>
             <div class="meta-val">${deliveryDateFormatted}</div>
           </div>
         </div>
@@ -2223,25 +2644,38 @@ export async function printDeliveryReceipt(
         <table>
           <thead>
             <tr>
-              <th style="width: 80px; text-align: center;">ITEM NO.</th>
-              <th>DESCRIPTION</th>
-              <th style="width: 80px; text-align: center;">Qty.</th>
-              <th style="width: 100px; text-align: center;">Unit</th>
-              <th style="width: 120px; text-align: right;">Unit Price</th>
-              <th style="width: 150px; text-align: right;">Total Cost</th>
+              <th style="width: 60px; text-align: center;">ITEM NO.</th>
+              <th style="text-align: center; min-width: 110px;">ORDER ID</th>
+              <th style="text-align: left;">DESCRIPTION</th>
+              <th style="text-align: center;">CATEGORY</th>
+              <th style="width: 60px; text-align: center;">Qty.</th>
+              <th style="width: 65px; text-align: center;">Unit</th>
+              <th style="width: 100px; text-align: right;">Unit Price</th>
+              <th style="width: 120px; text-align: right;">Total Cost</th>
             </tr>
           </thead>
           <tbody>
-            ${printableItems.map((item, index) => `
-              <tr>
-                <td style="text-align: center;">${index + 1}</td>
-                <td>${item.name}</td>
-                <td style="text-align: center;">${item.qty}</td>
-                <td style="text-align: center;">${item.unit}</td>
-                <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            `).join("")}
+            ${printableItems.map((item, index) => {
+      const orderIdCell = index === 0
+        ? `<td rowspan="${printableItems.length + 1}" style="vertical-align: middle; text-align: center; font-weight: bold; border: 1px solid #000;">${order.id}</td>`
+        : "";
+      const categoryCell = index === 0
+        ? `<td rowspan="${printableItems.length + 1}" style="vertical-align: middle; text-align: center; border: 1px solid #000;">${categoryLabels[order.clientRole] ?? order.clientRole}</td>`
+        : "";
+
+      return `
+                <tr>
+                  <td style="text-align: center;">${index + 1}</td>
+                  ${orderIdCell}
+                  <td>${item.name}</td>
+                  ${categoryCell}
+                  <td style="text-align: center;">${item.qty}</td>
+                  <td style="text-align: center;">${item.unit}</td>
+                  <td style="text-align: right;">PHP ${(item.price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td style="text-align: right; font-weight: bold;">PHP ${((item.qty || 0) * (item.price || 0)).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              `;
+    }).join("")}
             <!-- nothing follows row -->
             <tr>
               <td style="text-align: center;">${printableItems.length + 1}</td>
@@ -2253,14 +2687,14 @@ export async function printDeliveryReceipt(
             </tr>
             ${deliveryPrice > 0 ? `
               <tr>
-                <td colspan="4" style="border: none;"></td>
+                <td colspan="6" style="border: none;"></td>
                 <td style="text-align: right; border: 1px solid #000; font-weight: bold;">Delivery Fee</td>
                 <td style="text-align: right; border: 1px solid #000; font-weight: bold;">PHP ${deliveryPrice.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
             ` : ""}
             <!-- grand total row -->
             <tr>
-              <td colspan="4" style="border: none;"></td>
+              <td colspan="6" style="border: none;"></td>
               <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa;">PHP</td>
               <td style="text-align: right; border: 1px solid #000; font-weight: bold; background-color: #fafafa; font-size: 14px;">${grandTotal.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>
@@ -2309,14 +2743,14 @@ export async function printDeliveryReceipt(
         .supplier-title { font-size: 14px; font-weight: bold; text-transform: uppercase; line-height: 1.3; }
         .supplier-address, .supplier-contact { font-size: 11px; color: #333; margin-top: 2px; }
 
-        .title-row { display: flex; align-items: center; justify-content: center; position: relative; margin: 25px 0 15px 0; }
-        .form-title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; text-align: center; }
-        .copy-badge { position: absolute; right: 0; border: 1px solid #7c3aed; background-color: #f5f3ff; color: #7c3aed; padding: 4px 10px; font-size: 10px; font-weight: bold; border-radius: 4px; }
+        .title-row { display: flex; align-items: center; justify-content: space-between; margin: 25px 0 15px 0; gap: 15px; }
+        .form-title { font-size: 20px; font-weight: 800; letter-spacing: 1.5px; text-align: left; }
+        .copy-badge { border: 1px solid #7c3aed; background-color: #f5f3ff; color: #7c3aed; padding: 4px 10px; font-size: 10px; font-weight: bold; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
 
         .meta-box { border: 1px solid #000; margin-bottom: 20px; font-size: 12px; width: 100%; }
         .meta-row { display: flex; border-bottom: 1px solid #000; }
         .meta-row:last-child { border-bottom: none; }
-        .meta-label { width: 80px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
+        .meta-label { width: 140px; font-weight: bold; padding: 6px 10px; border-right: 1px solid #000; background-color: #fafafa; }
         .meta-val { padding: 6px 10px; flex: 1; font-weight: bold; }
 
         table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }

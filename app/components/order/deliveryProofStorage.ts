@@ -51,7 +51,7 @@ export async function saveDeliveryProof(orderId: string, imageData: string): Pro
       });
 
     if (error) throw error;
-    
+
     // Notify application components of changes
     window.dispatchEvent(new CustomEvent("occdc-delivery-proof-updated", { detail: { orderId } }));
   } catch (err) {

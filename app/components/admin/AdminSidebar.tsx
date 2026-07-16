@@ -208,9 +208,28 @@ function SidebarInner({
 
   const getPendingCountForId = (id: string) => {
     if (id === "notifications") {
-      return orders.filter(
-        (o) => o.status === "pending" && !readOrderIds.includes(o.id),
-      ).length;
+      return orders.filter((o) => {
+        if (isAdmin) {
+          const isPending = o.status === "pending";
+          const isApproved =
+            o.status === "accepted" ||
+            o.status === "processing" ||
+            o.status === "completed";
+          const isRecent =
+            Date.now() - new Date(o.createdAt).getTime() <
+            7 * 24 * 60 * 60 * 1000;
+          return (isPending || (isApproved && isRecent)) && !readOrderIds.includes(o.id);
+        } else {
+          const isApproved =
+            o.status === "accepted" ||
+            o.status === "processing" ||
+            o.status === "completed";
+          const isRecent =
+            Date.now() - new Date(o.createdAt).getTime() <
+            7 * 24 * 60 * 60 * 1000;
+          return isApproved && isRecent && !readOrderIds.includes(o.id);
+        }
+      }).length;
     }
     if (id.startsWith("other-order-")) {
       const cat = id.replace("other-order-", "");
