@@ -441,7 +441,7 @@ export async function printOrderForm(order: WeeklyOrderRecord, notes?: string, c
   }
 }
 
-export async function printClientSummary(
+export async function generateClientSummaryHtml(
   clientName: string,
   weekLabel: string,
   items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[],
@@ -449,7 +449,7 @@ export async function printClientSummary(
   clientRecord?: ClientRecord,
   isSupplier = false,
   loggedInSupplierCoopName?: string,
-) {
+): Promise<string> {
   const address = clientRecord?.address || "Address not provided";
   const deliveryPrice = clientRecord?.delivery_price || 0;
 
@@ -539,7 +539,7 @@ export async function printClientSummary(
   const categoryKey = sortedItems[0]?.category || "";
   const coopName = loggedInSupplierCoopName || (categoryKey ? await resolveCoopNameForCategory(categoryKey) : "OCCDHPC");
 
-  const html = `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -618,6 +618,26 @@ export async function printClientSummary(
     </body>
     </html>
   `;
+}
+
+export async function printClientSummary(
+  clientName: string,
+  weekLabel: string,
+  items: { name: string; qty: number; unit: string; category: string; price?: number; deleted?: boolean; orderId?: string }[],
+  orders: { status: string }[],
+  clientRecord?: ClientRecord,
+  isSupplier = false,
+  loggedInSupplierCoopName?: string,
+) {
+  const html = await generateClientSummaryHtml(
+    clientName,
+    weekLabel,
+    items,
+    orders,
+    clientRecord,
+    isSupplier,
+    loggedInSupplierCoopName
+  );
 
   const printWindow = window.open("", "_blank");
   if (printWindow) {
