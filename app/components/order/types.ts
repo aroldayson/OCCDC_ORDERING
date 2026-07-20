@@ -24,6 +24,8 @@ export type WeeklyOrderRecord = {
   totalPrice: number;
   /** Optional admin-set delivery date (ISO date string, e.g. "2026-06-27"). Defaults to Wednesday of the following week (next Wednesday). */
   deliveryDate?: string;
+  /** Set when status becomes cancelled — used in Pricing Update cancelled section. */
+  cancelledAt?: string;
   hasReceiptRecord?: boolean;
 };
 

@@ -1,5 +1,6 @@
-import { useState, useMemo, Fragment, useEffect } from "react";
-import { Eye, Printer, Truck, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { useState, useMemo, Fragment, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { Eye, Printer, Truck, ChevronDown, ChevronRight, Download, Package, Trash2 } from "lucide-react";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
 import {
   printOrderForm,
@@ -63,6 +64,8 @@ type OrdersTableProps = {
   onSelect: (id: string) => void;
   compact?: boolean;
   onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
+  onGoToPricing?: (order: WeeklyOrderRecord) => void;
+  onOrdersUpdated?: () => void;
   loading?: boolean;
 };
 
@@ -72,10 +75,18 @@ export default function OrdersTable({
   onSelect,
   compact,
   onPrintDeliveryReceipt,
+  onGoToPricing,
+  onOrdersUpdated,
   loading = false,
 }: OrdersTableProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const searchParams = useSearchParams();
+  const schoolFromUrl = searchParams?.get("school");
+  const weekFromUrl = searchParams?.get("week");
+  const categoryFromUrl = searchParams?.get("category");
+  const orderIdFromUrl = searchParams?.get("orderId");
+  const lastOrdersFocusKeyRef = useRef<string | null>(null);
 
   const [expandedSchools, setExpandedSchools] = useState<Record<string, boolean>>({});
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
@@ -89,6 +100,21 @@ export default function OrdersTable({
   const [isLoading, setIsLoading] = useState(false);
   const [docType, setDocType] = useState<"po" | "dr">("po");
   const [formatType, setFormatType] = useState<"pdf" | "html" | "excel">("pdf");
+
+  const handleCancelOrder = async (order: WeeklyOrderRecord) => {
+    if (order.status === "cancelled") return;
+    if (
+      !confirm(
+        `Cancel order ${order.id}? The status will change to Cancelled and it will appear in Pricing Update under Cancelled Orders.`,
+      )
+    ) {
+      return;
+    }
+
+    const { updateOrderStatus } = await import("../order/orderStorage");
+    await updateOrderStatus(order.id, "cancelled");
+    onOrdersUpdated?.();
+  };
 
   const handleExecuteDownload = async () => {
     if (!downloadOptionsOrder) return;
@@ -299,6 +325,52 @@ export default function OrdersTable({
     }
   }, [groupedOrders]);
 
+  useEffect(() => {
+    if (!schoolFromUrl || !weekFromUrl || !categoryFromUrl) return;
+    if (loading || orders.length === 0) return;
+
+    const focusKey = `${schoolFromUrl}|${weekFromUrl}|${categoryFromUrl}|${orderIdFromUrl ?? ""}`;
+    if (lastOrdersFocusKeyRef.current === focusKey) return;
+
+    const hasGroup =
+      groupedOrders[schoolFromUrl]?.[weekFromUrl]?.[categoryFromUrl];
+    if (!hasGroup) return;
+
+    lastOrdersFocusKeyRef.current = focusKey;
+    setExpandedSchools((prev) => ({ ...prev, [schoolFromUrl]: true }));
+    setExpandedWeeks((prev) => ({
+      ...prev,
+      [`${schoolFromUrl}_${weekFromUrl}`]: true,
+    }));
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [`${schoolFromUrl}_${weekFromUrl}_${categoryFromUrl}`]: true,
+    }));
+
+    requestAnimationFrame(() => {
+      const orderRow = orderIdFromUrl
+        ? document.querySelector<HTMLElement>(
+            `[data-orders-order-id="${CSS.escape(orderIdFromUrl)}"]`,
+          )
+        : null;
+      if (orderRow) {
+        orderRow.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        document
+          .getElementById(`orders-cat-${encodeURIComponent(`${schoolFromUrl}|${weekFromUrl}|${categoryFromUrl}`)}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }, [
+    schoolFromUrl,
+    weekFromUrl,
+    categoryFromUrl,
+    orderIdFromUrl,
+    groupedOrders,
+    loading,
+    orders.length,
+  ]);
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
@@ -431,7 +503,11 @@ export default function OrdersTable({
                               const categoryLabel = orderRoleLabels[categoryKey as keyof typeof orderRoleLabels] || categoryKey;
 
                               return (
-                                <div key={`mobile-cat-${schoolName}-${weekLabel}-${categoryKey}`} className="border border-slate-100/60 rounded-lg overflow-hidden bg-slate-50/10">
+                                <div
+                                  key={`mobile-cat-${schoolName}-${weekLabel}-${categoryKey}`}
+                                  id={`orders-cat-${encodeURIComponent(`${schoolName}|${weekLabel}|${categoryKey}`)}`}
+                                  className="border border-slate-100/60 rounded-lg overflow-hidden bg-slate-50/10"
+                                >
                                   {/* Category Header */}
                                   <div
                                     onClick={() => toggleCategory(schoolName, weekLabel, categoryKey)}
@@ -469,14 +545,21 @@ export default function OrdersTable({
                                   {/* Week Orders List */}
                                   {isCategoryExpanded && (
                                     <div className="p-2 space-y-2">
-                                      {sortOrders(categoryOrders).map((order) => (
+                                      {sortOrders(categoryOrders).map((order) => {
+                                        const isOrderHighlighted = selectedId === order.id;
+
+                                        return (
                                         <div
                                           key={order.id}
+                                          data-orders-order-id={
+                                            isOrderHighlighted ? order.id : undefined
+                                          }
                                           onClick={() => onSelect(order.id)}
-                                          className={`w-full rounded-lg border p-3 cursor-pointer transition-all ${selectedId === order.id
-                                            ? "border-blue-300 bg-blue-50 shadow-xs"
-                                            : "border-slate-100 bg-white hover:border-slate-200"
-                                            }`}
+                                          className={`w-full rounded-lg border p-3 cursor-pointer transition-all ${
+                                            isOrderHighlighted
+                                              ? "border-amber-300 bg-amber-50/90 ring-2 ring-inset ring-amber-300 shadow-xs"
+                                              : "border-slate-100 bg-white hover:border-slate-200"
+                                          }`}
                                         >
                                           <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0 flex-1">
@@ -491,14 +574,55 @@ export default function OrdersTable({
                                               </div>
                                             </div>
                                             <div className="flex gap-1.5 shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+                                              {isAdmin && onGoToPricing && (
+                                                <button
+                                                  onClick={() => {
+                                                    if (order.status !== "cancelled") {
+                                                      onGoToPricing(order);
+                                                    }
+                                                  }}
+                                                  disabled={order.status === "cancelled"}
+                                                  className={`rounded p-1 transition ${
+                                                    order.status === "cancelled"
+                                                      ? "cursor-not-allowed text-slate-300 opacity-50"
+                                                      : "text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                                                  }`}
+                                                  title={
+                                                    order.status === "cancelled"
+                                                      ? "Unavailable for cancelled orders"
+                                                      : "Open Pricing Update"
+                                                  }
+                                                >
+                                                  <Package className="h-3.5 w-3.5" />
+                                                </button>
+                                              )}
+                                              {isAdmin && order.status !== "cancelled" && (
+                                                <button
+                                                  onClick={() => handleCancelOrder(order)}
+                                                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                                                  title="Cancel order"
+                                                >
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                              )}
                                               <button
                                                 onClick={() => {
+                                                  if (order.status === "cancelled") return;
                                                   setDownloadOptionsOrder(order);
                                                   setDocType("po");
                                                   setFormatType("pdf");
                                                 }}
-                                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                                                title="Print / Download Options"
+                                                disabled={order.status === "cancelled"}
+                                                className={`rounded p-1 transition ${
+                                                  order.status === "cancelled"
+                                                    ? "cursor-not-allowed text-slate-300 opacity-50"
+                                                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                                }`}
+                                                title={
+                                                  order.status === "cancelled"
+                                                    ? "Print / download unavailable for cancelled orders"
+                                                    : "Print / Download Options"
+                                                }
                                               >
                                                 <Download className="h-3.5 w-3.5" />
                                               </button>
@@ -514,7 +638,8 @@ export default function OrdersTable({
                                             <span>{formatDate(order.createdAt)}</span>
                                           </div>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
@@ -652,6 +777,7 @@ export default function OrdersTable({
                                   <Fragment key={`cat-${schoolName}-${weekLabel}-${categoryKey}`}>
                                     {/* Category Sub-Header Row */}
                                     <tr
+                                      id={`orders-cat-${encodeURIComponent(`${schoolName}|${weekLabel}|${categoryKey}`)}`}
                                       onClick={() => toggleCategory(schoolName, weekLabel, categoryKey)}
                                       className="bg-slate-50/30 hover:bg-slate-50 border-b border-slate-100 cursor-pointer select-none transition-colors"
                                     >
@@ -692,12 +818,21 @@ export default function OrdersTable({
 
                                     {/* Order Rows */}
                                     {isCategoryExpanded &&
-                                      sortOrders(categoryOrders).map((order) => (
+                                      sortOrders(categoryOrders).map((order) => {
+                                        const isOrderHighlighted = selectedId === order.id;
+
+                                        return (
                                         <tr
                                           key={order.id}
+                                          data-orders-order-id={
+                                            isOrderHighlighted ? order.id : undefined
+                                          }
                                           onClick={() => onSelect(order.id)}
-                                          className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50 ${selectedId === order.id ? "bg-blue-50/60" : ""
-                                            }`}
+                                          className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 ${
+                                            isOrderHighlighted
+                                              ? "bg-amber-50/90 ring-2 ring-inset ring-amber-300 hover:bg-amber-50"
+                                              : "hover:bg-slate-50"
+                                          }`}
                                         >
                                           <td className="pl-16 pr-3 py-3.5 font-medium text-slate-600 whitespace-nowrap">
                                             {order.id}
@@ -737,6 +872,28 @@ export default function OrdersTable({
                                           </td>
                                           <td className="px-3 py-3.5 sm:px-5 text-right">
                                             <div className="flex justify-end gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+                                              {isAdmin && onGoToPricing && (
+                                                <button
+                                                  onClick={() => {
+                                                    if (order.status !== "cancelled") {
+                                                      onGoToPricing(order);
+                                                    }
+                                                  }}
+                                                  disabled={order.status === "cancelled"}
+                                                  className={`rounded p-1 transition ${
+                                                    order.status === "cancelled"
+                                                      ? "cursor-not-allowed text-slate-300 opacity-50"
+                                                      : "text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                                                  }`}
+                                                  title={
+                                                    order.status === "cancelled"
+                                                      ? "Unavailable for cancelled orders"
+                                                      : "Open Pricing Update"
+                                                  }
+                                                >
+                                                  <Package className="h-4 w-4" />
+                                                </button>
+                                              )}
                                               <button
                                                 onClick={() => onSelect(order.id)}
                                                 className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
@@ -744,21 +901,41 @@ export default function OrdersTable({
                                               >
                                                 <Eye className="h-4 w-4" />
                                               </button>
+                                              {isAdmin && order.status !== "cancelled" && (
+                                                <button
+                                                  onClick={() => handleCancelOrder(order)}
+                                                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                                                  title="Cancel order"
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </button>
+                                              )}
                                               <button
                                                 onClick={() => {
+                                                  if (order.status === "cancelled") return;
                                                   setDownloadOptionsOrder(order);
                                                   setDocType("po");
                                                   setFormatType("pdf");
                                                 }}
-                                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-                                                title="Print / Download Options"
+                                                disabled={order.status === "cancelled"}
+                                                className={`rounded p-1 transition ${
+                                                  order.status === "cancelled"
+                                                    ? "cursor-not-allowed text-slate-300 opacity-50"
+                                                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                                }`}
+                                                title={
+                                                  order.status === "cancelled"
+                                                    ? "Print / download unavailable for cancelled orders"
+                                                    : "Print / Download Options"
+                                                }
                                               >
                                                 <Download className="h-4 w-4" />
                                               </button>
                                             </div>
                                           </td>
                                         </tr>
-                                      ))}
+                                        );
+                                      })}
                                   </Fragment>
                                 );
                               })}

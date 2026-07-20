@@ -383,11 +383,25 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
             items: updatedItems,
             total_price: totalPrice,
             status: newStatus,
+            cancelled_at:
+              newStatus === "cancelled" ? new Date().toISOString() : null,
           })
           .eq("id", order.id);
 
         if (newStatus === "cancelled") {
           await supabase.from("order_items").delete().eq("order_id", order.id);
+          await supabase
+            .from("order_items")
+            .insert(
+              updatedItems.map((it) => ({
+                order_id: order.id,
+                product_id: it.productId,
+                quantity: it.qty,
+                price: it.price ?? 0,
+                subtotal: (it.qty || 0) * (it.price ?? 0),
+                status: "Cancelled",
+              })),
+            );
         } else {
           await supabase
             .from("order_items")
