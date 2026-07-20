@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import OccdoLogo from "../brand/OccdoLogo";
 
 export function LeftAuthPanel() {
   const [ordersCount, setOrdersCount] = useState<number | string>("...");
@@ -46,8 +47,8 @@ export function LeftAuthPanel() {
     <div className="relative bg-gradient-to-br from-[#0c1e45] via-[#0f2c6e] to-[#0a1532] animate-gradient-xy p-12 text-white flex flex-col justify-between hidden lg:flex">
       <div>
         <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-            <span className="text-2xl text-blue-600">🛒</span>
+          <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center shadow-sm overflow-hidden p-1">
+            <OccdoLogo size={52} className="h-full w-full" />
           </div>
 
           <div>
@@ -117,8 +118,8 @@ export function LeftAuthPanel() {
             Smart ordering for efficient operations
           </p>
         </div>
-        <div className="text-4xl opacity-30">
-          🛒
+        <div className="opacity-30">
+          <OccdoLogo size={40} />
         </div>
       </div>
     </div>
