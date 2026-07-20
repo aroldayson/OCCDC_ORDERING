@@ -5,7 +5,9 @@ import {
   BarChart3,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Eye,
+  Filter,
   Pencil,
   Plus,
   Printer,
@@ -14,7 +16,7 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { deleteOrder, updateOrder, updateOrderStatus } from "../../order/orderStorage";
 import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
 // import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
@@ -39,14 +41,121 @@ const statusStyles: Record<OrderStatus, string> = {
 
 const PREVIEW_COUNT = 5;
 
+function isOrderLocked(order: WeeklyOrderRecord) {
+  return order.status === "completed" || order.status === "cancelled";
+}
+
+async function updateOrderItemQty(
+  order: WeeklyOrderRecord,
+  productId: string,
+  newQty: number,
+  onUpdated: () => void,
+  isWednesday: boolean,
+  isPastWeek: boolean,
+) {
+  if (isWednesday || isPastWeek) {
+    alert(
+      "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
+    );
+    return;
+  }
+  if (order.status === "completed") {
+    alert("Order modification is disabled for completed orders.");
+    return;
+  }
+  if (newQty <= 0) {
+    alert(
+      "Quantity must be greater than zero. If you want to remove this item, click the delete button.",
+    );
+    return;
+  }
+  const updatedItems = order.items.map((item) =>
+    item.productId === productId ? { ...item, qty: newQty } : item,
+  );
+  const updatedTotalPrice = updatedItems.reduce(
+    (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+    0,
+  );
+  await updateOrder({
+    ...order,
+    items: updatedItems,
+    itemCount: updatedItems.length,
+    totalPrice: updatedTotalPrice,
+  });
+  onUpdated();
+}
+
+async function deleteOrderItem(
+  order: WeeklyOrderRecord,
+  productId: string,
+  onUpdated: () => void,
+  isWednesday: boolean,
+  isPastWeek: boolean,
+) {
+  if (isWednesday || isPastWeek) {
+    alert(
+      "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
+    );
+    return;
+  }
+  if (order.status === "completed") {
+    alert("Order modification is disabled for completed orders.");
+    return;
+  }
+  const remainingItems = order.items.filter(
+    (item) => item.productId !== productId,
+  );
+  const activeItems = remainingItems.filter(
+    (item) => !item.deleted && !item.productId.startsWith("delivery-fee-"),
+  );
+
+  const willCancelOrder = activeItems.length === 0;
+  const confirmMessage = willCancelOrder
+    ? "Are you sure you want to remove this item from the order? Since this is the last item, the order will be automatically cancelled."
+    : "Are you sure you want to remove this item from the order?";
+
+  if (!confirm(confirmMessage)) return;
+
+  const nextItems = willCancelOrder
+    ? order.items.map((item) =>
+        item.productId === productId
+          ? { ...item, deleted: true as const }
+          : item,
+      )
+    : remainingItems;
+
+  const updatedTotalPrice = nextItems.reduce(
+    (sum, item) =>
+      sum + (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
+    0,
+  );
+
+  await updateOrder({
+    ...order,
+    status: willCancelOrder ? ("cancelled" as const) : order.status,
+    cancelledAt: willCancelOrder ? new Date().toISOString() : order.cancelledAt,
+    items: nextItems,
+    itemCount: nextItems.length,
+    totalPrice: updatedTotalPrice,
+  });
+
+  if (!productId.startsWith("delivery-fee-")) {
+    await removeWeeklyProduct(productId, order.weekLabel);
+  }
+
+  onUpdated();
+}
+
 function CategorySummary({
   orders,
   categories,
-  onAddItem,
+  selectedCategory,
+  onSelectCategory,
 }: {
   orders: WeeklyOrderRecord[];
   categories: OrderRole[];
-  onAddItem: (category: OrderRole) => void;
+  selectedCategory: string;
+  onSelectCategory: (category: string) => void;
 }) {
   const summary = categories.map((category) => {
     const items = orders.flatMap((o) =>
@@ -58,23 +167,30 @@ function CategorySummary({
   });
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5">
-      {summary.map(({ category, itemCount, totalQty }) => (
-        <div
-          key={category}
-          className={`flex flex-col justify-between rounded-lg border-2 p-3 text-center ${orderRoleColors[category]}`}
-        >
-          <div>
-            <p className="text-xs font-semibold uppercase">
-              {orderRoleLabels[category]}
-            </p>
-            <p className="mt-2 text-lg font-bold">{totalQty}</p>
-            <p className="text-xs text-slate-600">
-              {itemCount} item{itemCount !== 1 ? "s" : ""}
-            </p>
-          </div>
-        </div>
-      ))}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5">
+      {summary.map(({ category, itemCount, totalQty }) => {
+        const isSelected = selectedCategory === category;
+        return (
+          <button
+            key={category}
+            type="button"
+            onClick={() =>
+              onSelectCategory(isSelected ? "all" : category)
+            }
+            className={`flex min-h-[88px] flex-col justify-between rounded-lg border-2 p-3 text-center transition ${orderRoleColors[category]} ${isSelected ? "ring-2 ring-blue-400 ring-offset-1" : "hover:opacity-90"}`}
+          >
+            <div>
+              <p className="text-[11px] font-semibold uppercase leading-snug break-words sm:text-xs">
+                {orderRoleLabels[category]}
+              </p>
+              <p className="mt-2 text-xl font-bold sm:text-lg">{totalQty}</p>
+              <p className="text-[11px] text-slate-600 sm:text-xs">
+                {itemCount} item{itemCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -101,90 +217,24 @@ function OrderItemsTable({
   const shown = expanded ? items : items.slice(0, PREVIEW_COUNT);
 
   async function handleUpdateQty(productId: string, newQty: number) {
-    if (isWednesday || isPastWeek) {
-      alert(
-        "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
-      );
-      return;
-    }
-    if (newQty <= 0) {
-      alert(
-        "Quantity must be greater than zero. If you want to remove this item, click the delete button.",
-      );
-      return;
-    }
-    const updatedItems = order.items.map((item) =>
-      item.productId === productId ? { ...item, qty: newQty } : item,
+    await updateOrderItemQty(
+      order,
+      productId,
+      newQty,
+      onUpdated,
+      isWednesday,
+      isPastWeek,
     );
-    const updatedTotalPrice = updatedItems.reduce(
-      (sum, item) => sum + (item.qty || 0) * (item.price || 0),
-      0,
-    );
-    const updatedOrder = {
-      ...order,
-      items: updatedItems,
-      itemCount: updatedItems.length,
-      totalPrice: updatedTotalPrice,
-    };
-    await updateOrder(updatedOrder);
-    onUpdated();
   }
 
   async function handleDeleteItem(productId: string) {
-    if (isWednesday || isPastWeek) {
-      alert(
-        "Order modification is disabled for this view. Please select a current weekday if you need to make changes.",
-      );
-      return;
-    }
-    const remainingItems = order.items.filter(
-      (item) => item.productId !== productId,
+    await deleteOrderItem(
+      order,
+      productId,
+      onUpdated,
+      isWednesday,
+      isPastWeek,
     );
-    const activeItems = remainingItems.filter(
-      (item) => !item.deleted && !item.productId.startsWith("delivery-fee-"),
-    );
-
-    const willCancelOrder = activeItems.length === 0;
-    const confirmMessage = willCancelOrder
-      ? "Are you sure you want to remove this item from the order? Since this is the last item, the order will be automatically cancelled."
-      : "Are you sure you want to remove this item from the order?";
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    const nextItems = willCancelOrder
-      ? order.items.map((item) =>
-          item.productId === productId
-            ? { ...item, deleted: true as const }
-            : item,
-        )
-      : remainingItems;
-
-    const updatedTotalPrice = nextItems.reduce(
-      (sum, item) =>
-        sum +
-        (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
-      0,
-    );
-
-    const updatedOrder = {
-      ...order,
-      status: willCancelOrder ? ("cancelled" as const) : order.status,
-      cancelledAt: willCancelOrder ? new Date().toISOString() : order.cancelledAt,
-      items: nextItems,
-      itemCount: nextItems.length,
-      totalPrice: updatedTotalPrice,
-    };
-    await updateOrder(updatedOrder);
-
-    // Also delete the product from weekly_products table in Supabase
-    // (skip delivery fee items which are not in weekly_products)
-    if (!productId.startsWith("delivery-fee-")) {
-      await removeWeeklyProduct(productId, order.weekLabel);
-    }
-
-    onUpdated();
   }
 
   return (
@@ -311,13 +361,13 @@ function OrderItemsTable({
                         <button
                           type="button"
                           onClick={() => {
-                            if (isWednesday || isDeleted) return;
+                            if (isWednesday || isDeleted || isOrderLocked(order)) return;
                             setEditingProductId(item.productId);
                             setEditQty(item.qty);
                           }}
-                          disabled={isWednesday || isDeleted}
-                          aria-disabled={isWednesday || isDeleted}
-                          className={`rounded p-1 text-blue-600 transition ${isWednesday || isDeleted ? "cursor-not-allowed opacity-40" : "hover:bg-blue-50"}`}
+                          disabled={isWednesday || isDeleted || isOrderLocked(order)}
+                          aria-disabled={isWednesday || isDeleted || isOrderLocked(order)}
+                          className={`rounded p-1 text-blue-600 transition ${isWednesday || isDeleted || isOrderLocked(order) ? "cursor-not-allowed opacity-40" : "hover:bg-blue-50"}`}
                           title={
                             isDeleted
                               ? "Item deleted"
@@ -331,12 +381,12 @@ function OrderItemsTable({
                         <button
                           type="button"
                           onClick={() => {
-                            if (isWednesday || isDeleted) return;
+                            if (isWednesday || isDeleted || isOrderLocked(order)) return;
                             handleDeleteItem(item.productId);
                           }}
-                          disabled={isWednesday || isDeleted}
-                          aria-disabled={isWednesday || isDeleted}
-                          className={`rounded p-1 text-red-500 transition ${isWednesday || isDeleted ? "cursor-not-allowed opacity-40" : "hover:bg-red-50"}`}
+                          disabled={isWednesday || isDeleted || isOrderLocked(order)}
+                          aria-disabled={isWednesday || isDeleted || isOrderLocked(order)}
+                          className={`rounded p-1 text-red-500 transition ${isWednesday || isDeleted || isOrderLocked(order) ? "cursor-not-allowed opacity-40" : "hover:bg-red-50"}`}
                           title={
                             isDeleted
                               ? "Item already deleted"
@@ -370,11 +420,282 @@ function OrderItemsTable({
   );
 }
 
+type FlatOrderItem = {
+  order: WeeklyOrderRecord;
+  item: OrderItem;
+};
+
+type OrderSummaryContext = {
+  week: string;
+  school?: string;
+  category?: string;
+  orderId?: string;
+};
+
+function OrderItemRow({
+  order,
+  item,
+  onUpdated,
+  isWednesday,
+  isPastWeek,
+  onGoToOrderSummary,
+  defaultOpen = false,
+}: {
+  order: WeeklyOrderRecord;
+  item: OrderItem;
+  onUpdated: () => void;
+  isWednesday: boolean;
+  isPastWeek: boolean;
+  onGoToOrderSummary?: (context: OrderSummaryContext) => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [editing, setEditing] = useState(false);
+  const [editQty, setEditQty] = useState(item.qty);
+
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
+  const isDeleted = item.deleted === true;
+  const isUnpriced = !isDeleted && (!item.price || item.price === 0);
+  const subtotal = (item.qty || 0) * (item.price || 0);
+
+  return (
+    <div
+      data-process-order-id={order.id}
+      className={`overflow-hidden rounded-xl border bg-white ${isDeleted ? "border-red-200 bg-red-50/20" : "border-slate-200"}`}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full min-w-0 items-center gap-2 px-3 py-3 text-left sm:gap-3 sm:px-4"
+      >
+        <span
+          className={`min-w-0 flex-1 truncate text-sm font-semibold ${isDeleted ? "text-red-600 line-through" : isUnpriced ? "text-blue-600" : "text-slate-800"}`}
+        >
+          {item.name}
+        </span>
+        <span className="hidden shrink-0 text-xs text-slate-400 sm:inline">
+          {item.qty} {item.unit}
+        </span>
+        <span className="shrink-0 text-[11px] text-slate-400 tabular-nums">
+          {formatOrderDate(order.createdAt)}
+        </span>
+        <span
+          className={`shrink-0 text-sm font-bold tabular-nums ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-amber-600" : "text-emerald-700"}`}
+        >
+          ₱
+          {subtotal.toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+        <span className="hidden shrink-0 text-[10px] font-medium text-slate-400 sm:inline">
+          {order.id}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 px-3 py-3 sm:px-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusStyles[order.status]}`}>
+              {order.status}
+            </span>
+            <span>{order.id}</span>
+            <span>·</span>
+            <span>{formatOrderDate(order.createdAt)}</span>
+            <span>·</span>
+            <span>
+              {item.qty} {item.unit}
+            </span>
+            <span>·</span>
+            <span>
+              ₱
+              {(item.price || 0).toLocaleString("en-PH", {
+                minimumFractionDigits: 2,
+              })}{" "}
+              / {item.unit}
+            </span>
+            {isUnpriced && (
+              <>
+                <span>·</span>
+                <span className="font-semibold text-amber-600">No price</span>
+              </>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                value={editQty}
+                onChange={(e) => setEditQty(parseFloat(e.target.value) || 0)}
+                step="any"
+                min="0.01"
+                className="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <span className="text-xs text-slate-500">{item.unit}</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await updateOrderItemQty(
+                    order,
+                    item.productId,
+                    editQty,
+                    onUpdated,
+                    isWednesday,
+                    isPastWeek,
+                  );
+                  setEditing(false);
+                }}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setEditQty(item.qty);
+                }}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              {onGoToOrderSummary && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onGoToOrderSummary({
+                      week: order.weekLabel,
+                      school: order.clientName,
+                      category: order.clientRole,
+                      orderId: order.id,
+                    })
+                  }
+                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                  title="View in Order Summary"
+                  aria-label={`View ${order.id} in Order Summary`}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isWednesday || isDeleted || isOrderLocked(order)) return;
+                  setEditQty(item.qty);
+                  setEditing(true);
+                }}
+                disabled={isWednesday || isDeleted || isPastWeek || isOrderLocked(order)}
+                className={`rounded-lg p-2 text-blue-600 ${isWednesday || isDeleted || isPastWeek || isOrderLocked(order) ? "cursor-not-allowed opacity-40" : "hover:bg-blue-50"}`}
+                aria-label="Edit quantity"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  deleteOrderItem(
+                    order,
+                    item.productId,
+                    onUpdated,
+                    isWednesday,
+                    isPastWeek,
+                  )
+                }
+                disabled={isWednesday || isDeleted || isPastWeek || isOrderLocked(order)}
+                className={`rounded-lg p-2 text-red-500 ${isWednesday || isDeleted || isPastWeek || isOrderLocked(order) ? "cursor-not-allowed opacity-40" : "hover:bg-red-50"}`}
+                aria-label="Remove item"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryOrderItemsList({
+  items,
+  onUpdated,
+  isWednesday,
+  isPastWeek,
+  weekLabel,
+  categoryLabel,
+  onGoToOrderSummary,
+  focusOrderId,
+}: {
+  items: FlatOrderItem[];
+  onUpdated: () => void;
+  isWednesday: boolean;
+  isPastWeek: boolean;
+  weekLabel?: string;
+  categoryLabel: string;
+  onGoToOrderSummary?: (context: OrderSummaryContext) => void;
+  focusOrderId?: string;
+}) {
+  const totalQty = items.reduce((sum, { item }) => sum + (item.deleted ? 0 : item.qty), 0);
+  const totalPrice = items.reduce(
+    (sum, { item }) => sum + (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
+    0,
+  );
+
+  if (items.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        No items in {categoryLabel} for {weekLabel ?? "this week"}.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <span>
+          {items.length} item{items.length !== 1 ? "s" : ""} · {totalQty} total qty
+        </span>
+        <span className="font-bold text-emerald-700">
+          ₱
+          {totalPrice.toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      {items.map(({ order, item }) => (
+        <OrderItemRow
+          key={`${order.id}-${item.productId}`}
+          order={order}
+          item={item}
+          onUpdated={onUpdated}
+          isWednesday={isWednesday}
+          isPastWeek={isPastWeek}
+          onGoToOrderSummary={onGoToOrderSummary}
+          defaultOpen={focusOrderId === order.id}
+        />
+      ))}
+    </div>
+  );
+}
+
 type OrderAccordionProps = {
   order: WeeklyOrderRecord;
   defaultOpen?: boolean;
   onUpdated: () => void;
   onView: (order: WeeklyOrderRecord) => void;
+  onGoToOrderSummary?: (context: OrderSummaryContext) => void;
   isWednesday?: boolean;
   isPastWeek?: boolean;
 };
@@ -384,11 +705,16 @@ function OrderAccordion({
   defaultOpen = false,
   onUpdated,
   onView,
+  onGoToOrderSummary,
   isWednesday = false,
   isPastWeek = false,
 }: OrderAccordionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [itemsExpanded, setItemsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
 
   async function handleDelete() {
     if (isWednesday) {
@@ -416,119 +742,147 @@ function OrderAccordion({
     }
   }
 
+  const hasUnpriced = order.items.some((i) => !i.price || i.price === 0);
+  const priceClass = hasUnpriced ? "text-amber-600" : "text-emerald-700";
+
   return (
     <div
+      data-process-order-id={order.id}
       className={`overflow-hidden rounded-xl border bg-white ${order.status === "cancelled"
           ? "border-red-200 bg-red-50/20"
           : "border-slate-200"
         }`}
     >
-      <div className="px-4 py-3 sm:px-5">
-        {/* Row 1: Category badge + Order ID + status + chevron + actions */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-          >
-            <span
-              className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}
-            >
-              {orderRoleLabels[order.clientRole] || order.clientRole}
-            </span>
-            <span
-              className={`truncate text-sm font-semibold ${order.status === "cancelled" ? "text-red-600 line-through" : "text-slate-800"}`}
-            >
-              Order ID: {order.id}
-            </span>
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusStyles[order.status]}`}
-            >
-              {order.status}
-            </span>
-            {open ? (
-              <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
-            ) : (
-              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-            )}
-          </button>
-
-          {/* Action buttons — always on the right */}
-          <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => onView(order)}
-              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-              aria-label="View order"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => printOrderForm(order)}
-              className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-              aria-label="Print order"
-            >
-              <Printer className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onView(order)}
-              disabled={isWednesday || isPastWeek}
-              aria-disabled={isWednesday || isPastWeek}
-              className={`rounded-lg p-1.5 text-blue-600 ${isWednesday || isPastWeek ? "cursor-not-allowed opacity-60" : "hover:bg-blue-50"}`}
-              aria-label="Edit order"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={isWednesday || isPastWeek}
-              aria-disabled={isWednesday || isPastWeek}
-              className={`rounded-lg p-1.5 text-red-500 ${isWednesday || isPastWeek ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
-              aria-label={order.status === "cancelled" ? "Delete cancelled order" : "Cancel order"}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Row 2: Date · Items · Total · waiting badge */}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-          <span>{formatOrderDate(order.createdAt)}</span>
-          <span>·</span>
-          <span>
-            {order.items.length} item{order.items.length !== 1 ? "s" : ""}
-          </span>
-          <span>·</span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full min-w-0 items-center gap-2 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-3.5"
+      >
+        <span
+          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${orderRoleColors[order.clientRole] || "bg-slate-100 text-slate-700"}`}
+        >
+          {orderRoleLabels[order.clientRole] || order.clientRole}
+        </span>
+        <span
+          className={`min-w-0 shrink truncate text-sm font-semibold sm:max-w-none ${order.status === "cancelled" ? "text-red-600 line-through" : "text-slate-800"}`}
+        >
+          {order.id}
+        </span>
+        <span className="hidden shrink-0 text-slate-300 sm:inline">·</span>
+        <span
+          className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize sm:inline-flex ${statusStyles[order.status]}`}
+        >
+          {order.status}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-slate-500 sm:hidden">
+          {order.items.length} item{order.items.length !== 1 ? "s" : ""}
+        </span>
+        <span className={`shrink-0 text-sm font-bold tabular-nums ${priceClass}`}>
+          ₱
+          {(order.totalPrice || 0).toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+        {hasUnpriced && (
           <span
-            className={`font-semibold ${order.items.some((i) => !i.price || i.price === 0) ? "text-amber-600" : "text-emerald-700"}`}
-          >
-            ₱
-            {(order.totalPrice || 0).toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
-          {order.items.some((i) => !i.price || i.price === 0) && (
-            <span className="font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-              ⏳ Waiting for supplier pricing
-            </span>
-          )}
-        </div>
-      </div>
+            className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+            title="Waiting for supplier pricing"
+          />
+        )}
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+        )}
+      </button>
 
       {open && (
-        <div className="border-t border-slate-100 px-4 pb-4 sm:px-5">
-          <OrderItemsTable
-            order={order}
-            expanded={itemsExpanded}
-            onToggleAll={() => setItemsExpanded((v) => !v)}
-            onUpdated={onUpdated}
-            isWednesday={isWednesday}
-            isPastWeek={isPastWeek}
-          />
+        <div className="border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 sm:px-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize sm:hidden ${statusStyles[order.status]}`}>
+                {order.status}
+              </span>
+              <span>{formatOrderDate(order.createdAt)}</span>
+              <span>·</span>
+              <span>
+                {order.items.length} item{order.items.length !== 1 ? "s" : ""}
+              </span>
+              {hasUnpriced && (
+                <>
+                  <span>·</span>
+                  <span className="font-semibold text-amber-600">Waiting for pricing</span>
+                </>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {onGoToOrderSummary && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onGoToOrderSummary({
+                      week: order.weekLabel,
+                      school: order.clientName,
+                      category: order.clientRole,
+                      orderId: order.id,
+                    })
+                  }
+                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                  title="View in Order Summary"
+                  aria-label={`View ${order.id} in Order Summary`}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onView(order)}
+                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                aria-label="View order"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => printOrderForm(order)}
+                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                aria-label="Print order"
+              >
+                <Printer className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onView(order)}
+                disabled={isWednesday || isPastWeek || isOrderLocked(order)}
+                aria-disabled={isWednesday || isPastWeek || isOrderLocked(order)}
+                className={`rounded-lg p-2 text-blue-600 ${isWednesday || isPastWeek || isOrderLocked(order) ? "cursor-not-allowed opacity-60" : "hover:bg-blue-50"}`}
+                aria-label="Edit order"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isWednesday || isPastWeek || isOrderLocked(order)}
+                aria-disabled={isWednesday || isPastWeek || isOrderLocked(order)}
+                className={`rounded-lg p-2 text-red-500 ${isWednesday || isPastWeek || isOrderLocked(order) ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
+                aria-label={order.status === "cancelled" ? "Delete cancelled order" : "Cancel order"}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="px-3 pb-4 pt-2 sm:px-4">
+            <OrderItemsTable
+              order={order}
+              expanded={itemsExpanded}
+              onToggleAll={() => setItemsExpanded((v) => !v)}
+              onUpdated={onUpdated}
+              isWednesday={isWednesday}
+              isPastWeek={isPastWeek}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -544,10 +898,12 @@ type OrderDetailsPanelProps = {
   onAddOrder: () => void;
   onViewSummary: () => void;
   onViewOrder: (order: WeeklyOrderRecord) => void;
+  onGoToOrderSummary?: (context: OrderSummaryContext) => void;
   onBack?: () => void;
   weekLabel?: string;
   isWednesday?: boolean;
   isPastWeek?: boolean;
+  focusOrderId?: string;
 };
 
 export default function OrderDetailsPanel({
@@ -559,14 +915,67 @@ export default function OrderDetailsPanel({
   onAddOrder,
   onViewSummary,
   onViewOrder,
+  onGoToOrderSummary,
   onBack,
   weekLabel,
   isWednesday = false,
   isPastWeek = false,
+  focusOrderId,
 }: OrderDetailsPanelProps) {
   const [addItemCategory, setAddItemCategory] = useState<OrderRole | null>(
     null,
   );
+  const [panelCategory, setPanelCategory] = useState<string>(
+    categoryFilter !== "all" ? categoryFilter : "all",
+  );
+
+  useEffect(() => {
+    if (categoryFilter !== "all") {
+      setPanelCategory(categoryFilter);
+    }
+  }, [categoryFilter]);
+
+  useEffect(() => {
+    if (!focusOrderId) return;
+    const focusOrder = orders.find((o) => o.id === focusOrderId);
+    if (focusOrder) {
+      setPanelCategory(focusOrder.clientRole);
+    }
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(
+          `[data-process-order-id="${CSS.escape(focusOrderId)}"]`,
+        )
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [focusOrderId, orders]);
+
+  const categoryOptions = useMemo(() => {
+    const seen = new Set<OrderRole>();
+    for (const order of orders) {
+      if (order.clientRole) seen.add(order.clientRole);
+    }
+    return categories.filter((cat) => seen.has(cat));
+  }, [orders, categories]);
+
+  const filteredCategoryItems = useMemo(() => {
+    if (panelCategory === "all") return [];
+    return orders
+      .filter((o) => o.clientRole === panelCategory)
+      .flatMap((order) =>
+        order.items.map((item) => ({ order, item })),
+      )
+      .sort((a, b) => {
+        const nameCompare = a.item.name.localeCompare(b.item.name);
+        if (nameCompare !== 0) return nameCompare;
+        return a.order.id.localeCompare(b.order.id);
+      });
+  }, [orders, panelCategory]);
+
+  const displayOrders = useMemo(() => {
+    if (panelCategory === "all") return orders;
+    return orders.filter((o) => o.clientRole === panelCategory);
+  }, [orders, panelCategory]);
 
   if (!clientName) {
     return (
@@ -621,22 +1030,22 @@ export default function OrderDetailsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
-        <div className="flex items-center gap-3">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex min-w-0 items-start gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden"
               aria-label="Back to schools list"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
             <User className="h-4 w-4" />
           </div>
-          <div>
-            <p className="font-bold text-slate-800">{clientName}</p>
+          <div className="min-w-0">
+            <p className="font-bold text-slate-800 break-words leading-snug">{clientName}</p>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
               {categories.map((cat) => (
                 <span
@@ -652,19 +1061,19 @@ export default function OrderDetailsPanel({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button
             onClick={onViewSummary}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:py-1.5"
           >
             <BarChart3 className="h-4 w-4" />
-            View Summary
+            <span className="truncate">View Summary</span>
           </button>
           <button
             onClick={onAddOrder}
             disabled={isWednesday || isPastWeek}
             aria-disabled={isWednesday || isPastWeek}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${isWednesday || isPastWeek ? "bg-slate-400 cursor-not-allowed opacity-70" : "bg-blue-600 hover:bg-blue-700"}`}
+            className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white sm:py-1.5 ${isWednesday || isPastWeek ? "bg-slate-400 cursor-not-allowed opacity-70" : "bg-blue-600 hover:bg-blue-700"}`}
           >
             <Plus className="h-4 w-4" />
             Add Order
@@ -689,24 +1098,61 @@ export default function OrderDetailsPanel({
             <CategorySummary
               orders={orders}
               categories={categories}
-              onAddItem={setAddItemCategory}
+              selectedCategory={panelCategory}
+              onSelectCategory={setPanelCategory}
             />
-            <div className="space-y-3">
-              {orders.map((order) => (
-                <OrderAccordion
-                  key={order.id + "-" + categoryFilter}
-                  order={order}
-                  defaultOpen={
-                    categoryFilter !== "all" &&
-                    order.clientRole === categoryFilter
-                  }
-                  onUpdated={onUpdated}
-                  onView={onViewOrder}
-                  isWednesday={isWednesday}
-                  isPastWeek={isPastWeek}
-                />
-              ))}
+
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <Filter className="h-4 w-4 shrink-0 text-slate-400" />
+              <label htmlFor="panel-category-filter" className="sr-only">
+                Filter by category
+              </label>
+              <select
+                id="panel-category-filter"
+                value={panelCategory}
+                onChange={(e) => setPanelCategory(e.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none"
+              >
+                <option value="all">All categories — by order</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {orderRoleLabels[cat]} — per item
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {panelCategory !== "all" ? (
+              <CategoryOrderItemsList
+                items={filteredCategoryItems}
+                onUpdated={onUpdated}
+                isWednesday={isWednesday}
+                isPastWeek={isPastWeek}
+                weekLabel={weekLabel}
+                categoryLabel={orderRoleLabels[panelCategory as OrderRole] ?? panelCategory}
+                onGoToOrderSummary={onGoToOrderSummary}
+                focusOrderId={focusOrderId}
+              />
+            ) : (
+              <div className="space-y-3">
+                {displayOrders.map((order) => (
+                  <OrderAccordion
+                    key={order.id + "-" + categoryFilter}
+                    order={order}
+                    defaultOpen={
+                      focusOrderId === order.id ||
+                      (categoryFilter !== "all" &&
+                        order.clientRole === categoryFilter)
+                    }
+                    onUpdated={onUpdated}
+                    onView={onViewOrder}
+                    onGoToOrderSummary={onGoToOrderSummary}
+                    isWednesday={isWednesday}
+                    isPastWeek={isPastWeek}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

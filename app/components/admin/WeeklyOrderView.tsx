@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ClipboardList,
   Package,
@@ -81,6 +82,12 @@ type WeeklyOrderViewProps = {
   onViewChange?: (view: AdminView) => void;
   fixedCategory?: OrderRole;
   onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
+  onGoToOrderSummary?: (context: {
+    week: string;
+    school?: string;
+    category?: string;
+    orderId?: string;
+  }) => void;
 };
 
 interface SchoolGroupBlockProps {
@@ -409,8 +416,15 @@ export default function WeeklyOrderView({
   onViewChange,
   fixedCategory,
   onPrintDeliveryReceipt,
+  onGoToOrderSummary,
 }: WeeklyOrderViewProps) {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams?.get("tab");
+  const weekFromUrl = searchParams?.get("week");
+  const schoolFromUrl = searchParams?.get("school");
+  const categoryFromUrl = searchParams?.get("category");
+  const orderIdFromUrl = searchParams?.get("orderId");
   const isAdmin = user?.role === "admin";
   const showAllButtons = useMemo(() => {
     return !user?.categories || user.categories.length > 1;
@@ -455,6 +469,18 @@ export default function WeeklyOrderView({
   useEffect(() => {
     getWeeklyProducts(selectedWeekLabel).then(setWeeklyProducts);
   }, [selectedWeekLabel]);
+
+  useEffect(() => {
+    if (tabFromUrl === "process" && !forceTab) {
+      setTab("process");
+    }
+    if (weekFromUrl) {
+      setSelectedWeekLabel(weekFromUrl);
+    }
+    if (categoryFromUrl) {
+      setCategoryFilter(categoryFromUrl);
+    }
+  }, [tabFromUrl, weekFromUrl, categoryFromUrl, forceTab]);
 
   const scopedOrders = useMemo(() => {
     const byWeek = filterOrdersForWeek(orders, selectedWeekLabel);
@@ -1190,6 +1216,9 @@ export default function WeeklyOrderView({
             isAdmin={isAdmin}
             isWednesday={isWednesday}
             isPastWeek={isPastWeek}
+            onGoToOrderSummary={onGoToOrderSummary}
+            focusSchool={schoolFromUrl ?? undefined}
+            focusOrderId={orderIdFromUrl ?? undefined}
           />
         )}
         {tab === "items" && (

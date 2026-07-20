@@ -72,7 +72,7 @@ export default function ClientsSidebar({
                     className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-blue-600" : "text-slate-400"}`}
                   />
                   <span className="min-w-0">
-                    <span className="block truncate">{client.name}</span>
+                    <span className="block break-words leading-snug">{client.name}</span>
                     {client.categories.length > 0 && (
                       <span className="mt-1 flex flex-wrap gap-1">
                         {client.categories.map((cat) => (
