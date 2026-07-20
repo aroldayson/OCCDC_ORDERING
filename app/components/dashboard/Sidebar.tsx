@@ -4,6 +4,7 @@ import { ChevronDown, LogOut, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { navItems } from "./data";
+import OccdoLogo from "../brand/OccdoLogo";
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -47,8 +48,8 @@ export default function Sidebar({ onNavigate, showClose, onClose }: SidebarProps
 
       <div className="border-b border-white/10 px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold ring-2 ring-blue-400/30">
-            OCC
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm">
+            <OccdoLogo size={40} className="h-full w-full" />
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">

@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { SidebarToggleButton } from "./SidebarToggle";
+import OccdoLogo from "../brand/OccdoLogo";
 import type { WeeklyOrderRecord } from "../order/types";
 import { supabase } from "@/lib/supabase";
 
@@ -255,8 +256,8 @@ function SidebarInner({
     <>
       <div className="flex items-center justify-between px-4 pb-4 pt-5">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sidebar-active text-[9px] font-bold text-sidebar-active-text">
-            OCC
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm">
+            <OccdoLogo size={40} className="h-full w-full" />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-white">

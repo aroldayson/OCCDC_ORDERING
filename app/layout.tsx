@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OCCDO — Dashboard & Orders",
   description: "OCCDO ordering system dashboard and order management",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/occdo-logo.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/occdo-logo.png",
+  },
 };
 
 export default function RootLayout({

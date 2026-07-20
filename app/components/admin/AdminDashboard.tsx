@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import WeeklyOrderView from "./WeeklyOrderView";
 import AdminSidebar, { type AdminView } from "./AdminSidebar";
 import { SidebarToggleButton } from "./SidebarToggle";
+import OccdoLogo from "../brand/OccdoLogo";
 import RestaurantDashboard from "./overview/RestaurantDashboard";
 import OrdersTable from "./OrdersTable";
 import OrderDetailPanel from "./OrderDetailPanel";
@@ -495,8 +496,8 @@ export default function AdminDashboard() {
             )}
 
             {!sidebarOpen && (
-              <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white lg:flex">
-                OCC
+              <div className="hidden h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm lg:flex">
+                <OccdoLogo size={28} className="h-full w-full" />
               </div>
             )}
 

@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase, type UserRole } from "@/lib/supabase";
 import { getClients, updateClientAddress } from "@/app/components/order/clientStorage";
 import { LeftAuthPanel } from "@/app/components/auth/LeftAuthPanel";
+import OccdoLogo from "@/app/components/brand/OccdoLogo";
 import { ProtectedRoute } from "@/app/components/auth/ProtectedRoute";
 import { ClipboardList, GraduationCap, MapPin, Truck } from "lucide-react";
 
@@ -111,8 +112,8 @@ export default function CompleteProfilePage() {
           <div className="flex flex-col justify-center p-6 sm:p-10 md:p-14 overflow-y-auto max-h-[90vh] lg:max-h-none relative">
             {/* Mobile Only Header */}
             <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-              <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
-                <span className="text-lg">🛒</span>
+              <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-sm overflow-hidden p-0.5">
+                <OccdoLogo size={36} className="h-full w-full" />
               </div>
               <div className="text-left">
                 <p className="uppercase tracking-widest text-blue-600 text-[10px] font-bold leading-none">
