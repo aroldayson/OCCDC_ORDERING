@@ -87,7 +87,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 import { filterOrdersForWeek } from "../order/orderAccess";
-import type { OrderStatus, WeeklyOrderRecord } from "../order/types";
+import type { OrderItem, OrderStatus, WeeklyOrderRecord } from "../order/types";
 import {
   printCatalog,
   printCatalogForSchool,
@@ -620,10 +620,16 @@ export default function ProductCatalogManager({
       return;
     }
 
-    const updatedItems = order.items.map((item) => {
+    const updatedItems: OrderItem[] = order.items.map((item) => {
       if (item.productId !== productId) return item;
-      const { deleted: _deleted, ...rest } = item;
-      return rest;
+      return {
+        productId: item.productId,
+        name: item.name,
+        qty: item.qty,
+        unit: item.unit,
+        price: item.price,
+        category: item.category,
+      };
     });
 
     const activeItems = updatedItems.filter(
