@@ -919,6 +919,16 @@ export function buildOrderItems(
   }));
 }
 
+function mergeItemKey(name: string, category: string): string {
+  const normalizedName = name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s*\(\s*/g, "(")
+    .replace(/\s*\)\s*/g, ")");
+  return `${(category || "other").toLowerCase().trim()}||${normalizedName}`;
+}
+
 export function mergeOrdersByCategory(ordersList: WeeklyOrderRecord[]): WeeklyOrderRecord[] {
   const categoryGroups: Record<string, WeeklyOrderRecord[]> = {};
   for (const order of ordersList) {
@@ -939,10 +949,17 @@ export function mergeOrdersByCategory(ordersList: WeeklyOrderRecord[]): WeeklyOr
     for (const order of group) {
       for (const item of order.items) {
         if (item.deleted) continue;
-        const key = `${item.name.trim().toLowerCase()}-${item.unit.trim().toLowerCase()}-${item.price || 0}`;
+        const key = mergeItemKey(item.name, item.category);
         const existing = itemMap.get(key);
         if (existing) {
-          existing.qty += item.qty;
+          const combinedQty = existing.qty + item.qty;
+          const combinedTotal =
+            existing.qty * existing.price + item.qty * (item.price || 0);
+          existing.qty = combinedQty;
+          existing.price = combinedQty > 0 ? combinedTotal / combinedQty : item.price;
+          if (!existing.unit && item.unit) {
+            existing.unit = item.unit;
+          }
         } else {
           itemMap.set(key, { ...item });
         }

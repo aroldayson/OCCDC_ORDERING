@@ -31,7 +31,8 @@ function aggregateOrderItems(orders: WeeklyOrderRecord[]): AggregatedItem[] {
 
   for (const order of orders) {
     for (const item of order.items) {
-      const key = item.name.toLowerCase().trim();
+      if (item.deleted) continue;
+      const key = `${(item.category || "other").toLowerCase().trim()}||${item.name.toLowerCase().trim().replace(/\s+/g, " ")}`;
       const existing = map.get(key);
       if (existing) {
         existing.totalQty += item.qty;
