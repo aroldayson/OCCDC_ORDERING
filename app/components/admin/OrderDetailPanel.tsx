@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Printer, Trash2, Calendar, Pencil, Camera, Truck } from "lucide-react";
+import { X, Printer, Trash2, Calendar, Pencil, Camera, Truck, ClipboardList } from "lucide-react";
 import { updateOrderStatus, updateOrderDeliveryDate } from "../order/orderStorage";
 import { getDeliveryProof, saveDeliveryProof, deleteDeliveryProof } from "../order/deliveryProofStorage";
 import { printOrderForm } from "./printOrder";
@@ -40,6 +40,7 @@ type OrderDetailPanelProps = {
   onClose: () => void;
   onStatusChange: () => void;
   onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
+  onGoToProcess?: (order: WeeklyOrderRecord) => void;
 };
 
 export default function OrderDetailPanel({
@@ -47,6 +48,7 @@ export default function OrderDetailPanel({
   onClose,
   onStatusChange,
   onPrintDeliveryReceipt,
+  onGoToProcess,
 }: OrderDetailPanelProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -209,22 +211,28 @@ export default function OrderDetailPanel({
 
   const canClientPrintDR = hasReceiptData;
   const isCancelled = order.status === "cancelled";
+  const canEditQty = !isCancelled && order.status !== "completed";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-      <div className="border-b border-slate-100 p-3 sm:p-5">
-        <div className="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:mb-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-slate-400 whitespace-nowrap">
-              {order.id}
-            </p>
-            <h3 className="mt-0.5 text-base font-bold text-slate-800 sm:text-lg truncate">
-              {order.clientName}
-            </h3>
-            <p className="mt-1 text-xs text-slate-500 truncate">
-              Order Date: {formatDate(order.createdAt)} · Items:{" "}
-              {order.itemCount}
-            </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      <div className="relative shrink-0 border-b border-slate-100 p-3 sm:p-5">
+        <button
+          onClick={onClose}
+          className="absolute right-2 top-2 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 sm:right-3 sm:top-3"
+          aria-label="Close detail"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="pr-10">
+          <p className="text-xs font-medium text-slate-400">{order.id}</p>
+          <h3 className="mt-0.5 text-base font-bold leading-snug text-slate-800 break-words sm:text-lg">
+            {order.clientName}
+          </h3>
+          <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+            <p className="break-words">Order Date: {formatDate(order.createdAt)}</p>
+            <p>Items: {order.itemCount}</p>
+          </div>
             {clientRecord && isAdmin && (
               <div className="mt-2 flex flex-wrap items-start gap-x-2 gap-y-1 text-xs">
                 <span className="font-medium text-slate-600 shrink-0">
@@ -334,19 +342,9 @@ export default function OrderDetailPanel({
                 </div>
               )}
             </div>
-          </div>
-          <div className="flex gap-1 shrink-0 sm:gap-2">
-            <button
-              onClick={onClose}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 sm:p-1.5"
-              aria-label="Close detail"
-            >
-              <X className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-          </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-3 flex flex-col gap-3 sm:mt-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span
               className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold capitalize sm:px-3 ${statusStyles[order.status]}`}
@@ -354,14 +352,15 @@ export default function OrderDetailPanel({
               {order.status}
             </span>
           </div>
-          <div className="flex gap-1 items-center text-xs font-medium text-slate-500 sm:gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
             <span className="hidden sm:inline">Actions</span>
             <button
               onClick={async () => await printOrderForm(order, undefined, clientRecord)}
-              className="rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition sm:p-1.5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition sm:border-0 sm:p-1.5"
               title="Print order"
             >
-              <Printer className="h-4 w-4 sm:h-4 sm:w-4" />
+              <Printer className="h-4 w-4" />
+              <span className="sm:hidden">Print</span>
             </button>
             {(isAdmin || canClientPrintDR) && (
               <button
@@ -369,10 +368,10 @@ export default function OrderDetailPanel({
                   if (!isCancelled) onPrintDeliveryReceipt(order);
                 }}
                 disabled={isCancelled}
-                className={`rounded p-1 sm:p-1.5 flex items-center gap-1 transition ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition sm:border-0 sm:p-1.5 ${
                   isCancelled
-                    ? "cursor-not-allowed text-slate-300 opacity-50"
-                    : "text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                    ? "cursor-not-allowed border-slate-100 text-slate-300 opacity-50"
+                    : "border-slate-200 text-slate-600 hover:bg-violet-50 hover:text-violet-600"
                 }`}
                 title={
                   isCancelled
@@ -380,39 +379,42 @@ export default function OrderDetailPanel({
                     : "Print Delivery Receipt"
                 }
               >
-                <Truck className="h-4 w-4 sm:h-4 sm:w-4" />
-                <span className="text-[10px] hidden md:inline">Delivery Receipt</span>
+                <Truck className="h-4 w-4" />
+                <span className="text-[11px] sm:hidden">Delivery</span>
+                <span className="hidden md:inline">Delivery Receipt</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="border-b border-slate-100 p-3 sm:p-5">
+      <div className="shrink-0 border-b border-slate-100 p-3 sm:p-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
           {isAdmin ? "Change Status" : "Order Status"}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {statusOptions.map((s) => (
-            <button
-              key={s}
-              disabled={!isAdmin}
-              onClick={() => handleStatusChange(s)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-all ${order.status === s
-                ? statusStyles[s]
-                : isAdmin
-                  ? "border-slate-200 text-slate-500 hover:border-slate-300"
-                  : "border-slate-100 text-slate-300 opacity-40"
-                }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="-mx-1 overflow-x-auto px-1 pb-0.5 sm:overflow-visible">
+          <div className="flex w-max min-w-full flex-wrap gap-2 sm:w-auto">
+            {statusOptions.map((s) => (
+              <button
+                key={s}
+                disabled={!isAdmin}
+                onClick={() => handleStatusChange(s)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${order.status === s
+                  ? statusStyles[s]
+                  : isAdmin
+                    ? "border-slate-200 text-slate-500 hover:border-slate-300"
+                    : "border-slate-100 text-slate-300 opacity-40"
+                  }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-3 flex justify-between items-center">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/30 p-3">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Grand Total:
           </span>
@@ -496,9 +498,26 @@ export default function OrderDetailPanel({
             </div>
           )}
         </div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          {order.itemCount} Products — {order.weekLabel}
-        </p>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] font-semibold uppercase leading-snug tracking-wide text-slate-400 break-words sm:text-xs">
+            {order.itemCount} Products — {order.weekLabel}
+          </p>
+          {onGoToProcess && canEditQty && (
+            <button
+              type="button"
+              onClick={() => onGoToProcess(order)}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 sm:w-auto sm:py-1.5 sm:text-[11px]"
+            >
+              <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+              Edit qty in To Process
+            </button>
+          )}
+          {onGoToProcess && !canEditQty && !isCancelled && (
+            <p className="text-[11px] font-medium text-slate-400 sm:text-xs">
+              Quantity edits disabled for completed orders
+            </p>
+          )}
+        </div>
         {Object.entries(grouped).map(([category, items]) => (
           <div key={category} className="mb-4">
             <p className="mb-2 text-xs font-bold capitalize text-slate-500">
@@ -512,12 +531,12 @@ export default function OrderDetailPanel({
                 return (
                   <li
                     key={item.productId}
-                    className={`flex items-start justify-between gap-2 rounded-xl px-3 py-2.5 ${isDeleted ? "bg-red-50/40" : "bg-slate-50"}`}
+                    className={`flex flex-col gap-2.5 rounded-xl px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 ${isDeleted ? "bg-red-50/40" : "bg-slate-50"}`}
                   >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <p
-                          className={`text-sm font-medium ${isDeleted
+                          className={`text-sm font-medium break-words ${isDeleted
                             ? "text-red-600 line-through decoration-red-500 decoration-2"
                             : isUnpriced
                               ? "text-blue-600 underline decoration-blue-500 decoration-2"
@@ -527,18 +546,18 @@ export default function OrderDetailPanel({
                           {item.name}
                         </p>
                         {isDeleted && (
-                          <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
+                          <span className="shrink-0 text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
                             Deleted
                           </span>
                         )}
                         {isUnpriced && (
-                          <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
+                          <span className="shrink-0 text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
                             No Price
                           </span>
                         )}
                       </div>
                       <p
-                        className={`text-xs font-semibold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-400" : "text-slate-500"}`}
+                        className={`mt-1 text-xs font-semibold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-400" : "text-slate-500"}`}
                       >
                         ₱
                         {(item.price || 0).toLocaleString("en-PH", {
@@ -547,21 +566,38 @@ export default function OrderDetailPanel({
                         / {item.unit}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex items-center justify-between gap-3 border-t border-slate-200/70 pt-2.5 sm:min-w-[7.5rem] sm:flex-col sm:items-end sm:border-0 sm:pt-0">
                       <span
-                        className={`text-sm font-bold block ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-500" : "text-blue-700"}`}
+                        className={`text-sm font-bold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-500" : "text-blue-700"}`}
                       >
                         {item.qty} {item.unit}
                       </span>
-                      <span
-                        className={`text-xs font-bold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : "text-emerald-700"}`}
-                      >
-                        ₱
-                        {((item.qty || 0) * (item.price || 0)).toLocaleString(
-                          "en-PH",
-                          { minimumFractionDigits: 2 },
+                      <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+                        {onGoToProcess && canEditQty && !isDeleted && (
+                          <button
+                            type="button"
+                            onClick={() => onGoToProcess(order)}
+                            className="inline-flex items-center gap-0.5 rounded-md px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-800 sm:px-0 sm:py-0 sm:hover:bg-transparent sm:hover:underline"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Edit qty
+                          </button>
                         )}
-                      </span>
+                        {onGoToProcess && !canEditQty && !isDeleted && (
+                          <span className="text-[11px] font-medium text-slate-400">
+                            Locked
+                          </span>
+                        )}
+                        <span
+                          className={`text-sm font-bold tabular-nums ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : "text-emerald-700"}`}
+                        >
+                          ₱
+                          {((item.qty || 0) * (item.price || 0)).toLocaleString(
+                            "en-PH",
+                            { minimumFractionDigits: 2 },
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </li>
                 );

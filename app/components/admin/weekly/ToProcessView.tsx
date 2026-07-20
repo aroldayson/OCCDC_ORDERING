@@ -23,6 +23,14 @@ type ToProcessViewProps = {
   isAdmin?: boolean;
   isWednesday?: boolean;
   isPastWeek?: boolean;
+  onGoToOrderSummary?: (context: {
+    week: string;
+    school?: string;
+    category?: string;
+    orderId?: string;
+  }) => void;
+  focusSchool?: string;
+  focusOrderId?: string;
 };
 
 export default function ToProcessView({
@@ -36,6 +44,9 @@ export default function ToProcessView({
   isAdmin = false,
   isWednesday = false,
   isPastWeek = false,
+  onGoToOrderSummary,
+  focusSchool,
+  focusOrderId,
 }: ToProcessViewProps) {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -95,10 +106,16 @@ export default function ToProcessView({
       return;
     }
 
+    if (focusSchool && clients.some((c) => c.name === focusSchool)) {
+      setSelectedClient(focusSchool);
+      setMobileShowSidebar(false);
+      return;
+    }
+
     if (!selectedClient || !clients.some((c) => c.name === selectedClient)) {
       setSelectedClient(clients[0].name);
     }
-  }, [clients, selectedClient]);
+  }, [clients, selectedClient, focusSchool]);
 
   return (
     <>
@@ -131,6 +148,8 @@ export default function ToProcessView({
             onAddOrder={() => onAddOrder(selectedClient ?? undefined)}
             onViewSummary={() => setSummaryOpen(true)}
             onViewOrder={setViewOrder}
+            onGoToOrderSummary={onGoToOrderSummary}
+            focusOrderId={focusOrderId}
             onBack={() => setMobileShowSidebar(true)}
             weekLabel={weekLabel}
             isWednesday={isWednesday}

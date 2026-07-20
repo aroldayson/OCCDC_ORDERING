@@ -131,6 +131,22 @@ export default function AdminDashboard() {
     },
     [router],
   );
+
+  const handleGoToProcessTab = useCallback(
+    (order: WeeklyOrderRecord) => {
+      setOrderDetailOpen(false);
+      setActiveView("place-order");
+      const params = new URLSearchParams();
+      params.set("view", "place-order");
+      params.set("tab", "process");
+      if (order.weekLabel) params.set("week", order.weekLabel);
+      if (order.clientName) params.set("school", order.clientName);
+      if (order.clientRole) params.set("category", order.clientRole);
+      if (order.id) params.set("orderId", order.id);
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [router],
+  );
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -655,6 +671,7 @@ export default function AdminDashboard() {
               onOrdersUpdated={loadOrders}
               onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+              onGoToOrderSummary={handleGoToOrdersFromPricing}
             />
           )}
 
@@ -670,6 +687,7 @@ export default function AdminDashboard() {
               }
               onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+              onGoToOrderSummary={handleGoToOrdersFromPricing}
             />
           )}
 
@@ -804,17 +822,18 @@ export default function AdminDashboard() {
               {/* Centered modal overlay for order detail */}
               {orderDetailOpen && selectedOrder && (
                 <div
-                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                  className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-0 sm:items-center sm:p-4"
                   onClick={(e) => {
                     if (e.target === e.currentTarget) handleCloseOrderDetail();
                   }}
                 >
-                  <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+                  <div className="relative flex w-full max-w-lg max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
                     <OrderDetailPanel
                       order={selectedOrder}
                       onClose={handleCloseOrderDetail}
                       onStatusChange={loadOrders}
                       onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+                      onGoToProcess={handleGoToProcessTab}
                     />
                   </div>
                 </div>
