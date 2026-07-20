@@ -23,7 +23,7 @@ export default function OrderHeader({
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-                OCCDC Ordering
+                OCCDO Ordering
               </p>
               <h1 className="text-lg font-bold text-slate-800">Weekly Product Order</h1>
             </div>

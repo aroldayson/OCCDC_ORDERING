@@ -54,7 +54,7 @@ export default function Sidebar({ onNavigate, showClose, onClose }: SidebarProps
             <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
               Olongapo City
             </p>
-            <p className="truncate text-sm font-bold leading-tight">Cooperative Council</p>
+            <p className="truncate text-sm font-bold leading-tight">Cooperative Office</p>
           </div>
         </div>
       </div>

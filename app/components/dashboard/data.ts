@@ -73,7 +73,7 @@ export const notifications = [
 
 export const user = {
   name: "Aroldayson3",
-  email: "aroldayson3@occdc.ph",
+  email: "aroldayson3@occdo.ph",
   role: "Supplier",
   memberId: "MEM-2024-001",
   cooperative: "Coco Bee Cooperative",

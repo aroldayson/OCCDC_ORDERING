@@ -44,7 +44,7 @@ export default function Dashboard() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <p className="text-sm font-bold text-slate-800">Cooperative Council</p>
+          <p className="text-sm font-bold text-slate-800">Cooperative Office</p>
         </div>
 
         <main className="min-h-0 flex-1 overflow-y-auto">

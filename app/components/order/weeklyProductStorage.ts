@@ -93,8 +93,8 @@ export async function addWeeklyProduct(
       .from("weekly_products")
       .upsert(entry, { onConflict: "id,week_label" });
     if (error) throw error;
-    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new Event("occdo-weekly-products-updated"));
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "product_added", productName: product.name, category: product.category },
     }));
   } catch (err) {
@@ -257,7 +257,7 @@ export async function updateWeeklyProduct(
             .eq("id", order.id);
 
           if (isPending && allItemsPriced) {
-            window.dispatchEvent(new CustomEvent("occdc-order-action", {
+            window.dispatchEvent(new CustomEvent("occdo-order-action", {
               detail: { type: "status_change", orderId: order.id, status: "processing" },
             }));
           }
@@ -277,14 +277,14 @@ export async function updateWeeklyProduct(
       }
     }
 
-    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
-    window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new Event("occdo-weekly-products-updated"));
+    window.dispatchEvent(new Event("occdo-orders-updated"));
     if (data.price !== undefined) {
-      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      window.dispatchEvent(new CustomEvent("occdo-order-action", {
         detail: { type: "pricing_updated", productId: id, newPrice: data.price },
       }));
     } else {
-      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      window.dispatchEvent(new CustomEvent("occdo-order-action", {
         detail: { type: "product_updated", productId: id },
       }));
     }
@@ -412,9 +412,9 @@ export async function removeWeeklyProduct(id: string, weekLabel?: string): Promi
       }
     }
 
-    window.dispatchEvent(new Event("occdc-weekly-products-updated"));
-    window.dispatchEvent(new Event("occdc-orders-updated"));
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new Event("occdo-weekly-products-updated"));
+    window.dispatchEvent(new Event("occdo-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "product_removed", productId: id },
     }));
   } catch (err) {

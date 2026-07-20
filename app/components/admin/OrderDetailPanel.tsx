@@ -102,10 +102,10 @@ export default function OrderDetailPanel({
       }
     };
 
-    window.addEventListener("occdc-delivery-proof-updated", handleProofUpdate);
+    window.addEventListener("occdo-delivery-proof-updated", handleProofUpdate);
     return () => {
       active = false;
-      window.removeEventListener("occdc-delivery-proof-updated", handleProofUpdate);
+      window.removeEventListener("occdo-delivery-proof-updated", handleProofUpdate);
     };
   }, [order?.id]);
 

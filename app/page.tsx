@@ -46,7 +46,7 @@ export default function Home() {
           </div>
 
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-6xl md:text-7xl">
-            OCCDC School <br className="hidden sm:block" />
+            OCCDO School <br className="hidden sm:block" />
             <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
               Feeding Program
             </span>
@@ -129,7 +129,7 @@ export default function Home() {
               Get Started
             </p>
             <h2 className="text-4xl font-extrabold text-slate-900">
-              Join the OCCDC Portal
+              Join the OCCDO Portal
             </h2>
             <p className="mt-3 text-slate-500">
               Choose your role, follow the steps below, and start using the

@@ -79,7 +79,7 @@ export default function LoginPage() {
             </div>
             <div className="text-left">
               <p className="uppercase tracking-widest text-blue-600 text-[10px] font-bold leading-none">
-                OCCDC
+                OCCDO
               </p>
               <h1 className="text-base font-bold text-slate-900 leading-tight">
                 Ordering System

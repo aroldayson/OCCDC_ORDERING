@@ -263,7 +263,7 @@ function SidebarInner({
               Olongapo City
             </p>
             <p className="text-sm font-medium text-[#82caff]/80">
-              Cooperative Council
+              Cooperative Office
             </p>
           </div>
         </div>
@@ -355,7 +355,7 @@ function SidebarInner({
         </button>
 
         <p className="text-center text-[10px] text-white/30 select-none">
-          v1.0.1 &copy; 2026 OCCDC
+          v1.0.1 &copy; 2026 OCCDO
         </p>
       </div>
     </>

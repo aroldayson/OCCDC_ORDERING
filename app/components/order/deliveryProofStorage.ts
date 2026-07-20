@@ -53,7 +53,7 @@ export async function saveDeliveryProof(orderId: string, imageData: string): Pro
     if (error) throw error;
 
     // Notify application components of changes
-    window.dispatchEvent(new CustomEvent("occdc-delivery-proof-updated", { detail: { orderId } }));
+    window.dispatchEvent(new CustomEvent("occdo-delivery-proof-updated", { detail: { orderId } }));
   } catch (err) {
     console.error("Error saving delivery proof:", err);
     throw err;
@@ -73,7 +73,7 @@ export async function deleteDeliveryProof(orderId: string): Promise<void> {
     if (error) throw error;
 
     // Notify application components of changes
-    window.dispatchEvent(new CustomEvent("occdc-delivery-proof-updated", { detail: { orderId } }));
+    window.dispatchEvent(new CustomEvent("occdo-delivery-proof-updated", { detail: { orderId } }));
   } catch (err) {
     console.error("Error deleting delivery proof:", err);
     throw err;

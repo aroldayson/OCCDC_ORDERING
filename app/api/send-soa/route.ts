@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     });
 
     await transporter.sendMail({
-      from: `"OCCDC Ordering System" <${user.trim()}>`,
+      from: `"OCCDO Ordering System" <${user.trim()}>`,
       to: to.trim(),
       subject: subject || "Statement of Account",
       html,

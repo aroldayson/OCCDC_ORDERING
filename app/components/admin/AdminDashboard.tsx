@@ -184,7 +184,7 @@ export default function AdminDashboard() {
 
   // Load read notifications from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("occdc-read-order-ids");
+    const saved = localStorage.getItem("occdo-read-order-ids");
     if (saved) {
       try {
         setReadOrderIds(JSON.parse(saved));
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
 
   const saveReadIds = (ids: string[]) => {
     setReadOrderIds(ids);
-    localStorage.setItem("occdc-read-order-ids", JSON.stringify(ids));
+    localStorage.setItem("occdo-read-order-ids", JSON.stringify(ids));
   };
 
   const showToast = useCallback(
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
         const existingIds = new Set(data.map((o) => o.id));
         const pruned = prev.filter((id) => existingIds.has(id));
         if (pruned.length !== prev.length) {
-          localStorage.setItem("occdc-read-order-ids", JSON.stringify(pruned));
+          localStorage.setItem("occdo-read-order-ids", JSON.stringify(pruned));
           return pruned;
         }
         return prev;
@@ -257,7 +257,7 @@ export default function AdminDashboard() {
     loadOrders();
 
     // Listen to local update events
-    window.addEventListener("occdc-orders-updated", loadOrders);
+    window.addEventListener("occdo-orders-updated", loadOrders);
 
     // Listen to remote changes on public.orders via Supabase Realtime
     const channel = supabase
@@ -320,7 +320,7 @@ export default function AdminDashboard() {
       .subscribe();
 
     return () => {
-      window.removeEventListener("occdc-orders-updated", loadOrders);
+      window.removeEventListener("occdo-orders-updated", loadOrders);
       supabase.removeChannel(channel);
     };
   }, [loadOrders, isAdmin, user, showToast]);
