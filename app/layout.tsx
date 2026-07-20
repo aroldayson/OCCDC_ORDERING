@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OCCDC — Dashboard & Orders",
-  description: "OCCDC ordering system dashboard and order management",
+  title: "OCCDO — Dashboard & Orders",
+  description: "OCCDO ordering system dashboard and order management",
 };
 
 export default function RootLayout({

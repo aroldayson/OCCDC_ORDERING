@@ -713,8 +713,8 @@ export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
       }
     }
 
-    window.dispatchEvent(new Event("occdc-orders-updated"));
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new Event("occdo-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "new_order", orderId: order.id, clientName: order.clientName, category: order.clientRole },
     }));
   } catch (err) {
@@ -747,8 +747,8 @@ export async function updateOrderStatus(id: string, status: WeeklyOrderRecord["s
       console.error("Error updating order_items status in Supabase:", itemsError);
     }
 
-    window.dispatchEvent(new Event("occdc-orders-updated"));
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new Event("occdo-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "status_change", orderId: id, status },
     }));
   } catch (err) {
@@ -766,7 +766,7 @@ export async function updateOrderDeliveryDate(id: string, deliveryDate: string |
       console.error("Supabase error updating delivery date:", error.message, error.code, error.hint, error.details);
       throw error;
     }
-    window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new Event("occdo-orders-updated"));
   } catch (err) {
     console.error("Error updating order delivery date in Supabase:", err instanceof Error ? err.message : JSON.stringify(err));
   }
@@ -820,8 +820,8 @@ export async function deleteOrder(id: string): Promise<void> {
       .eq("id", id);
     if (error) throw error;
 
-    window.dispatchEvent(new Event("occdc-orders-updated"));
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new Event("occdo-orders-updated"));
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "deleted", orderId: id },
     }));
   } catch (err) {
@@ -886,13 +886,13 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       }
     }
 
-    window.dispatchEvent(new Event("occdc-orders-updated"));
+    window.dispatchEvent(new Event("occdo-orders-updated"));
     if (targetStatus !== originalStatus) {
-      window.dispatchEvent(new CustomEvent("occdc-order-action", {
+      window.dispatchEvent(new CustomEvent("occdo-order-action", {
         detail: { type: "status_change", orderId: updated.id, status: targetStatus },
       }));
     }
-    window.dispatchEvent(new CustomEvent("occdc-order-action", {
+    window.dispatchEvent(new CustomEvent("occdo-order-action", {
       detail: { type: "items_updated", orderId: updated.id, clientName: updated.clientName },
     }));
   } catch (err) {

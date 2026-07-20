@@ -117,7 +117,7 @@ async function readClients(): Promise<ClientRecord[]> {
 }
 
 function notify() {
-  window.dispatchEvent(new Event("occdc-clients-updated"));
+  window.dispatchEvent(new Event("occdo-clients-updated"));
 }
 
 export async function getClients(): Promise<ClientRecord[]> {

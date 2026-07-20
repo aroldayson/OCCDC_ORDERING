@@ -33,7 +33,7 @@ export default function RestaurantDashboard({ orders }: RestaurantDashboardProps
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm shrink-0">
         <div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight sm:text-xl">
-            Cooperative Council Performance
+            Cooperative Office Performance
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Realtime performance metrics for all school orders

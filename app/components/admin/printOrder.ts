@@ -88,7 +88,7 @@ function signatureBlock(isSupplier = false): string {
           <div style="border-bottom:1px solid #333;padding-bottom:4px;margin-bottom:6px;">&nbsp;</div>
           <div style="font-size:10px;color:#555;">Signature over Printed Name</div>
           <div style="margin-top:8px;font-weight:bold;">Noted by</div>
-          <div style="font-size:10px;color:#555;">OCCDC Officer</div>
+          <div style="font-size:10px;color:#555;">OCCDO Officer</div>
         </div>
       </div>`;
   }

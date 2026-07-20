@@ -52,7 +52,7 @@ export function LeftAuthPanel() {
 
           <div>
             <p className="uppercase tracking-widest text-blue-100 text-xs font-bold">
-              OCCDC
+              OCCDO
             </p>
             <h1 className="text-2xl font-bold">
               Ordering System

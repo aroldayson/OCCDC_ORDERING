@@ -186,7 +186,7 @@ export default function ProductCatalogManager({
 
   useEffect(() => {
     loadProducts();
-    window.addEventListener("occdc-weekly-products-updated", loadProducts);
+    window.addEventListener("occdo-weekly-products-updated", loadProducts);
 
     const channel = supabase
       .channel("realtime-products")
@@ -214,7 +214,7 @@ export default function ProductCatalogManager({
       .subscribe();
 
     return () => {
-      window.removeEventListener("occdc-weekly-products-updated", loadProducts);
+      window.removeEventListener("occdo-weekly-products-updated", loadProducts);
       supabase.removeChannel(channel);
     };
   }, [loadProducts]);
