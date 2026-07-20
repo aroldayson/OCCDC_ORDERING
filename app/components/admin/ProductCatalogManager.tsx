@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   Search,
@@ -10,6 +11,9 @@ import {
   ChevronDown,
   Printer,
   FileSpreadsheet,
+  ArrowLeft,
+  ClipboardList,
+  RotateCcw,
 } from "lucide-react";
 import {
   getWeeklyProducts,
@@ -41,6 +45,36 @@ function formatProductId(id: string) {
   return `PRD-${Math.abs(hash).toString().slice(0, 4).padStart(4, "0")}`;
 }
 
+function formatOrderDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getOrderItemDate(order: WeeklyOrderRecord) {
+  return formatOrderDate(order.cancelledAt || order.createdAt);
+}
+
+type CatalogRowGroup = "active" | "cancelled" | "catalog";
+
+type CatalogRow = {
+  id: string;
+  product: WeeklyProduct;
+  order?: WeeklyOrderRecord;
+  schoolName: string;
+  groupType: CatalogRowGroup;
+};
+
+const groupTypeSortOrder: Record<CatalogRowGroup, number> = {
+  active: 0,
+  cancelled: 1,
+  catalog: 2,
+};
+
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
   fruits: "Fruits",
@@ -70,16 +104,35 @@ const statusStyles: Record<OrderStatus, string> = {
 
 export default function ProductCatalogManager({
   orders,
+  onBackToOrders,
 }: {
   orders?: WeeklyOrderRecord[];
+  onBackToOrders?: (context: {
+    week: string;
+    school?: string;
+    category?: string;
+    orderId?: string;
+  }) => void;
 }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const weekFromUrl = searchParams?.get("week");
+  const schoolFromUrl = searchParams?.get("school");
+  const categoryFromUrl = searchParams?.get("category");
+  const orderIdFromUrl = searchParams?.get("orderId");
+  const lastPricingFocusKeyRef = useRef<string | null>(null);
+
   const [selectedWeekLabel, setSelectedWeekLabel] = useState<string>(() => {
+    if (weekFromUrl) return weekFromUrl;
     const allWeeks = getJuneAugustWeeks();
     const periodWeek = getCurrentOrNextPeriodWeek();
     if (periodWeek !== null) return allWeeks[periodWeek - 1].weekLabel;
     return allWeeks[allWeeks.length - 1].weekLabel;
   });
+
+  useEffect(() => {
+    if (weekFromUrl) setSelectedWeekLabel(weekFromUrl);
+  }, [weekFromUrl]);
   const [products, setProducts] = useState<WeeklyProduct[]>([]);
   const [search, setSearch] = useState("");
   const [editingItem, setEditingItem] = useState<WeeklyProduct | null>(null);
@@ -174,21 +227,87 @@ export default function ProductCatalogManager({
   }, [products, user]);
 
   const rowItems = useMemo(() => {
-    const list: {
-      id: string;
-      product: WeeklyProduct;
-      order?: WeeklyOrderRecord;
-      schoolName: string;
-    }[] = [];
+    const list: CatalogRow[] = [];
     const productsWithOrders = new Set<string>();
+
+    const appendOrderItems = (
+      order: WeeklyOrderRecord,
+      groupType: CatalogRowGroup,
+    ) => {
+      let added = 0;
+      for (const item of order.items) {
+        if (item.productId.startsWith("delivery-fee-")) continue;
+        if (groupType !== "cancelled" && item.deleted) continue;
+
+        let product = allowedProducts.find((p) => p.id === item.productId);
+        if (!product) {
+          const isAllowed = isCategoryAllowed(
+            item.category || order.clientRole,
+            user?.categories,
+          );
+          if (isAllowed) {
+            product = {
+              id: item.productId,
+              name: item.name,
+              defaultQty: item.qty,
+              unit: item.unit || "pc",
+              price: item.price || 0,
+              category: (item.category ||
+                order.clientRole) as WeeklyProduct["category"],
+            };
+          }
+        }
+
+        if (product) {
+          list.push({
+            id: `${product.id}-${order.id}${groupType === "cancelled" ? "-cancelled" : ""}`,
+            product: {
+              ...product,
+              defaultQty: item.qty,
+              price:
+                typeof item.price === "number" ? item.price : product.price,
+            },
+            order,
+            schoolName: order.clientName,
+            groupType,
+          });
+          productsWithOrders.add(product.id);
+          added++;
+        }
+      }
+      return added;
+    };
 
     if (orders) {
       const weekOrders = filterOrdersForWeek(orders, selectedWeekLabel);
       for (const order of weekOrders) {
         if (order.status === "cancelled") continue;
+        appendOrderItems(order, "active");
+      }
+      for (const order of weekOrders) {
+        if (order.status !== "cancelled") continue;
+        const added = appendOrderItems(order, "cancelled");
+        if (added === 0) {
+          list.push({
+            id: `cancelled-empty-${order.id}`,
+            product: {
+              id: `cancelled-${order.id}`,
+              name: "Order cancelled (no items on record)",
+              defaultQty: 0,
+              unit: "—",
+              price: 0,
+              category: order.clientRole,
+            },
+            order,
+            schoolName: order.clientName,
+            groupType: "cancelled",
+          });
+        }
+      }
+      for (const order of weekOrders) {
+        if (order.status === "cancelled") continue;
         for (const item of order.items) {
-          if (item.deleted || item.productId.startsWith("delivery-fee-"))
-            continue;
+          if (!item.deleted || item.productId.startsWith("delivery-fee-")) continue;
 
           let product = allowedProducts.find((p) => p.id === item.productId);
           if (!product) {
@@ -211,16 +330,17 @@ export default function ProductCatalogManager({
 
           if (product) {
             list.push({
-              id: `${product.id}-${order.id}`,
+              id: `${product.id}-${order.id}-cancelled-item`,
               product: {
                 ...product,
                 defaultQty: item.qty,
-                price: typeof item.price === "number" ? item.price : product.price,
+                price:
+                  typeof item.price === "number" ? item.price : product.price,
               },
               order,
               schoolName: order.clientName,
+              groupType: "cancelled",
             });
-            productsWithOrders.add(product.id);
           }
         }
       }
@@ -232,11 +352,15 @@ export default function ProductCatalogManager({
           id: `${product.id}-no-order`,
           product,
           schoolName: "Z_NO_ORDERS",
+          groupType: "catalog",
         });
       }
     }
 
     list.sort((a, b) => {
+      const typeDiff =
+        groupTypeSortOrder[a.groupType] - groupTypeSortOrder[b.groupType];
+      if (typeDiff !== 0) return typeDiff;
       const schoolDiff = a.schoolName.localeCompare(b.schoolName);
       if (schoolDiff !== 0) return schoolDiff;
       const catDiff = a.product.category.localeCompare(b.product.category);
@@ -252,8 +376,13 @@ export default function ProductCatalogManager({
 
     return rowItems.filter(
       (row) =>
-        (row.schoolName !== "Z_NO_ORDERS" &&
+        (row.groupType !== "catalog" &&
           row.schoolName.toLowerCase().includes(q)) ||
+        (row.groupType === "cancelled" && "cancelled orders".includes(q)) ||
+        (row.groupType === "catalog" && "catalog defaults".includes(q)) ||
+        row.order?.id.toLowerCase().includes(q) ||
+        (row.order &&
+          getOrderItemDate(row.order).toLowerCase().includes(q)) ||
         formatProductId(row.product.id).toLowerCase().includes(q) ||
         row.product.name.toLowerCase().includes(q) ||
         (categoryLabels[row.product.category] ?? row.product.category)
@@ -267,6 +396,56 @@ export default function ProductCatalogManager({
           .includes(q),
     );
   }, [rowItems, search]);
+
+  useEffect(() => {
+    if (!schoolFromUrl) return;
+
+    const focusKey = `${selectedWeekLabel}|${schoolFromUrl}|${categoryFromUrl ?? ""}|${orderIdFromUrl ?? ""}`;
+    if (lastPricingFocusKeyRef.current === focusKey) return;
+
+    const groupId = `school-${schoolFromUrl}`;
+    const activeRows = filtered.filter(
+      (row) => row.schoolName === schoolFromUrl && row.groupType === "active",
+    );
+    const cancelledRows = filtered.filter(
+      (row) => row.schoolName === schoolFromUrl && row.groupType === "cancelled",
+    );
+    const schoolRows = activeRows.length > 0 ? activeRows : cancelledRows;
+    if (schoolRows.length === 0) return;
+
+    lastPricingFocusKeyRef.current = focusKey;
+    const focusGroupId =
+      activeRows.length > 0 ? groupId : `cancelled-${schoolFromUrl}`;
+    setExpandedGroups(new Set([focusGroupId]));
+
+    if (categoryFromUrl) {
+      const targetCatGroupId = `${focusGroupId}-${categoryFromUrl}`;
+      const collapsed = new Set<string>();
+      for (const row of schoolRows) {
+        const catGroupId = `${focusGroupId}-${row.product.category}`;
+        if (catGroupId !== targetCatGroupId) {
+          collapsed.add(catGroupId);
+        }
+      }
+      setCollapsedCategories(collapsed);
+    }
+
+    requestAnimationFrame(() => {
+      const orderRow = orderIdFromUrl
+        ? document.querySelector<HTMLElement>(
+            `[data-pricing-order-id="${CSS.escape(orderIdFromUrl)}"]`,
+          )
+        : null;
+      if (orderRow) {
+        orderRow.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (categoryFromUrl) {
+        const targetCatGroupId = `${focusGroupId}-${categoryFromUrl}`;
+        document
+          .getElementById(`pricing-cat-${encodeURIComponent(targetCatGroupId)}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }, [schoolFromUrl, categoryFromUrl, orderIdFromUrl, selectedWeekLabel, filtered]);
 
   const handleSaveItem = async (data: ItemFormData) => {
     const qty = parseFloat(data.defaultQty);
@@ -335,32 +514,86 @@ export default function ProductCatalogManager({
 
   const handleDeleteItem = async (productId: string, order?: WeeklyOrderRecord) => {
     if (order) {
-      if (
-        confirm(
-          `Are you sure you want to remove this item from Order ${order.id}?`
-        )
-      ) {
-        const updatedItems = order.items.map((item) => {
-          if (item.productId === productId) {
-            return { ...item, deleted: true as const };
-          }
-          return item;
-        });
+      if (order.status === "cancelled") {
+        if (
+          !confirm(
+            `Remove this item from cancelled Order ${order.id}?`,
+          )
+        ) {
+          return;
+        }
 
-        const newTotal = updatedItems.reduce((sum, item) => {
-          if (item.deleted) return sum;
-          return sum + (item.qty * item.price);
-        }, 0);
+        const updatedItems = order.items.filter(
+          (item) => item.productId !== productId,
+        );
+
+        if (updatedItems.length === 0) {
+          const { deleteOrder } = await import("../order/orderStorage");
+          await deleteOrder(order.id);
+          return;
+        }
 
         const updatedOrder: WeeklyOrderRecord = {
           ...order,
           items: updatedItems,
-          totalPrice: newTotal,
+          itemCount: updatedItems.length,
+          totalPrice: updatedItems.reduce(
+            (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+            0,
+          ),
         };
 
         const { updateOrder } = await import("../order/orderStorage");
         await updateOrder(updatedOrder);
+        return;
       }
+
+      const updatedItems = order.items.map((item) => {
+        if (item.productId === productId) {
+          return { ...item, deleted: true as const };
+        }
+        return item;
+      });
+
+      const activeItems = updatedItems.filter(
+        (item) =>
+          !item.deleted && !item.productId.startsWith("delivery-fee-"),
+      );
+      const willCancelOrder = activeItems.length === 0;
+
+      if (
+        !confirm(
+          willCancelOrder
+            ? `Move this item to Cancelled Orders? This is the last active item — Order ${order.id} will be cancelled.`
+            : `Move this item to Cancelled Orders?`,
+        )
+      ) {
+        return;
+      }
+
+      const newTotal = updatedItems.reduce((sum, item) => {
+        if (item.deleted) return sum;
+        return sum + (item.qty || 0) * (item.price || 0);
+      }, 0);
+
+      const updatedOrder: WeeklyOrderRecord = {
+        ...order,
+        status: willCancelOrder ? "cancelled" : order.status,
+        cancelledAt: willCancelOrder
+          ? new Date().toISOString()
+          : order.cancelledAt,
+        items: updatedItems,
+        totalPrice: newTotal,
+      };
+
+      const { updateOrder } = await import("../order/orderStorage");
+      await updateOrder(updatedOrder);
+
+      setExpandedGroups((prev) => {
+        const next = new Set(prev);
+        next.add(`cancelled-${order.clientName}`);
+        return next;
+      });
     } else {
       if (
         confirm(
@@ -372,13 +605,91 @@ export default function ProductCatalogManager({
     }
   };
 
+  const handleRestoreItem = async (
+    productId: string,
+    order: WeeklyOrderRecord,
+  ) => {
+    const targetItem = order.items.find((item) => item.productId === productId);
+    if (!targetItem) return;
+
+    if (
+      !confirm(
+        `Restore "${targetItem.name}" to active orders for ${order.clientName}?`,
+      )
+    ) {
+      return;
+    }
+
+    const updatedItems = order.items.map((item) => {
+      if (item.productId !== productId) return item;
+      const { deleted: _deleted, ...rest } = item;
+      return rest;
+    });
+
+    const activeItems = updatedItems.filter(
+      (item) =>
+        !item.deleted && !item.productId.startsWith("delivery-fee-"),
+    );
+
+    if (activeItems.length === 0) {
+      alert("This order has no active items to restore.");
+      return;
+    }
+
+    const newTotal = updatedItems.reduce((sum, item) => {
+      if (item.deleted) return sum;
+      return sum + (item.qty || 0) * (item.price || 0);
+    }, 0);
+
+    const reactivateOrder =
+      order.status === "cancelled" && activeItems.length > 0;
+
+    const updatedOrder: WeeklyOrderRecord = {
+      ...order,
+      status: reactivateOrder ? "pending" : order.status,
+      cancelledAt: reactivateOrder ? undefined : order.cancelledAt,
+      items: updatedItems,
+      itemCount: updatedItems.length,
+      totalPrice: newTotal,
+    };
+
+    const { updateOrder } = await import("../order/orderStorage");
+    await updateOrder(updatedOrder);
+
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      next.add(`school-${order.clientName}`);
+      next.delete(`cancelled-${order.clientName}`);
+      return next;
+    });
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <WeekSelector
-          selectedWeekLabel={selectedWeekLabel}
-          onChange={setSelectedWeekLabel}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {onBackToOrders && (
+            <button
+              type="button"
+              onClick={() =>
+                onBackToOrders({
+                  week: selectedWeekLabel,
+                  school: schoolFromUrl ?? undefined,
+                  category: categoryFromUrl ?? undefined,
+                  orderId: orderIdFromUrl ?? undefined,
+                })
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Order Summary
+            </button>
+          )}
+          <WeekSelector
+            selectedWeekLabel={selectedWeekLabel}
+            onChange={setSelectedWeekLabel}
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {selectedIds.size > 0 && (
             <button
@@ -426,7 +737,7 @@ export default function ProductCatalogManager({
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-50">
               <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 <th className="px-4 py-3 sm:px-5 w-10">
@@ -458,6 +769,8 @@ export default function ProductCatalogManager({
                   />
                 </th>
                 <th className="px-4 py-3 sm:px-5">Item</th>
+                <th className="px-4 py-3 sm:px-5">School Name</th>
+                <th className="px-4 py-3 sm:px-5">Date Order Item</th>
                 <th className="px-4 py-3 sm:px-5">Category</th>
                 <th className="px-4 py-3 sm:px-5">Qty</th>
                 <th className="px-4 py-3 sm:px-5">Unit</th>
@@ -470,7 +783,7 @@ export default function ProductCatalogManager({
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={10}
                     className="px-5 py-10 text-center text-sm text-slate-500"
                   >
                     No products found in catalog.
@@ -481,15 +794,46 @@ export default function ProductCatalogManager({
                   const rows: React.ReactNode[] = [];
                   let currentGroupId: string | null = null;
                   let currentCategoryGroupId: string | null = null;
+                  let currentSection: CatalogRowGroup | null = null;
 
                   filtered.forEach((row) => {
                     const groupId =
-                      row.schoolName === "Z_NO_ORDERS"
-                        ? "no-order"
-                        : `school-${row.schoolName}`;
+                      row.groupType === "catalog"
+                        ? "catalog-defaults"
+                        : row.groupType === "cancelled"
+                          ? `cancelled-${row.schoolName}`
+                          : `school-${row.schoolName}`;
+
+                    if (row.groupType === "cancelled" && currentSection !== "cancelled") {
+                      currentSection = "cancelled";
+                      currentGroupId = null;
+                      currentCategoryGroupId = null;
+                      rows.push(
+                        <tr
+                          key="cancelled-section-header"
+                          className="bg-red-50/80 border-y border-red-100"
+                        >
+                          <td
+                            colSpan={10}
+                            className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-red-700"
+                          >
+                            Cancelled Orders
+                          </td>
+                        </tr>,
+                      );
+                    } else if (
+                      row.groupType === "catalog" &&
+                      currentSection !== "catalog"
+                    ) {
+                      currentSection = "catalog";
+                      currentGroupId = null;
+                      currentCategoryGroupId = null;
+                    } else if (row.groupType === "active") {
+                      currentSection = "active";
+                    }
 
                     const schoolOrders =
-                      orders && row.schoolName !== "Z_NO_ORDERS"
+                      orders && row.groupType === "active"
                         ? filterOrdersForWeek(orders, selectedWeekLabel).filter(
                             (o) =>
                               o.clientName === row.schoolName &&
@@ -497,49 +841,73 @@ export default function ProductCatalogManager({
                           )
                         : [];
 
+                    const cancelledSchoolOrders =
+                      orders && row.groupType === "cancelled"
+                        ? filterOrdersForWeek(orders, selectedWeekLabel).filter(
+                            (o) =>
+                              o.clientName === row.schoolName &&
+                              o.status === "cancelled",
+                          )
+                        : [];
+
                     if (groupId !== currentGroupId) {
                       currentGroupId = groupId;
-                      currentCategoryGroupId = null; // Reset category tracking for new school
+                      currentCategoryGroupId = null;
                       const schoolLabel =
-                        row.schoolName === "Z_NO_ORDERS"
-                          ? "No Orders / Catalog Defaults"
+                        row.groupType === "catalog"
+                          ? "Catalog Defaults"
                           : row.schoolName;
                       const isExpanded = expandedGroups.has(groupId);
+                      const headerClassName =
+                        row.groupType === "cancelled"
+                          ? "bg-red-50/50 hover:bg-red-50/80 transition-colors"
+                          : "bg-slate-100/60 hover:bg-slate-100/90 transition-colors";
 
                       rows.push(
-                        <tr
-                          key={`group-${groupId}`}
-                          className="bg-slate-100/60 hover:bg-slate-100/90 transition-colors"
-                        >
+                        <tr key={`group-${groupId}`} className={headerClassName}>
                           <td
-                            colSpan={7}
+                            colSpan={9}
                             className="px-4 py-3 border-y border-slate-200 cursor-pointer"
                             onClick={() => toggleGroup(groupId)}
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               {isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-slate-500" />
+                                <ChevronDown className="h-4 w-4 text-slate-500 shrink-0" />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-slate-500" />
+                                <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" />
                               )}
-                              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                              <span
+                                className={`text-xs font-bold uppercase tracking-wide truncate ${
+                                  row.groupType === "cancelled"
+                                    ? "text-red-700"
+                                    : "text-slate-700"
+                                }`}
+                              >
                                 {schoolLabel}
                               </span>
                               {schoolOrders.length > 0 && (
-                                <span className="font-semibold text-slate-500 text-[10px]">
+                                <span className="font-semibold text-slate-500 text-[10px] shrink-0">
                                   {schoolOrders.length} Order
                                   {schoolOrders.length !== 1 ? "s" : ""}
                                 </span>
                               )}
+                              {cancelledSchoolOrders.length > 0 && (
+                                <span className="font-semibold text-red-600 text-[10px] shrink-0">
+                                  {cancelledSchoolOrders.length} Cancelled Order
+                                  {cancelledSchoolOrders.length !== 1 ? "s" : ""}
+                                </span>
+                              )}
                             </div>
                           </td>
-                          {row.schoolName !== "Z_NO_ORDERS" && (
+                          {row.groupType === "active" ? (
                             <td className="px-3 py-2 border-y border-slate-200 text-right w-16">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const schoolRows = filtered.filter(
-                                    (r) => r.schoolName === row.schoolName,
+                                    (r) =>
+                                      r.groupType === "active" &&
+                                      r.schoolName === row.schoolName,
                                   );
                                   printCatalogForSchool(
                                     selectedWeekLabel,
@@ -553,8 +921,7 @@ export default function ProductCatalogManager({
                                 <Printer className="h-4 w-4" />
                               </button>
                             </td>
-                          )}
-                          {row.schoolName === "Z_NO_ORDERS" && (
+                          ) : (
                             <td className="border-y border-slate-200" />
                           )}
                         </tr>,
@@ -562,7 +929,7 @@ export default function ProductCatalogManager({
                     }
 
                     if (!expandedGroups.has(currentGroupId)) {
-                      return; // Skip rendering rows for this group if it's not expanded
+                      return;
                     }
 
                     // Render Category Sub-header if it changes within this school
@@ -574,11 +941,12 @@ export default function ProductCatalogManager({
                       rows.push(
                         <tr
                           key={`cat-header-${catGroupId}`}
+                          id={`pricing-cat-${encodeURIComponent(catGroupId)}`}
                           className="bg-slate-50/30 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors select-none"
                           onClick={() => toggleCategory(catGroupId)}
                         >
                           <td
-                            colSpan={8}
+                            colSpan={10}
                             className="pl-8 pr-4 py-2 font-bold text-[10px] text-slate-500 uppercase tracking-wider bg-slate-50/20"
                           >
                             <div className="flex items-center gap-2">
@@ -601,10 +969,20 @@ export default function ProductCatalogManager({
                       return; // Skip rendering items under this category if collapsed
                     }
 
+                    const isOrderHighlighted =
+                      !!orderIdFromUrl && row.order?.id === orderIdFromUrl;
+
                     rows.push(
                       <tr
                         key={row.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/80"
+                        data-pricing-order-id={
+                          isOrderHighlighted ? row.order!.id : undefined
+                        }
+                        className={`border-b border-slate-50 transition-colors ${
+                          isOrderHighlighted
+                            ? "bg-amber-50/90 ring-2 ring-inset ring-amber-300 hover:bg-amber-50"
+                            : "hover:bg-slate-50/80"
+                        }`}
                       >
                         <td className="px-4 py-3 sm:px-5">
                           <input
@@ -638,12 +1016,23 @@ export default function ProductCatalogManager({
                                 Order:{" "}
                                 <span className="font-semibold text-slate-600">
                                   {row.order.id}
-                                </span>{" "}
-                                (
-                                {row.order.status === "pending"
-                                  ? "Pending Approval"
-                                  : row.order.status}
-                                )
+                                </span>
+                                {row.groupType === "cancelled" ? (
+                                  <>
+                                    {" "}
+                                    · {getOrderItemDate(row.order)} ·{" "}
+                                    <span className="text-red-600">Cancelled</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {" "}
+                                    (
+                                    {row.order.status === "pending"
+                                      ? "Pending Approval"
+                                      : row.order.status}
+                                    )
+                                  </>
+                                )}
                               </span>
                             )}
                           </div>
@@ -651,6 +1040,22 @@ export default function ProductCatalogManager({
                             <span className="ml-2 text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-wider inline-block mt-1">
                               No Price
                             </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 sm:px-5">
+                          {row.groupType === "catalog" ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span className="font-medium text-slate-700">
+                              {row.schoolName}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 sm:px-5 whitespace-nowrap">
+                          {row.order ? (
+                            <span>{getOrderItemDate(row.order)}</span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-slate-600 sm:px-5">
@@ -688,35 +1093,79 @@ export default function ProductCatalogManager({
                         </td>
                         <td className="px-4 py-3 sm:px-5">
                           <div className="flex items-center justify-end gap-1">
-                            <button
-                               onClick={() => {
-                                 setEditingRow({
-                                   product: row.product,
-                                   order: row.order,
-                                 });
-                                 setEditingItem(row.product);
-                                 setModalOpen(true);
-                               }}
-                               className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
-                               aria-label={`Edit ${row.product.name}`}
-                             >
-                               <Pencil className="h-4 w-4" />
-                             </button>
-                             <button
-                               onClick={() => handleDeleteItem(row.product.id, row.order)}
-                               disabled={
-                                 !row.product.price || row.product.price === 0
-                               }
-                               title={
-                                 !row.product.price || row.product.price === 0
-                                   ? "Set a price before deleting"
-                                   : `Delete ${row.product.name}`
-                               }
-                               className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                               aria-label={`Delete ${row.product.name}`}
-                             >
-                               <Trash2 className="h-4 w-4" />
-                             </button>
+                            {row.order && onBackToOrders && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onBackToOrders({
+                                    week: row.order!.weekLabel,
+                                    school: row.order!.clientName,
+                                    category: row.order!.clientRole,
+                                    orderId: row.order!.id,
+                                  })
+                                }
+                                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                                title="Back to Order Summary"
+                                aria-label={`Back to order ${row.order.id}`}
+                              >
+                                <ClipboardList className="h-4 w-4" />
+                              </button>
+                            )}
+                            {row.groupType === "cancelled" && row.order && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRestoreItem(row.product.id, row.order!)
+                                }
+                                className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"
+                                title={`Restore ${row.product.name} to active orders`}
+                                aria-label={`Restore ${row.product.name}`}
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                            )}
+                            {row.groupType !== "cancelled" && (
+                              <button
+                                onClick={() => {
+                                  setEditingRow({
+                                    product: row.product,
+                                    order: row.order,
+                                  });
+                                  setEditingItem(row.product);
+                                  setModalOpen(true);
+                                }}
+                                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+                                aria-label={`Edit ${row.product.name}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
+                            {row.groupType !== "cancelled" && (
+                              <button
+                                onClick={() =>
+                                  handleDeleteItem(row.product.id, row.order)
+                                }
+                                disabled={
+                                  !row.order &&
+                                  (!row.product.price || row.product.price === 0)
+                                }
+                                title={
+                                  row.order
+                                    ? `Move ${row.product.name} to Cancelled Orders`
+                                    : !row.product.price || row.product.price === 0
+                                      ? "Set a price before deleting"
+                                      : `Delete ${row.product.name}`
+                                }
+                                className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                aria-label={
+                                  row.order
+                                    ? `Move ${row.product.name} to Cancelled Orders`
+                                    : `Delete ${row.product.name}`
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>,

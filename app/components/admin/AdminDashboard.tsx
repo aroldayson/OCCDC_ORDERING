@@ -92,10 +92,70 @@ export default function AdminDashboard() {
     params.set("view", view);
     router.push(`${window.location.pathname}?${params.toString()}`);
   }, [router]);
+
+  const handleGoToPricing = useCallback(
+    (order: WeeklyOrderRecord) => {
+      setActiveView("products");
+      const params = new URLSearchParams(window.location.search);
+      params.set("view", "products");
+      if (order.weekLabel) params.set("week", order.weekLabel);
+      if (order.clientName) params.set("school", order.clientName);
+      if (order.clientRole) params.set("category", order.clientRole);
+      if (order.id) params.set("orderId", order.id);
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [router],
+  );
+
+  const handleGoToOrdersFromPricing = useCallback(
+    (context: {
+      week: string;
+      school?: string;
+      category?: string;
+      orderId?: string;
+    }) => {
+      setActiveView("orders");
+      setOrdersWeek(context.week);
+      if (context.orderId) {
+        setSelectedId(context.orderId);
+        setOrderDetailOpen(true);
+      }
+      const params = new URLSearchParams();
+      params.set("view", "orders");
+      params.set("week", context.week);
+      if (context.school) params.set("school", context.school);
+      if (context.category) params.set("category", context.category);
+      if (context.orderId) params.set("orderId", context.orderId);
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [router],
+  );
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [orderDetailOpen, setOrderDetailOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleSelectOrder = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setOrderDetailOpen(true);
+
+      const params = new URLSearchParams(window.location.search);
+      const urlOrderId = params.get("orderId");
+      if (urlOrderId && urlOrderId !== id) {
+        params.delete("orderId");
+        router.replace(`${window.location.pathname}?${params.toString()}`, {
+          scroll: false,
+        });
+      }
+    },
+    [router],
+  );
+
+  const handleCloseOrderDetail = useCallback(() => {
+    setOrderDetailOpen(false);
+  }, []);
 
   // Table filters for Order Summary view
   const [ordersSearch, setOrdersSearch] = useState("");
@@ -104,6 +164,17 @@ export default function AdminDashboard() {
   const [ordersWeek, setOrdersWeek] = useState("all");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drPrintOrder, setDrPrintOrder] = useState<WeeklyOrderRecord | null>(null);
+
+  useEffect(() => {
+    if (activeView !== "orders") return;
+    const weekParam = searchParams?.get("week");
+    const orderIdParam = searchParams?.get("orderId");
+    if (weekParam) setOrdersWeek(weekParam);
+    if (orderIdParam) {
+      setSelectedId(orderIdParam);
+      setOrderDetailOpen(true);
+    }
+  }, [activeView, searchParams]);
 
   const [readOrderIds, setReadOrderIds] = useState<string[]>([]);
   const [toasts, setToasts] = useState<
@@ -602,7 +673,10 @@ export default function AdminDashboard() {
           )}
 
           {activeView === "products" && (
-            <ProductCatalogManager orders={visibleOrders} />
+            <ProductCatalogManager
+              orders={visibleOrders}
+              onBackToOrders={handleGoToOrdersFromPricing}
+            />
           )}
 
           {activeView === "delivery-fees" && <DeliveryFeeManager />}
@@ -719,23 +793,25 @@ export default function AdminDashboard() {
               <OrdersTable
                 orders={filteredOrders}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={handleSelectOrder}
                 onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+                onGoToPricing={handleGoToPricing}
+                onOrdersUpdated={loadOrders}
                 loading={ordersLoading}
               />
 
               {/* Centered modal overlay for order detail */}
-              {selectedOrder && (
+              {orderDetailOpen && selectedOrder && (
                 <div
                   className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
                   onClick={(e) => {
-                    if (e.target === e.currentTarget) setSelectedId(null);
+                    if (e.target === e.currentTarget) handleCloseOrderDetail();
                   }}
                 >
                   <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
                     <OrderDetailPanel
                       order={selectedOrder}
-                      onClose={() => setSelectedId(null)}
+                      onClose={handleCloseOrderDetail}
                       onStatusChange={loadOrders}
                       onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
                     />

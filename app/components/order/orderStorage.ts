@@ -606,6 +606,7 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       items: WeeklyOrderRecord["items"];
       total_price?: number;
       delivery_date?: string;
+      cancelled_at?: string;
     };
 
     const { data: receiptRecords } = await supabase
@@ -625,6 +626,7 @@ export async function getOrders(): Promise<WeeklyOrderRecord[]> {
       items: row.items,
       totalPrice: row.total_price || 0,
       deliveryDate: row.delivery_date || undefined,
+      cancelledAt: row.cancelled_at || undefined,
       hasReceiptRecord: receiptSet.has(row.id),
     }));
 
@@ -722,11 +724,29 @@ export async function saveOrder(order: WeeklyOrderRecord): Promise<void> {
 
 export async function updateOrderStatus(id: string, status: WeeklyOrderRecord["status"]): Promise<void> {
   try {
+    const payload: {
+      status: WeeklyOrderRecord["status"];
+      cancelled_at: string | null;
+    } = {
+      status,
+      cancelled_at: status === "cancelled" ? new Date().toISOString() : null,
+    };
+
     const { error } = await supabase
       .from("orders")
-      .update({ status })
+      .update(payload)
       .eq("id", id);
     if (error) throw error;
+
+    const itemStatus = status === "cancelled" ? "Cancelled" : "Active";
+    const { error: itemsError } = await supabase
+      .from("order_items")
+      .update({ status: itemStatus })
+      .eq("order_id", id);
+    if (itemsError) {
+      console.error("Error updating order_items status in Supabase:", itemsError);
+    }
+
     window.dispatchEvent(new Event("occdc-orders-updated"));
     window.dispatchEvent(new CustomEvent("occdc-order-action", {
       detail: { type: "status_change", orderId: id, status },
@@ -827,6 +847,10 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
       items: updated.items,
       total_price: updated.totalPrice || 0,
       delivery_date: updated.deliveryDate || null,
+      cancelled_at:
+        targetStatus === "cancelled"
+          ? updated.cancelledAt || new Date().toISOString()
+          : null,
     };
     const { error } = await supabase
       .from("orders")
@@ -847,13 +871,14 @@ export async function updateOrder(updated: WeeklyOrderRecord): Promise<void> {
 
     // Insert updated items
     if (updated.items && updated.items.length > 0) {
+      const itemStatus = targetStatus === "cancelled" ? "Cancelled" : "Active";
       const dbOrderItems = updated.items.map((item) => ({
         order_id: updated.id,
         product_id: item.productId || 'unknown',
         quantity: item.qty,
         price: item.price,
         subtotal: item.qty * item.price,
-        status: 'Active',
+        status: item.deleted ? "Cancelled" : itemStatus,
       }));
       const { error: insertError } = await supabase.from("order_items").insert(dbOrderItems);
       if (insertError) {

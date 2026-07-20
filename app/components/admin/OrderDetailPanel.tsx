@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Printer, Eye, Edit, Trash2, Calendar, Pencil, Camera, Truck } from "lucide-react";
+import { X, Printer, Trash2, Calendar, Pencil, Camera, Truck } from "lucide-react";
 import { updateOrderStatus, updateOrderDeliveryDate } from "../order/orderStorage";
 import { getDeliveryProof, saveDeliveryProof, deleteDeliveryProof } from "../order/deliveryProofStorage";
 import { printOrderForm } from "./printOrder";
@@ -208,6 +208,7 @@ export default function OrderDetailPanel({
   );
 
   const canClientPrintDR = hasReceiptData;
+  const isCancelled = order.status === "cancelled";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -263,12 +264,14 @@ export default function OrderDetailPanel({
                     <span className="text-slate-700 font-semibold">
                       ₱{(clientRecord.delivery_price || 0).toFixed(2)}
                     </span>
-                    <button
-                      onClick={() => setIsEditingDelivery(true)}
-                      className="text-blue-600 hover:text-blue-700 underline text-[10px]"
-                    >
-                      Edit
-                    </button>
+                    {!isCancelled && (
+                      <button
+                        onClick={() => setIsEditingDelivery(true)}
+                        className="text-blue-600 hover:text-blue-700 underline text-[10px]"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -319,7 +322,7 @@ export default function OrderDetailPanel({
                       ? formatDeliveryDate(new Date(tempDeliveryDate + "T12:00:00"))
                       : "Not set"}
                   </span>
-                  {isAdmin && (
+                  {isAdmin && !isCancelled && (
                     <button
                       onClick={() => setIsEditingDeliveryDate(true)}
                       className="text-blue-600 hover:text-blue-700 underline text-[10px] flex items-center gap-0.5"
@@ -333,27 +336,6 @@ export default function OrderDetailPanel({
             </div>
           </div>
           <div className="flex gap-1 shrink-0 sm:gap-2">
-            <button
-              onClick={() => { }}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
-              title="View order"
-            >
-              <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <button
-              onClick={() => { }}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 transition sm:p-1.5"
-              title="Edit order"
-            >
-              <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
-            <button
-              onClick={() => { }}
-              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition sm:p-1.5"
-              title="Delete order"
-            >
-              <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
             <button
               onClick={onClose}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 sm:p-1.5"
@@ -384,10 +366,19 @@ export default function OrderDetailPanel({
             {(isAdmin || canClientPrintDR) && (
               <button
                 onClick={() => {
-                  onPrintDeliveryReceipt(order);
+                  if (!isCancelled) onPrintDeliveryReceipt(order);
                 }}
-                className="rounded p-1 text-slate-400 hover:bg-violet-50 hover:text-violet-600 transition sm:p-1.5 flex items-center gap-1"
-                title="Print Delivery Receipt"
+                disabled={isCancelled}
+                className={`rounded p-1 sm:p-1.5 flex items-center gap-1 transition ${
+                  isCancelled
+                    ? "cursor-not-allowed text-slate-300 opacity-50"
+                    : "text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                }`}
+                title={
+                  isCancelled
+                    ? "Delivery receipt unavailable for cancelled orders"
+                    : "Print Delivery Receipt"
+                }
               >
                 <Truck className="h-4 w-4 sm:h-4 sm:w-4" />
                 <span className="text-[10px] hidden md:inline">Delivery Receipt</span>
@@ -440,7 +431,7 @@ export default function OrderDetailPanel({
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Proof of Delivery:
             </span>
-            {isAdmin && proofImageData && (
+            {isAdmin && proofImageData && !isCancelled && (
               <button
                 onClick={handleProofDelete}
                 className="text-red-500 hover:text-red-700 text-xs font-semibold flex items-center gap-1 transition"
@@ -476,8 +467,12 @@ export default function OrderDetailPanel({
             </div>
           ) : (
             <div className="text-center py-5 border border-dashed border-slate-200 rounded-lg bg-white">
-              <p className="text-xs text-slate-400 mb-3">No proof of delivery uploaded yet</p>
-              {isAdmin && (
+              <p className="text-xs text-slate-400 mb-3">
+                {isCancelled
+                  ? "Proof of delivery is not available for cancelled orders"
+                  : "No proof of delivery uploaded yet"}
+              </p>
+              {isAdmin && !isCancelled && (
                 <div>
                   <input
                     type="file"

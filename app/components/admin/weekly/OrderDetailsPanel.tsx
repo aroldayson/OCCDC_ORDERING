@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { deleteOrder, updateOrder } from "../../order/orderStorage";
+import { deleteOrder, updateOrder, updateOrderStatus } from "../../order/orderStorage";
 import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
 // import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
@@ -153,16 +153,27 @@ function OrderItemsTable({
       return;
     }
 
-    const updatedTotalPrice = remainingItems.reduce(
-      (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+    const nextItems = willCancelOrder
+      ? order.items.map((item) =>
+          item.productId === productId
+            ? { ...item, deleted: true as const }
+            : item,
+        )
+      : remainingItems;
+
+    const updatedTotalPrice = nextItems.reduce(
+      (sum, item) =>
+        sum +
+        (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
       0,
     );
 
     const updatedOrder = {
       ...order,
-      status: willCancelOrder ? "cancelled" : order.status,
-      items: remainingItems,
-      itemCount: remainingItems.length,
+      status: willCancelOrder ? ("cancelled" as const) : order.status,
+      cancelledAt: willCancelOrder ? new Date().toISOString() : order.cancelledAt,
+      items: nextItems,
+      itemCount: nextItems.length,
       totalPrice: updatedTotalPrice,
     };
     await updateOrder(updatedOrder);
@@ -386,14 +397,21 @@ function OrderAccordion({
       );
       return;
     }
-    if (confirm(`Delete order ${order.id}?`)) {
-      // Remove each product in this order from weekly_products as well
-      for (const item of order.items) {
-        if (!item.deleted && !item.productId.startsWith("delivery-fee-")) {
-          await removeWeeklyProduct(item.productId, order.weekLabel);
-        }
+
+    if (order.status === "cancelled") {
+      if (confirm(`Permanently delete cancelled order ${order.id}?`)) {
+        await deleteOrder(order.id);
+        onUpdated();
       }
-      await deleteOrder(order.id);
+      return;
+    }
+
+    if (
+      confirm(
+        `Cancel order ${order.id}? The status will change to Cancelled and it will appear in Pricing Update.`,
+      )
+    ) {
+      await updateOrderStatus(order.id, "cancelled");
       onUpdated();
     }
   }
@@ -469,7 +487,7 @@ function OrderAccordion({
               disabled={isWednesday || isPastWeek}
               aria-disabled={isWednesday || isPastWeek}
               className={`rounded-lg p-1.5 text-red-500 ${isWednesday || isPastWeek ? "cursor-not-allowed opacity-60" : "hover:bg-red-50"}`}
-              aria-label="Delete order"
+              aria-label={order.status === "cancelled" ? "Delete cancelled order" : "Cancel order"}
             >
               <Trash2 className="h-4 w-4" />
             </button>
