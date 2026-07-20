@@ -49,6 +49,67 @@ function normalizeProductName(name: string): string {
     .trim();
 }
 
+function getTallyMergeKey(name: string, category: string): string {
+  return `${(category || "other").toLowerCase().trim()}||${normalizeProductName(name)}`;
+}
+
+type TallyRow = {
+  name: string;
+  unit: string;
+  price: number;
+  category: string;
+  schoolQty: Record<string, number>;
+  totalQty: number;
+  totalCost: number;
+};
+
+function addItemToTallyRow(
+  row: TallyRow,
+  item: { name: string; unit: string; price?: number; qty?: number },
+  schoolName: string,
+) {
+  const qty = item.qty ?? 0;
+  const lineCost = qty * (item.price ?? 0);
+  row.schoolQty[schoolName] = (row.schoolQty[schoolName] ?? 0) + qty;
+  row.totalQty += qty;
+  row.totalCost += lineCost;
+  if (row.totalQty > 0) {
+    row.price = row.totalCost / row.totalQty;
+  }
+  if (!row.unit && item.unit) {
+    row.unit = item.unit;
+  }
+}
+
+function buildTallyRowsFromOrders(orders: WeeklyOrderRecord[]): TallyRow[] {
+  const rowMap = new Map<string, TallyRow>();
+
+  orders.forEach((order) => {
+    order.items
+      .filter((item) => !item.deleted)
+      .forEach((item) => {
+        const key = getTallyMergeKey(item.name, item.category);
+        if (!rowMap.has(key)) {
+          rowMap.set(key, {
+            name: item.name,
+            unit: item.unit,
+            price: item.price ?? 0,
+            category: item.category,
+            schoolQty: {},
+            totalQty: 0,
+            totalCost: 0,
+          });
+        }
+        addItemToTallyRow(rowMap.get(key)!, item, order.clientName);
+      });
+  });
+
+  return Array.from(rowMap.values()).sort((a, b) => {
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return a.name.localeCompare(b.name);
+  });
+}
+
 const categoryLabels: Record<string, string> = {
   vegetables: "Vegetables",
   fruits: "Fruits",
@@ -649,7 +710,7 @@ export async function printClientSummary(
 
 /**
  * Itemized Tally Print — styled to match the Purchase Request Form.
- * One row per unique item (name + unit + price), tallied across all schools.
+ * One row per unique item (name + category), tallied across all schools.
  * School quantity columns are appended after UNIT PRICE, followed by TOTAL QTY and TOTAL COST.
  */
 export function printItemizedTally(
@@ -664,47 +725,7 @@ export function printItemizedTally(
     ? [...allSchools].sort()
     : Array.from(new Set(orders.map((o) => o.clientName))).sort();
 
-  type TallyRow = {
-    name: string;
-    unit: string;
-    price: number;
-    category: string;
-    schoolQty: Record<string, number>;
-    totalQty: number;
-    totalCost: number;
-  };
-
-  const rowMap = new Map<string, TallyRow>();
-
-  orders.forEach((order) => {
-    order.items
-      .filter((item) => !item.deleted)
-      .forEach((item) => {
-        const normName = normalizeProductName(item.name);
-        const normUnit = item.unit.toLowerCase().trim();
-        const key = `${normName}||${normUnit}||${item.price ?? 0}`;
-        if (!rowMap.has(key)) {
-          rowMap.set(key, {
-            name: item.name,
-            unit: item.unit,
-            price: item.price ?? 0,
-            category: item.category,
-            schoolQty: {},
-            totalQty: 0,
-            totalCost: 0,
-          });
-        }
-        const row = rowMap.get(key)!;
-        row.schoolQty[order.clientName] = (row.schoolQty[order.clientName] ?? 0) + (item.qty ?? 0);
-        row.totalQty += item.qty ?? 0;
-        row.totalCost += (item.qty ?? 0) * (item.price ?? 0);
-      });
-  });
-
-  const rows = Array.from(rowMap.values()).sort((a, b) => {
-    if (a.category !== b.category) return a.category.localeCompare(b.category);
-    return a.name.localeCompare(b.name);
-  });
+  const rows = buildTallyRowsFromOrders(orders);
 
   const grandTotal = rows.reduce((s, r) => s + r.totalCost, 0);
   const categoryLabel = title;
@@ -945,9 +966,16 @@ export function printAllOrders(
       order.items
         .filter(it => !it.deleted)
         .forEach(it => {
-          const key = `${it.productId}-${it.price}`;
-          if (!itemsMap[key]) itemsMap[key] = { ...it };
-          else itemsMap[key].qty += it.qty;
+          const key = getTallyMergeKey(it.name, it.category);
+          const existing = itemsMap[key];
+          if (!existing) {
+            itemsMap[key] = { ...it };
+            return;
+          }
+          const combinedTotal =
+            existing.qty * (existing.price || 0) + it.qty * (it.price || 0);
+          existing.qty += it.qty;
+          existing.price = existing.qty > 0 ? combinedTotal / existing.qty : it.price;
         });
     });
 
@@ -2185,46 +2213,7 @@ export async function downloadItemizedTallyExcel(
       ? [...allSchools].sort()
       : Array.from(new Set(orders.map((o) => o.clientName))).sort();
 
-  type TallyRow = {
-    name: string;
-    unit: string;
-    price: number;
-    category: string;
-    schoolQty: Record<string, number>;
-    totalQty: number;
-    totalCost: number;
-  };
-
-  const rowMap = new Map<string, TallyRow>();
-  orders.forEach((order) => {
-    order.items
-      .filter((it) => !it.deleted)
-      .forEach((it) => {
-        const normName = normalizeProductName(it.name);
-        const normUnit = it.unit.toLowerCase().trim();
-        const key = `${normName}||${normUnit}||${it.price ?? 0}`;
-        if (!rowMap.has(key)) {
-          rowMap.set(key, {
-            name: it.name,
-            unit: it.unit,
-            price: it.price ?? 0,
-            category: it.category,
-            schoolQty: {},
-            totalQty: 0,
-            totalCost: 0,
-          });
-        }
-        const row = rowMap.get(key)!;
-        row.schoolQty[order.clientName] = (row.schoolQty[order.clientName] ?? 0) + (it.qty ?? 0);
-        row.totalQty += it.qty ?? 0;
-        row.totalCost += (it.qty ?? 0) * (it.price ?? 0);
-      });
-  });
-
-  const tallyRows = Array.from(rowMap.values()).sort((a, b) => {
-    if (a.category !== b.category) return a.category.localeCompare(b.category);
-    return a.name.localeCompare(b.name);
-  });
+  const tallyRows = buildTallyRowsFromOrders(orders);
 
   const grandTotal = tallyRows.reduce((s, r) => s + r.totalCost, 0);
 
