@@ -6,7 +6,8 @@ import BusinessData from "./BusinessData";
 import RecentActivity from "./RecentActivity";
 import TopDishes from "./TopDishes";
 import type { WeeklyOrderRecord } from "../../order/types";
-import { getJuneAugustWeeks, getCurrentOrNextPeriodWeek } from "../../order/weekUtils";
+import { getJuneAugustWeeks, getCurrentOrNextPeriodWeek, ALL_WEEKS_VALUE } from "../../order/weekUtils";
+import { filterOrdersForWeek } from "../../order/orderAccess";
 
 type RestaurantDashboardProps = {
   orders: WeeklyOrderRecord[];
@@ -29,8 +30,10 @@ export default function RestaurantDashboard({
   });
 
   const filteredOrders = useMemo(() => {
-    if (selectedWeek === "all") return orders;
-    return orders.filter((o) => o.weekLabel === selectedWeek);
+    return filterOrdersForWeek(
+      orders,
+      selectedWeek === "all" ? ALL_WEEKS_VALUE : selectedWeek,
+    );
   }, [orders, selectedWeek]);
 
   return (

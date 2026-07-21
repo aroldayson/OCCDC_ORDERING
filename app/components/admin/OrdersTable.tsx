@@ -10,7 +10,12 @@ import {
   downloadClientSummaryExcel
 } from "./printOrder";
 import { orderRoleColors, orderRoleLabels } from "../order/roles";
-import { getFridayFromWeekLabel } from "../order/weekUtils";
+import {
+  getFridayFromWeekLabel,
+  getCanonicalWeekLabelForOrder,
+  getPeriodWeekFromLabel,
+  getWeekLabelForPeriodWeek,
+} from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { mergeOrdersByCategory } from "../order/orderStorage";
 
@@ -252,7 +257,7 @@ export default function OrdersTable({
     const groups: Record<string, Record<string, Record<string, WeeklyOrderRecord[]>>> = {};
     orders.forEach((order) => {
       const school = order.clientName;
-      const week = order.weekLabel;
+      const week = getCanonicalWeekLabelForOrder(order);
       const category = order.clientRole || "other";
 
       if (!groups[school]) {
@@ -332,7 +337,17 @@ export default function OrdersTable({
       ? orders.find((o) => o.id === orderIdFromUrl)
       : undefined;
     const school = schoolFromUrl ?? focusOrder?.clientName;
-    const week = weekFromUrl ?? focusOrder?.weekLabel;
+    const week = weekFromUrl
+      ? (() => {
+          const periodWeek = getPeriodWeekFromLabel(weekFromUrl);
+          if (periodWeek !== null) {
+            return getWeekLabelForPeriodWeek(periodWeek) ?? weekFromUrl;
+          }
+          return weekFromUrl;
+        })()
+      : focusOrder
+        ? getCanonicalWeekLabelForOrder(focusOrder)
+        : undefined;
     const category = categoryFromUrl ?? focusOrder?.clientRole;
 
     if (!school || !week || !category) return;
@@ -854,7 +869,7 @@ export default function OrdersTable({
                                             </div>
                                           </td>
                                           <td className="hidden px-3 py-3.5 text-slate-500 sm:px-5 md:table-cell">
-                                            <p className="truncate">{order.weekLabel}</p>
+                                            <p className="truncate">{getCanonicalWeekLabelForOrder(order)}</p>
                                           </td>
                                           <td className="hidden px-3 py-3.5 text-slate-600 sm:px-5 lg:table-cell">
                                             {order.itemCount}

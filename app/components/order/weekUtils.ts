@@ -70,11 +70,12 @@ export function getWeekOptions(): WeekInfo[] {
 
 // ─── June–August Fixed Weeks ─────────────────────────────────────────────────
 //
-// The ordering period covers 8 Mon–Fri weeks starting June 2, 2026.
+// The ordering period covers 8 Mon–Fri weeks starting June 29, 2026.
 // Dates are fixed to the current school-year period (2026) and can be
 // updated each year by changing PERIOD_START_MONDAY.
 
-const PERIOD_START_MONDAY = new Date(2026, 5, 22); // June 22, 2026 (Monday)
+const PERIOD_START_MONDAY = new Date(2026, 5, 29); // June 29, 2026 (Monday)
+const PERIOD_WEEK_COUNT = 8;
 
 /** Value for week selectors that show orders/items across every week. */
 export const ALL_WEEKS_VALUE = "all";
@@ -104,7 +105,22 @@ function buildFixedWeek(periodWeek: number): FixedWeekInfo {
 
 /** Returns the 8 fixed Mon–Fri weeks for the June–August ordering period. */
 export function getJuneAugustWeeks(): FixedWeekInfo[] {
-  return Array.from({ length: 8 }, (_, i) => buildFixedWeek(i + 1));
+  return Array.from({ length: PERIOD_WEEK_COUNT }, (_, i) => buildFixedWeek(i + 1));
+}
+
+/** True when a label belongs to one of the 8 period weeks (WEEK 1–8). */
+export function isOrderInPeriodWeek(weekLabel: string): boolean {
+  return getPeriodWeekFromLabel(weekLabel) !== null;
+}
+
+/** True when a filter week label matches an order's resolved period week. */
+export function orderMatchesWeekFilter(
+  order: OrderWeekSource,
+  weekLabel: string,
+): boolean {
+  const filterWeek = getPeriodWeekFromLabel(weekLabel);
+  if (filterWeek === null) return order.weekLabel === weekLabel;
+  return resolveOrderPeriodWeek(order) === filterWeek;
 }
 
 /** Extract period week number (1–8) from a week label, or null if not recognized. */
@@ -118,6 +134,55 @@ export function getPeriodWeekFromLabel(weekLabel: string): number | null {
 /** Canonical week label for a period week number. */
 export function getWeekLabelForPeriodWeek(periodWeek: number): string | null {
   return getJuneAugustWeeks().find((w) => w.periodWeek === periodWeek)?.weekLabel ?? null;
+}
+
+/** Period week (1–8) that contains the given calendar date, or null if outside the period. */
+export function getPeriodWeekForDate(date: Date): number | null {
+  const d = new Date(date);
+  d.setHours(12, 0, 0, 0);
+  for (let w = 1; w <= PERIOD_WEEK_COUNT; w++) {
+    const monday = addDays(PERIOD_START_MONDAY, (w - 1) * 7);
+    const friday = addDays(monday, 4);
+    if (d >= monday && d <= friday) return w;
+  }
+  return null;
+}
+
+type OrderWeekSource = {
+  weekLabel: string;
+  createdAt: string;
+  deliveryDate?: string;
+};
+
+/** Resolve which period week an order belongs to using delivery date, then order date, then label. */
+export function resolveOrderPeriodWeek(order: OrderWeekSource): number | null {
+  if (order.deliveryDate) {
+    const fromDelivery = getPeriodWeekForDate(
+      new Date(`${order.deliveryDate}T12:00:00`),
+    );
+    if (fromDelivery !== null) return fromDelivery;
+  }
+
+  if (order.createdAt) {
+    const fromCreated = getPeriodWeekForDate(new Date(order.createdAt));
+    if (fromCreated !== null) return fromCreated;
+  }
+
+  return getPeriodWeekFromLabel(order.weekLabel);
+}
+
+/** Display/filter label aligned with the current week schedule (not legacy stored strings). */
+export function getCanonicalWeekLabelForOrder(order: OrderWeekSource): string {
+  const periodWeek = resolveOrderPeriodWeek(order);
+  if (periodWeek !== null) {
+    return getWeekLabelForPeriodWeek(periodWeek) ?? order.weekLabel;
+  }
+  return order.weekLabel;
+}
+
+/** True when an order falls within the 8-week June–August period. */
+export function isOrderInPeriod(order: OrderWeekSource): boolean {
+  return resolveOrderPeriodWeek(order) !== null;
 }
 
 /** True when two labels refer to the same period week (supports legacy date strings). */
@@ -135,7 +200,7 @@ export function weekLabelsMatch(a: string, b: string): boolean {
 export function getCurrentPeriodWeek(): number | null {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
-  for (let w = 1; w <= 8; w++) {
+  for (let w = 1; w <= PERIOD_WEEK_COUNT; w++) {
     const monday = addDays(PERIOD_START_MONDAY, (w - 1) * 7);
     const friday = addDays(monday, 4);
     if (today >= monday && today <= friday) return w;
@@ -154,7 +219,7 @@ export function getCurrentOrNextPeriodWeek(): number | null {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
 
-  for (let w = 1; w <= 8; w++) {
+  for (let w = 1; w <= PERIOD_WEEK_COUNT; w++) {
     const monday = addDays(PERIOD_START_MONDAY, (w - 1) * 7);
     const friday = addDays(monday, 4);
     const sunday = addDays(monday, 6); // end of the same calendar week
