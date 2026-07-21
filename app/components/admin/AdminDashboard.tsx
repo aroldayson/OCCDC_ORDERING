@@ -84,14 +84,31 @@ export default function AdminDashboard() {
     if (viewParam) {
       setActiveView(viewParam);
     }
-  }, [searchParams]);
+    if (viewParam === "overview") {
+      const hasStaleParams =
+        searchParams?.get("orderId") ||
+        searchParams?.get("week") ||
+        searchParams?.get("school") ||
+        searchParams?.get("category") ||
+        searchParams?.get("status");
+      if (hasStaleParams) {
+        router.replace(`${window.location.pathname}?view=overview`, {
+          scroll: false,
+        });
+      }
+      setOrderDetailOpen(false);
+      setSelectedId(null);
+    }
+  }, [searchParams, router]);
 
   // Handler to change view and update URL query param
   const handleViewChange = useCallback((view: AdminView) => {
     setActiveView(view);
-    const params = new URLSearchParams(window.location.search);
-    params.set("view", view);
-    router.push(`${window.location.pathname}?${params.toString()}`);
+    if (view === "overview") {
+      setOrderDetailOpen(false);
+      setSelectedId(null);
+    }
+    router.push(`${window.location.pathname}?view=${encodeURIComponent(view)}`);
   }, [router]);
 
   const handleGoToPricing = useCallback(
@@ -127,6 +144,7 @@ export default function AdminDashboard() {
       if (context.school) params.set("school", context.school);
       if (context.category) params.set("category", context.category);
       if (context.orderId) params.set("orderId", context.orderId);
+      if (context.orderId) params.set("detail", "1");
       router.push(`${window.location.pathname}?${params.toString()}`);
     },
     [router],
@@ -147,32 +165,32 @@ export default function AdminDashboard() {
     },
     [router],
   );
+
+  const handleGoToDashboard = useCallback(() => {
+    setActiveView("overview");
+    setOrderDetailOpen(false);
+    setSelectedId(null);
+    router.push(`${window.location.pathname}?view=overview`);
+  }, [router]);
   const [orders, setOrders] = useState<WeeklyOrderRecord[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [orderDetailOpen, setOrderDetailOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleSelectOrder = useCallback(
-    (id: string) => {
-      setSelectedId(id);
-      setOrderDetailOpen(true);
-
-      const params = new URLSearchParams(window.location.search);
-      const urlOrderId = params.get("orderId");
-      if (urlOrderId && urlOrderId !== id) {
-        params.delete("orderId");
-        router.replace(`${window.location.pathname}?${params.toString()}`, {
-          scroll: false,
-        });
-      }
-    },
-    [router],
-  );
-
   const handleCloseOrderDetail = useCallback(() => {
     setOrderDetailOpen(false);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    params.delete("orderId");
+    params.delete("detail");
+    const query = params.toString();
+    router.replace(
+      query
+        ? `${window.location.pathname}?${query}`
+        : `${window.location.pathname}?view=orders`,
+      { scroll: false },
+    );
+  }, [router]);
 
   // Table filters for Order Summary view
   const [ordersSearch, setOrdersSearch] = useState("");
@@ -186,10 +204,17 @@ export default function AdminDashboard() {
     if (activeView !== "orders") return;
     const weekParam = searchParams?.get("week");
     const orderIdParam = searchParams?.get("orderId");
-    if (weekParam) setOrdersWeek(weekParam);
+    const statusParam = searchParams?.get("status");
+    const categoryParam = searchParams?.get("category");
+    setOrdersWeek(weekParam ?? "all");
+    setOrdersStatus(statusParam ?? "all");
+    setOrdersCategory(categoryParam ?? "all");
     if (orderIdParam) {
       setSelectedId(orderIdParam);
-      setOrderDetailOpen(true);
+      setOrderDetailOpen(searchParams?.get("detail") === "1");
+    } else {
+      setSelectedId(null);
+      setOrderDetailOpen(false);
     }
   }, [activeView, searchParams]);
 
@@ -369,7 +394,11 @@ export default function AdminDashboard() {
       result = result.filter((o) => o.clientRole === ordersCategory);
     }
 
-    if (ordersStatus !== "all") {
+    if (ordersStatus === "in_progress") {
+      result = result.filter(
+        (o) => o.status === "processing" || o.status === "accepted",
+      );
+    } else if (ordersStatus !== "all") {
       result = result.filter((o) => o.status === ordersStatus);
     }
 
@@ -379,6 +408,83 @@ export default function AdminDashboard() {
 
     return result;
   }, [visibleOrders, ordersSearch, ordersCategory, ordersStatus, ordersWeek]);
+
+  const handleDashboardOrderNavigate = useCallback(
+    (
+      options: {
+        status?: string;
+        order?: WeeklyOrderRecord;
+        week?: string;
+        openDetail?: boolean;
+      },
+    ) => {
+      const status = options.status ?? "all";
+      const week = options.week ?? options.order?.weekLabel ?? "all";
+
+      let matchingOrders = visibleOrders;
+      if (week !== "all") {
+        matchingOrders = matchingOrders.filter((o) => o.weekLabel === week);
+      }
+      if (status === "in_progress") {
+        matchingOrders = matchingOrders.filter(
+          (o) => o.status === "processing" || o.status === "accepted",
+        );
+      } else if (status !== "all") {
+        matchingOrders = matchingOrders.filter((o) => o.status === status);
+      }
+
+      const targetOrder =
+        options.order ??
+        [...matchingOrders].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0];
+
+      const openDetail = options.openDetail ?? Boolean(options.order);
+
+      setActiveView("orders");
+      setOrdersStatus(status);
+      setOrdersCategory("all");
+      setOrdersWeek(week);
+      setSelectedId(targetOrder?.id ?? null);
+      setOrderDetailOpen(openDetail && Boolean(targetOrder));
+
+      const params = new URLSearchParams();
+      params.set("view", "orders");
+      if (status !== "all") params.set("status", status);
+      if (week !== "all") params.set("week", week);
+      if (targetOrder) {
+        params.set("orderId", targetOrder.id);
+        if (openDetail) {
+          params.set("school", targetOrder.clientName);
+          params.set("category", targetOrder.clientRole);
+          params.set("detail", "1");
+        }
+      }
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [router, visibleOrders],
+  );
+
+  const handleSelectOrder = useCallback(
+    (id: string) => {
+      const order = visibleOrders.find((o) => o.id === id);
+      setSelectedId(id);
+      setOrderDetailOpen(true);
+
+      const params = new URLSearchParams(window.location.search);
+      params.set("view", "orders");
+      params.set("orderId", id);
+      params.set("detail", "1");
+      if (order?.weekLabel) params.set("week", order.weekLabel);
+      if (order?.clientName) params.set("school", order.clientName);
+      if (order?.clientRole) params.set("category", order.clientRole);
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
+    },
+    [router, visibleOrders],
+  );
 
   const dynamicViewMeta = useMemo(() => {
     const meta = { ...viewMeta };
@@ -512,9 +618,16 @@ export default function AdminDashboard() {
             )}
 
             {!sidebarOpen && (
-              <div className="hidden h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm lg:flex">
+              <button
+                type="button"
+                onClick={isAdmin ? handleGoToDashboard : undefined}
+                className={`hidden h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm lg:flex ${
+                  isAdmin ? "cursor-pointer hover:ring-2 hover:ring-blue-200" : ""
+                }`}
+                aria-label={isAdmin ? "Go to Dashboard" : undefined}
+              >
                 <OccdoLogo size={28} className="h-full w-full" />
-              </div>
+              </button>
             )}
 
             <div className="min-w-0 flex-1 pl-0.5 sm:pl-1">
@@ -650,7 +763,15 @@ export default function AdminDashboard() {
             }`}
         >
           {activeView === "overview" && (
-            <RestaurantDashboard orders={visibleOrders} />
+            <RestaurantDashboard
+              orders={visibleOrders}
+              onStatusCardClick={(status, week) =>
+                handleDashboardOrderNavigate({ status, week, openDetail: false })
+              }
+              onRecentOrderClick={(order) =>
+                handleDashboardOrderNavigate({ order, openDetail: true })
+              }
+            />
           )}
 
           {activeView === "notifications" && (
@@ -757,6 +878,7 @@ export default function AdminDashboard() {
                   >
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
                     <option value="accepted">Approved</option>
                     <option value="processing">Processing</option>
                     <option value="completed">Completed</option>
@@ -822,12 +944,12 @@ export default function AdminDashboard() {
               {/* Centered modal overlay for order detail */}
               {orderDetailOpen && selectedOrder && (
                 <div
-                  className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-0 sm:items-center sm:p-4"
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
                   onClick={(e) => {
                     if (e.target === e.currentTarget) handleCloseOrderDetail();
                   }}
                 >
-                  <div className="relative flex w-full max-w-lg max-h-[92dvh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
+                  <div className="relative flex w-full max-w-lg max-h-[90dvh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                     <OrderDetailPanel
                       order={selectedOrder}
                       onClose={handleCloseOrderDetail}

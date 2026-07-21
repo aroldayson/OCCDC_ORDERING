@@ -255,7 +255,19 @@ function SidebarInner({
   return (
     <>
       <div className="flex items-center justify-between px-4 pb-4 pt-5">
-        <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (isAdmin) {
+              onViewChange("overview");
+              onNavigate?.();
+            }
+          }}
+          className={`flex min-w-0 items-center gap-3 text-left transition-opacity ${
+            isAdmin ? "cursor-pointer hover:opacity-90" : "cursor-default"
+          }`}
+          aria-label={isAdmin ? "Go to Dashboard" : undefined}
+        >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white p-0.5 shadow-sm">
             <OccdoLogo size={40} className="h-full w-full" />
           </div>
@@ -267,7 +279,7 @@ function SidebarInner({
               Cooperative Office
             </p>
           </div>
-        </div>
+        </button>
         {onToggleSidebar && (
           <SidebarToggleButton
             onClick={onToggleSidebar}
