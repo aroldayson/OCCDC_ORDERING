@@ -326,25 +326,32 @@ export default function OrdersTable({
   }, [groupedOrders]);
 
   useEffect(() => {
-    if (!schoolFromUrl || !weekFromUrl || !categoryFromUrl) return;
     if (loading || orders.length === 0) return;
 
-    const focusKey = `${schoolFromUrl}|${weekFromUrl}|${categoryFromUrl}|${orderIdFromUrl ?? ""}`;
+    const focusOrder = orderIdFromUrl
+      ? orders.find((o) => o.id === orderIdFromUrl)
+      : undefined;
+    const school = schoolFromUrl ?? focusOrder?.clientName;
+    const week = weekFromUrl ?? focusOrder?.weekLabel;
+    const category = categoryFromUrl ?? focusOrder?.clientRole;
+
+    if (!school || !week || !category) return;
+
+    const focusKey = `${school}|${week}|${category}|${orderIdFromUrl ?? ""}`;
     if (lastOrdersFocusKeyRef.current === focusKey) return;
 
-    const hasGroup =
-      groupedOrders[schoolFromUrl]?.[weekFromUrl]?.[categoryFromUrl];
+    const hasGroup = groupedOrders[school]?.[week]?.[category];
     if (!hasGroup) return;
 
     lastOrdersFocusKeyRef.current = focusKey;
-    setExpandedSchools((prev) => ({ ...prev, [schoolFromUrl]: true }));
+    setExpandedSchools((prev) => ({ ...prev, [school]: true }));
     setExpandedWeeks((prev) => ({
       ...prev,
-      [`${schoolFromUrl}_${weekFromUrl}`]: true,
+      [`${school}_${week}`]: true,
     }));
     setExpandedCategories((prev) => ({
       ...prev,
-      [`${schoolFromUrl}_${weekFromUrl}_${categoryFromUrl}`]: true,
+      [`${school}_${week}_${category}`]: true,
     }));
 
     requestAnimationFrame(() => {
@@ -357,7 +364,7 @@ export default function OrdersTable({
         orderRow.scrollIntoView({ behavior: "smooth", block: "center" });
       } else {
         document
-          .getElementById(`orders-cat-${encodeURIComponent(`${schoolFromUrl}|${weekFromUrl}|${categoryFromUrl}`)}`)
+          .getElementById(`orders-cat-${encodeURIComponent(`${school}|${week}|${category}`)}`)
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
@@ -368,7 +375,7 @@ export default function OrdersTable({
     orderIdFromUrl,
     groupedOrders,
     loading,
-    orders.length,
+    orders,
   ]);
 
   if (loading) {
@@ -551,9 +558,7 @@ export default function OrdersTable({
                                         return (
                                         <div
                                           key={order.id}
-                                          data-orders-order-id={
-                                            isOrderHighlighted ? order.id : undefined
-                                          }
+                                          data-orders-order-id={order.id}
                                           onClick={() => onSelect(order.id)}
                                           className={`w-full rounded-lg border p-3 cursor-pointer transition-all ${
                                             isOrderHighlighted
@@ -824,9 +829,7 @@ export default function OrdersTable({
                                         return (
                                         <tr
                                           key={order.id}
-                                          data-orders-order-id={
-                                            isOrderHighlighted ? order.id : undefined
-                                          }
+                                          data-orders-order-id={order.id}
                                           onClick={() => onSelect(order.id)}
                                           className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 ${
                                             isOrderHighlighted

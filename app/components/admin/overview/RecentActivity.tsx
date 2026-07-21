@@ -4,10 +4,10 @@ import { orderRoleLabels } from "../../order/roles";
 
 type RecentActivityProps = {
   orders: WeeklyOrderRecord[];
-
+  onOrderClick?: (order: WeeklyOrderRecord) => void;
 };
 
-export default function RecentActivity({ orders }: RecentActivityProps) {
+export default function RecentActivity({ orders, onOrderClick }: RecentActivityProps) {
   const sortedOrders = [...orders]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -34,8 +34,8 @@ export default function RecentActivity({ orders }: RecentActivityProps) {
               minute: "2-digit",
             });
 
-            return (
-              <li key={order.id} className="flex items-center gap-3">
+            const content = (
+              <>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg">
                   🏫
                 </div>
@@ -57,6 +57,22 @@ export default function RecentActivity({ orders }: RecentActivityProps) {
                 >
                   {order.status}
                 </span>
+              </>
+            );
+
+            return (
+              <li key={order.id}>
+                {onOrderClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onOrderClick(order)}
+                    className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 px-2 py-2">{content}</div>
+                )}
               </li>
             );
           })}

@@ -10,9 +10,15 @@ import { getJuneAugustWeeks, getCurrentOrNextPeriodWeek } from "../../order/week
 
 type RestaurantDashboardProps = {
   orders: WeeklyOrderRecord[];
+  onStatusCardClick?: (status: "pending" | "in_progress" | "completed", week?: string) => void;
+  onRecentOrderClick?: (order: WeeklyOrderRecord) => void;
 };
 
-export default function RestaurantDashboard({ orders }: RestaurantDashboardProps) {
+export default function RestaurantDashboard({
+  orders,
+  onStatusCardClick,
+  onRecentOrderClick,
+}: RestaurantDashboardProps) {
   const [selectedWeek, setSelectedWeek] = useState<string>(() => {
     const allWeeks = getJuneAugustWeeks();
     const periodWeek = getCurrentOrNextPeriodWeek();
@@ -58,7 +64,11 @@ export default function RestaurantDashboard({ orders }: RestaurantDashboardProps
         </div>
       </div>
 
-      <SummaryCards orders={filteredOrders} />
+      <SummaryCards
+        orders={filteredOrders}
+        onCardClick={onStatusCardClick}
+        selectedWeek={selectedWeek}
+      />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -70,7 +80,7 @@ export default function RestaurantDashboard({ orders }: RestaurantDashboardProps
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <RecentActivity orders={filteredOrders} />
+        <RecentActivity orders={filteredOrders} onOrderClick={onRecentOrderClick} />
         <TopDishes orders={filteredOrders} />
       </div>
     </div>
