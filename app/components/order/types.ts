@@ -8,6 +8,8 @@ export type OrderItem = {
   price: number;
   category: string;
   deleted?: true;
+  /** ISO timestamp when the line item was soft-deleted. */
+  deletedAt?: string;
 };
 
 export type OrderStatus = "pending" | "accepted" | "processing" | "completed" | "cancelled";

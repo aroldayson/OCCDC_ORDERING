@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { deleteOrder, updateOrder, updateOrderStatus } from "../../order/orderStorage";
-import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
-// import { removeWeeklyProduct } from "../../order/weeklyProductStorage";
 import { orderRoleColors, orderRoleLabels } from "../../order/roles";
 import { printOrderForm } from "../printOrder";
 import type { OrderRole } from "../../order/roles";
@@ -73,13 +71,15 @@ async function updateOrderItemQty(
     item.productId === productId ? { ...item, qty: newQty } : item,
   );
   const updatedTotalPrice = updatedItems.reduce(
-    (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+    (sum, item) =>
+      sum + (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
     0,
   );
+  const activeItemCount = updatedItems.filter((item) => !item.deleted).length;
   await updateOrder({
     ...order,
     items: updatedItems,
-    itemCount: updatedItems.length,
+    itemCount: activeItemCount,
     totalPrice: updatedTotalPrice,
   });
   onUpdated();
@@ -102,46 +102,50 @@ async function deleteOrderItem(
     alert("Order modification is disabled for completed orders.");
     return;
   }
-  const remainingItems = order.items.filter(
-    (item) => item.productId !== productId,
-  );
-  const activeItems = remainingItems.filter(
-    (item) => !item.deleted && !item.productId.startsWith("delivery-fee-"),
+
+  const targetItem = order.items.find((item) => item.productId === productId);
+  if (!targetItem) return;
+  if (targetItem.deleted) {
+    alert("This item is already marked as deleted.");
+    return;
+  }
+
+  const activeItemsAfterDelete = order.items.filter(
+    (item) =>
+      item.productId !== productId &&
+      !item.deleted &&
+      !item.productId.startsWith("delivery-fee-"),
   );
 
-  const willCancelOrder = activeItems.length === 0;
+  const willCancelOrder = activeItemsAfterDelete.length === 0;
   const confirmMessage = willCancelOrder
-    ? "Are you sure you want to remove this item from the order? Since this is the last item, the order will be automatically cancelled."
-    : "Are you sure you want to remove this item from the order?";
+    ? "Mark this item as deleted? Since this is the last active item, the order will be automatically cancelled."
+    : "Mark this item as deleted? It will stay on the order record for reference.";
 
   if (!confirm(confirmMessage)) return;
 
-  const nextItems = willCancelOrder
-    ? order.items.map((item) =>
-        item.productId === productId
-          ? { ...item, deleted: true as const }
-          : item,
-      )
-    : remainingItems;
+  const deletedAt = new Date().toISOString();
+  const nextItems = order.items.map((item) =>
+    item.productId === productId
+      ? { ...item, deleted: true as const, deletedAt }
+      : item,
+  );
 
   const updatedTotalPrice = nextItems.reduce(
     (sum, item) =>
       sum + (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
     0,
   );
+  const activeItemCount = nextItems.filter((item) => !item.deleted).length;
 
   await updateOrder({
     ...order,
     status: willCancelOrder ? ("cancelled" as const) : order.status,
-    cancelledAt: willCancelOrder ? new Date().toISOString() : order.cancelledAt,
+    cancelledAt: willCancelOrder ? deletedAt : order.cancelledAt,
     items: nextItems,
-    itemCount: nextItems.length,
+    itemCount: activeItemCount,
     totalPrice: updatedTotalPrice,
   });
-
-  if (!productId.startsWith("delivery-fee-")) {
-    await removeWeeklyProduct(productId, order.weekLabel);
-  }
 
   onUpdated();
 }
@@ -159,7 +163,7 @@ function CategorySummary({
 }) {
   const summary = categories.map((category) => {
     const items = orders.flatMap((o) =>
-      o.items.filter((i) => i.category === category),
+      o.items.filter((i) => i.category === category && !i.deleted),
     );
     const totalQty = items.reduce((sum, i) => sum + i.qty, 0);
     const itemCount = items.length;
@@ -266,7 +270,7 @@ function OrderItemsTable({
               return (
                 <tr
                   key={item.productId}
-                  className={`border-b border-slate-50 last:border-0 ${isDeleted ? "bg-red-50/30" : ""}`}
+                  className={`border-b border-slate-50 last:border-0 ${isDeleted ? "bg-red-50/40 ring-1 ring-inset ring-red-200" : ""}`}
                 >
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
@@ -392,7 +396,7 @@ function OrderItemsTable({
                               ? "Item already deleted"
                               : isWednesday
                                 ? "Disabled on Wednesday"
-                                : "Delete item"
+                                : "Mark item as deleted"
                           }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -464,7 +468,7 @@ function OrderItemRow({
   return (
     <div
       data-process-order-id={order.id}
-      className={`overflow-hidden rounded-xl border bg-white ${isDeleted ? "border-red-200 bg-red-50/20" : "border-slate-200"}`}
+      className={`overflow-hidden rounded-xl border bg-white ${isDeleted ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200" : "border-slate-200"}`}
     >
       <button
         type="button"
@@ -476,6 +480,11 @@ function OrderItemRow({
         >
           {item.name}
         </span>
+        {isDeleted && (
+          <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600">
+            Deleted
+          </span>
+        )}
         <span className="hidden shrink-0 text-xs text-slate-400 sm:inline">
           {item.qty} {item.unit}
         </span>
@@ -615,7 +624,7 @@ function OrderItemRow({
                 }
                 disabled={isWednesday || isDeleted || isPastWeek || isOrderLocked(order)}
                 className={`rounded-lg p-2 text-red-500 ${isWednesday || isDeleted || isPastWeek || isOrderLocked(order) ? "cursor-not-allowed opacity-40" : "hover:bg-red-50"}`}
-                aria-label="Remove item"
+                aria-label={isDeleted ? "Item already deleted" : "Mark item as deleted"}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -749,7 +758,7 @@ function OrderAccordion({
     <div
       data-process-order-id={order.id}
       className={`overflow-hidden rounded-xl border bg-white ${order.status === "cancelled"
-          ? "border-red-200 bg-red-50/20"
+          ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
           : "border-slate-200"
         }`}
     >
