@@ -202,10 +202,17 @@ function SchoolGroupBlock({
         <div className="flex flex-col bg-white">
           {clientOrders.map((order, idx: number) => {
             const isAdditional = idx > 0;
+            const isCancelled = order.status === "cancelled";
             return (
               <div
                 key={order.id}
-                className={`p-5 ${idx > 0 ? "border-t border-slate-200 border-dashed" : ""}`}
+                className={`p-5 ${
+                  isCancelled
+                    ? "mx-4 my-3 rounded-xl border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
+                    : idx > 0
+                      ? "border-t border-slate-200 border-dashed"
+                      : ""
+                }`}
               >
                 {isAdditional && (
                   <div className="text-[10px] font-bold text-amber-600 bg-amber-50 inline-block px-2 py-1 rounded-md mb-3 border border-amber-200 uppercase tracking-wider">
@@ -217,12 +224,7 @@ function SchoolGroupBlock({
                   <div>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${order.status === "completed"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : order.status === "pending"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-blue-50 text-blue-700"
-                          }`}
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusStyles[order.status]}`}
                       >
                         {order.status === "pending"
                           ? "Pending Approval"
@@ -256,23 +258,41 @@ function SchoolGroupBlock({
                   </div>
                 </div>
 
-                <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-4 space-y-4">
+                <div
+                  className={`rounded-xl border p-4 space-y-4 ${
+                    isCancelled
+                      ? "border-red-200 bg-red-50/50"
+                      : "border-slate-100 bg-slate-50/30"
+                  }`}
+                >
                   <div className="space-y-2">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 px-3 border-b border-slate-50">
+                    <div
+                      className={`text-xs font-bold uppercase tracking-wider pb-1.5 px-3 border-b ${
+                        isCancelled
+                          ? "border-red-100 text-red-600"
+                          : "border-slate-50 text-slate-400"
+                      }`}
+                    >
                       Order Items
                     </div>
                     {order.items.map((item: any) => {
                       const isDeleted = item.deleted === true;
                       const isUnpriced =
-                        !isDeleted && (!item.price || item.price === 0);
+                        !isDeleted && !isCancelled && (!item.price || item.price === 0);
                       return (
                         <div
                           key={item.productId}
-                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 px-3 border-b border-slate-100/60 last:border-0 last:pb-0 gap-1 sm:gap-0 ${isDeleted ? "bg-red-50/30" : ""}`}
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm py-2 px-3 gap-1 sm:gap-0 ${
+                            isCancelled
+                              ? "rounded-lg border border-red-200 bg-red-50/80"
+                              : isDeleted
+                                ? "border-b border-slate-100/60 bg-red-50/30 last:border-0 last:pb-0"
+                                : "border-b border-slate-100/60 last:border-0 last:pb-0"
+                          }`}
                         >
                           <div className="flex items-center gap-2">
                             <span
-                              className={`font-medium ${isDeleted ? "text-red-600 line-through decoration-red-500 decoration-2" : isUnpriced ? "text-blue-600 underline decoration-blue-500 decoration-2" : "text-slate-700"}`}
+                              className={`font-medium ${isDeleted ? "text-red-600 line-through decoration-red-500 decoration-2" : isUnpriced ? "text-blue-600 underline decoration-blue-500 decoration-2" : isCancelled ? "text-red-800" : "text-slate-700"}`}
                             >
                               {item.name}
                             </span>
@@ -289,7 +309,7 @@ function SchoolGroupBlock({
                           </div>
                           <div className="flex items-center justify-between sm:justify-end sm:gap-4 text-slate-600">
                             <span
-                              className={`text-xs font-medium ${isDeleted ? "text-red-400" : isUnpriced ? "text-blue-400" : "text-slate-400"}`}
+                              className={`text-xs font-medium ${isDeleted ? "text-red-400" : isUnpriced ? "text-blue-400" : isCancelled ? "text-red-500" : "text-slate-400"}`}
                             >
                               {item.qty} {item.unit} × ₱
                               {(item.price || 0).toLocaleString("en-PH", {
@@ -297,7 +317,7 @@ function SchoolGroupBlock({
                               })}
                             </span>
                             <span
-                              className={`font-bold min-w-[70px] text-right ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-500" : "text-slate-700"}`}
+                              className={`font-bold min-w-[70px] text-right ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-500" : isCancelled ? "text-red-600" : "text-slate-700"}`}
                             >
                               ₱
                               {(
@@ -312,11 +332,25 @@ function SchoolGroupBlock({
                     })}
                   </div>
 
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/20 p-3 flex justify-between items-center text-xs">
-                    <span className="font-bold text-emerald-800 uppercase tracking-wider">
+                  <div
+                    className={`rounded-xl border p-3 flex justify-between items-center text-xs ${
+                      isCancelled
+                        ? "border-red-200 bg-red-50/60"
+                        : "border-emerald-100 bg-emerald-50/20"
+                    }`}
+                  >
+                    <span
+                      className={`font-bold uppercase tracking-wider ${
+                        isCancelled ? "text-red-700" : "text-emerald-800"
+                      }`}
+                    >
                       Order Total
                     </span>
-                    <span className="font-extrabold text-emerald-800 text-sm">
+                    <span
+                      className={`font-extrabold text-sm ${
+                        isCancelled ? "text-red-700 line-through" : "text-emerald-800"
+                      }`}
+                    >
                       ₱
                       {(order.totalPrice || 0).toLocaleString("en-PH", {
                         minimumFractionDigits: 2,

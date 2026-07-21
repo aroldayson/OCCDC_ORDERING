@@ -228,7 +228,6 @@ export default function ProductCatalogManager({
 
   const rowItems = useMemo(() => {
     const list: CatalogRow[] = [];
-    const productsWithOrders = new Set<string>();
 
     const appendOrderItems = (
       order: WeeklyOrderRecord,
@@ -271,7 +270,6 @@ export default function ProductCatalogManager({
             schoolName: order.clientName,
             groupType,
           });
-          productsWithOrders.add(product.id);
           added++;
         }
       }
@@ -346,17 +344,6 @@ export default function ProductCatalogManager({
       }
     }
 
-    for (const product of allowedProducts) {
-      if (!productsWithOrders.has(product.id)) {
-        list.push({
-          id: `${product.id}-no-order`,
-          product,
-          schoolName: "Z_NO_ORDERS",
-          groupType: "catalog",
-        });
-      }
-    }
-
     list.sort((a, b) => {
       const typeDiff =
         groupTypeSortOrder[a.groupType] - groupTypeSortOrder[b.groupType];
@@ -379,7 +366,6 @@ export default function ProductCatalogManager({
         (row.groupType !== "catalog" &&
           row.schoolName.toLowerCase().includes(q)) ||
         (row.groupType === "cancelled" && "cancelled orders".includes(q)) ||
-        (row.groupType === "catalog" && "catalog defaults".includes(q)) ||
         row.order?.id.toLowerCase().includes(q) ||
         (row.order &&
           getOrderItemDate(row.order).toLowerCase().includes(q)) ||
@@ -515,19 +501,30 @@ export default function ProductCatalogManager({
   const handleDeleteItem = async (productId: string, order?: WeeklyOrderRecord) => {
     if (order) {
       if (order.status === "cancelled") {
+        const targetItem = order.items.find((item) => item.productId === productId);
+        if (!targetItem || targetItem.deleted) return;
+
         if (
           !confirm(
-            `Remove this item from cancelled Order ${order.id}?`,
+            `Mark "${targetItem.name}" as deleted on cancelled order ${order.id}?`,
           )
         ) {
           return;
         }
 
-        const updatedItems = order.items.filter(
-          (item) => item.productId !== productId,
+        const deletedAt = new Date().toISOString();
+        const updatedItems = order.items.map((item) =>
+          item.productId === productId
+            ? { ...item, deleted: true as const, deletedAt }
+            : item,
         );
 
-        if (updatedItems.length === 0) {
+        const activeItems = updatedItems.filter(
+          (item) =>
+            !item.deleted && !item.productId.startsWith("delivery-fee-"),
+        );
+
+        if (activeItems.length === 0) {
           const { deleteOrder } = await import("../order/orderStorage");
           await deleteOrder(order.id);
           return;
@@ -536,9 +533,10 @@ export default function ProductCatalogManager({
         const updatedOrder: WeeklyOrderRecord = {
           ...order,
           items: updatedItems,
-          itemCount: updatedItems.length,
+          itemCount: activeItems.length,
           totalPrice: updatedItems.reduce(
-            (sum, item) => sum + (item.qty || 0) * (item.price || 0),
+            (sum, item) =>
+              sum + (item.deleted ? 0 : (item.qty || 0) * (item.price || 0)),
             0,
           ),
         };
@@ -550,7 +548,11 @@ export default function ProductCatalogManager({
 
       const updatedItems = order.items.map((item) => {
         if (item.productId === productId) {
-          return { ...item, deleted: true as const };
+          return {
+            ...item,
+            deleted: true as const,
+            deletedAt: new Date().toISOString(),
+          };
         }
         return item;
       });
@@ -583,6 +585,7 @@ export default function ProductCatalogManager({
           ? new Date().toISOString()
           : order.cancelledAt,
         items: updatedItems,
+        itemCount: activeItems.length,
         totalPrice: newTotal,
       };
 
@@ -792,7 +795,7 @@ export default function ProductCatalogManager({
                     colSpan={10}
                     className="px-5 py-10 text-center text-sm text-slate-500"
                   >
-                    No products found in catalog.
+                    No order items found for this week.
                   </td>
                 </tr>
               ) : (
