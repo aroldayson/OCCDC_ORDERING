@@ -1,5 +1,9 @@
 import type { WeeklyOrderRecord } from "./types";
-import { ALL_WEEKS_VALUE, weekLabelsMatch } from "./weekUtils";
+import {
+  ALL_WEEKS_VALUE,
+  isOrderInPeriod,
+  orderMatchesWeekFilter,
+} from "./weekUtils";
 
 export function normalizeSchoolName(name: string): string {
   return name.trim().toUpperCase();
@@ -27,6 +31,8 @@ export function filterOrdersForWeek(
   orders: WeeklyOrderRecord[],
   weekLabel: string,
 ): WeeklyOrderRecord[] {
-  if (!weekLabel || weekLabel === ALL_WEEKS_VALUE) return orders;
-  return orders.filter((order) => weekLabelsMatch(order.weekLabel, weekLabel));
+  if (!weekLabel || weekLabel === ALL_WEEKS_VALUE) {
+    return orders.filter((order) => isOrderInPeriod(order));
+  }
+  return orders.filter((order) => orderMatchesWeekFilter(order, weekLabel));
 }

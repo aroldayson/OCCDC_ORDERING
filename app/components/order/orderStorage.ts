@@ -1,7 +1,7 @@
 import type { OrderItem, WeeklyOrderRecord, OrderStatus } from "./types";
 import type { OrderRole } from "./roles";
 import { supabase } from "@/lib/supabase";
-import { ALL_WEEKS_VALUE, weekLabelsMatch } from "./weekUtils";
+import { ALL_WEEKS_VALUE, orderMatchesWeekFilter, isOrderInPeriod } from "./weekUtils";
 
 
 
@@ -568,10 +568,10 @@ export async function getOrdersByCategoryAndWeek(
     }));
 
     if (!weekLabel || weekLabel === ALL_WEEKS_VALUE) {
-      return records;
+      return records.filter((order) => isOrderInPeriod(order));
     }
 
-    return records.filter((order) => weekLabelsMatch(order.weekLabel, weekLabel));
+    return records.filter((order) => orderMatchesWeekFilter(order, weekLabel));
   } catch (err) {
     console.error("Error fetching orders by category from Supabase:", err);
     return [];

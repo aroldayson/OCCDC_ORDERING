@@ -33,7 +33,7 @@ export default function WeekSelector({
         aria-label="Select order week"
       >
         {showAllOption && (
-          <option value={ALL_WEEKS_VALUE}>All Weeks</option>
+          <option value={ALL_WEEKS_VALUE}>All Weeks (8 weeks)</option>
         )}
         {allWeeks.map((w) => (
           <option key={w.weekLabel} value={w.weekLabel}>

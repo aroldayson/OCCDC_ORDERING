@@ -6,7 +6,7 @@ import { printOrderForm } from "./printOrder";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import type { WeeklyOrderRecord, OrderStatus } from "../order/types";
-import { getFridayFromWeekLabel, formatDeliveryDate, toDateInputValue } from "../order/weekUtils";
+import { getFridayFromWeekLabel, formatDeliveryDate, toDateInputValue, getCanonicalWeekLabelForOrder } from "../order/weekUtils";
 
 const statusOptions: OrderStatus[] = [
   "pending",
@@ -511,7 +511,7 @@ export default function OrderDetailPanel({
               isCancelled ? "text-red-600" : "text-slate-400"
             }`}
           >
-            {order.itemCount} Products — {order.weekLabel}
+            {order.itemCount} Products — {getCanonicalWeekLabelForOrder(order)}
           </p>
           {isCancelled && (
             <span className="inline-flex w-fit items-center rounded-full border border-red-300 bg-red-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Menu, Bell, Check, ChevronRight } from "lucide-react";
 import NotificationsView from "./NotificationsView";
 import { getOrders } from "../order/orderStorage";
-import { filterOrdersForSchool } from "../order/orderAccess";
+import { filterOrdersForSchool, filterOrdersForWeek } from "../order/orderAccess";
 import type { WeeklyOrderRecord } from "../order/types";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -20,7 +20,21 @@ import ProductCatalogManager from "./ProductCatalogManager";
 import DeliveryFeeManager from "./DeliveryFeeManager";
 import PrintReceiptModal from "./PrintReceiptModal";
 import { isCategoryAllowed, type OrderRole } from "../order/roles";
-import { getJuneAugustWeeks } from "../order/weekUtils";
+import {
+  getJuneAugustWeeks,
+  getCanonicalWeekLabelForOrder,
+  getPeriodWeekFromLabel,
+  getWeekLabelForPeriodWeek,
+} from "../order/weekUtils";
+
+function normalizeWeekFilterValue(weekParam: string | null | undefined): string {
+  if (!weekParam || weekParam === "all") return "all";
+  const periodWeek = getPeriodWeekFromLabel(weekParam);
+  if (periodWeek !== null) {
+    return getWeekLabelForPeriodWeek(periodWeek) ?? weekParam;
+  }
+  return weekParam;
+}
 
 const viewMeta: Record<AdminView, { title: string; subtitle?: string }> = {
   overview: { title: "Dashboard", subtitle: "Welcome back!" },
@@ -116,7 +130,7 @@ export default function AdminDashboard() {
       setActiveView("products");
       const params = new URLSearchParams(window.location.search);
       params.set("view", "products");
-      if (order.weekLabel) params.set("week", order.weekLabel);
+      if (order.weekLabel) params.set("week", getCanonicalWeekLabelForOrder(order));
       if (order.clientName) params.set("school", order.clientName);
       if (order.clientRole) params.set("category", order.clientRole);
       if (order.id) params.set("orderId", order.id);
@@ -157,7 +171,7 @@ export default function AdminDashboard() {
       const params = new URLSearchParams();
       params.set("view", "place-order");
       params.set("tab", "process");
-      if (order.weekLabel) params.set("week", order.weekLabel);
+      if (order.weekLabel) params.set("week", getCanonicalWeekLabelForOrder(order));
       if (order.clientName) params.set("school", order.clientName);
       if (order.clientRole) params.set("category", order.clientRole);
       if (order.id) params.set("orderId", order.id);
@@ -206,7 +220,7 @@ export default function AdminDashboard() {
     const orderIdParam = searchParams?.get("orderId");
     const statusParam = searchParams?.get("status");
     const categoryParam = searchParams?.get("category");
-    setOrdersWeek(weekParam ?? "all");
+    setOrdersWeek(normalizeWeekFilterValue(weekParam));
     setOrdersStatus(statusParam ?? "all");
     setOrdersCategory(categoryParam ?? "all");
     if (orderIdParam) {
@@ -402,9 +416,7 @@ export default function AdminDashboard() {
       result = result.filter((o) => o.status === ordersStatus);
     }
 
-    if (ordersWeek !== "all") {
-      result = result.filter((o) => o.weekLabel === ordersWeek);
-    }
+    result = filterOrdersForWeek(result, ordersWeek);
 
     return result;
   }, [visibleOrders, ordersSearch, ordersCategory, ordersStatus, ordersWeek]);
@@ -419,12 +431,13 @@ export default function AdminDashboard() {
       },
     ) => {
       const status = options.status ?? "all";
-      const week = options.week ?? options.order?.weekLabel ?? "all";
+      const week = normalizeWeekFilterValue(
+        options.week ??
+          (options.order ? getCanonicalWeekLabelForOrder(options.order) : "all"),
+      );
 
       let matchingOrders = visibleOrders;
-      if (week !== "all") {
-        matchingOrders = matchingOrders.filter((o) => o.weekLabel === week);
-      }
+      matchingOrders = filterOrdersForWeek(matchingOrders, week);
       if (status === "in_progress") {
         matchingOrders = matchingOrders.filter(
           (o) => o.status === "processing" || o.status === "accepted",
@@ -445,7 +458,7 @@ export default function AdminDashboard() {
       setActiveView("orders");
       setOrdersStatus(status);
       setOrdersCategory("all");
-      setOrdersWeek(week);
+      setOrdersWeek(normalizeWeekFilterValue(week));
       setSelectedId(targetOrder?.id ?? null);
       setOrderDetailOpen(openDetail && Boolean(targetOrder));
 
@@ -476,7 +489,7 @@ export default function AdminDashboard() {
       params.set("view", "orders");
       params.set("orderId", id);
       params.set("detail", "1");
-      if (order?.weekLabel) params.set("week", order.weekLabel);
+      if (order?.weekLabel) params.set("week", getCanonicalWeekLabelForOrder(order));
       if (order?.clientName) params.set("school", order.clientName);
       if (order?.clientRole) params.set("category", order.clientRole);
       router.replace(`${window.location.pathname}?${params.toString()}`, {
@@ -891,7 +904,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setOrdersWeek(e.target.value)}
                     className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   >
-                    <option value="all">All Weeks</option>
+                    <option value="all">All Weeks (June – August)</option>
                     {getJuneAugustWeeks().map((w) => (
                       <option key={w.weekLabel} value={w.weekLabel}>
                         {w.weekLabel}
