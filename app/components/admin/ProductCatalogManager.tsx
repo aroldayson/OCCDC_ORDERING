@@ -27,6 +27,7 @@ import WeekSelector from "./weekly/WeekSelector";
 import {
   getJuneAugustWeeks,
   getCurrentOrNextPeriodWeek,
+  ALL_WEEKS_VALUE,
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
@@ -181,6 +182,19 @@ export default function ProductCatalogManager({
   };
 
   const loadProducts = useCallback(() => {
+    if (selectedWeekLabel === ALL_WEEKS_VALUE) {
+      const periodWeek = getCurrentOrNextPeriodWeek();
+      const fallbackLabel =
+        periodWeek !== null
+          ? getJuneAugustWeeks()[periodWeek - 1]?.weekLabel
+          : getJuneAugustWeeks()[0]?.weekLabel;
+      if (fallbackLabel) {
+        getWeeklyProducts(fallbackLabel).then(setProducts);
+      } else {
+        setProducts([]);
+      }
+      return;
+    }
     getWeeklyProducts(selectedWeekLabel).then(setProducts);
   }, [selectedWeekLabel]);
 

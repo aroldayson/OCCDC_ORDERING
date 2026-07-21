@@ -1,6 +1,7 @@
 import type { OrderItem, WeeklyOrderRecord, OrderStatus } from "./types";
 import type { OrderRole } from "./roles";
 import { supabase } from "@/lib/supabase";
+import { ALL_WEEKS_VALUE, weekLabelsMatch } from "./weekUtils";
 
 
 
@@ -522,12 +523,13 @@ export async function getOrdersByCategoryAndWeek(
   weekLabel: string,
 ): Promise<WeeklyOrderRecord[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("orders")
       .select("*")
       .eq("client_role", category)
-      .eq("week_label", weekLabel)
       .order("client_name", { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) throw error;
     if (!data || data.length === 0) return [];
@@ -551,7 +553,7 @@ export async function getOrdersByCategoryAndWeek(
       delivery_date?: string;
     };
 
-    return (data as DbOrderRow[]).map((row) => ({
+    const records = (data as DbOrderRow[]).map((row) => ({
       id: row.id,
       clientName: row.client_name,
       clientRole: row.client_role,
@@ -564,6 +566,12 @@ export async function getOrdersByCategoryAndWeek(
       deliveryDate: row.delivery_date || undefined,
       hasReceiptRecord: receiptSet.has(row.id),
     }));
+
+    if (!weekLabel || weekLabel === ALL_WEEKS_VALUE) {
+      return records;
+    }
+
+    return records.filter((order) => weekLabelsMatch(order.weekLabel, weekLabel));
   } catch (err) {
     console.error("Error fetching orders by category from Supabase:", err);
     return [];
