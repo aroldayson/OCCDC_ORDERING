@@ -498,10 +498,26 @@ export default function OrderDetailPanel({
             </div>
           )}
         </div>
+        <div
+          className={`mb-4 rounded-xl transition-colors ${
+            isCancelled
+              ? "border-2 border-red-300 bg-red-50/50 p-3 ring-2 ring-inset ring-red-200 sm:p-4"
+              : ""
+          }`}
+        >
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] font-semibold uppercase leading-snug tracking-wide text-slate-400 break-words sm:text-xs">
+          <p
+            className={`text-[11px] font-semibold uppercase leading-snug tracking-wide break-words sm:text-xs ${
+              isCancelled ? "text-red-600" : "text-slate-400"
+            }`}
+          >
             {order.itemCount} Products — {order.weekLabel}
           </p>
+          {isCancelled && (
+            <span className="inline-flex w-fit items-center rounded-full border border-red-300 bg-red-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              Cancelled order
+            </span>
+          )}
           {onGoToProcess && canEditQty && (
             <button
               type="button"
@@ -519,33 +535,45 @@ export default function OrderDetailPanel({
           )}
         </div>
         {Object.entries(grouped).map(([category, items]) => (
-          <div key={category} className="mb-4">
-            <p className="mb-2 text-xs font-bold capitalize text-slate-500">
+          <div key={category} className="mb-4 last:mb-0">
+            <p
+              className={`mb-2 text-xs font-bold capitalize ${
+                isCancelled ? "text-red-600" : "text-slate-500"
+              }`}
+            >
               {category}
             </p>
             <ul className="space-y-2">
               {items.map((item) => {
-                const isDeleted = item.deleted === true;
+                const isItemDeleted = item.deleted === true;
                 const isUnpriced =
-                  !isDeleted && (!item.price || item.price === 0);
+                  !isItemDeleted && !isCancelled && (!item.price || item.price === 0);
                 return (
                   <li
                     key={item.productId}
-                    className={`flex flex-col gap-2.5 rounded-xl px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 ${isDeleted ? "bg-red-50/40" : "bg-slate-50"}`}
+                    className={`flex flex-col gap-2.5 rounded-xl px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 ${
+                      isCancelled
+                        ? "border border-red-200 bg-red-50/80"
+                        : isItemDeleted
+                          ? "bg-red-50/40"
+                          : "bg-slate-50"
+                    }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <p
-                          className={`text-sm font-medium break-words ${isDeleted
+                          className={`text-sm font-medium break-words ${isItemDeleted
                             ? "text-red-600 line-through decoration-red-500 decoration-2"
                             : isUnpriced
                               ? "text-blue-600 underline decoration-blue-500 decoration-2"
-                              : "text-slate-800"
+                              : isCancelled
+                                ? "text-red-800"
+                                : "text-slate-800"
                             }`}
                         >
                           {item.name}
                         </p>
-                        {isDeleted && (
+                        {isItemDeleted && (
                           <span className="shrink-0 text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded border border-red-600 uppercase tracking-wider">
                             Deleted
                           </span>
@@ -557,7 +585,7 @@ export default function OrderDetailPanel({
                         )}
                       </div>
                       <p
-                        className={`mt-1 text-xs font-semibold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-400" : "text-slate-500"}`}
+                        className={`mt-1 text-xs font-semibold ${isItemDeleted ? "text-red-400 line-through" : isUnpriced ? "text-blue-400" : isCancelled ? "text-red-500" : "text-slate-500"}`}
                       >
                         ₱
                         {(item.price || 0).toLocaleString("en-PH", {
@@ -568,12 +596,12 @@ export default function OrderDetailPanel({
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-slate-200/70 pt-2.5 sm:min-w-[7.5rem] sm:flex-col sm:items-end sm:border-0 sm:pt-0">
                       <span
-                        className={`text-sm font-bold ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-500" : "text-blue-700"}`}
+                        className={`text-sm font-bold ${isItemDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-500" : isCancelled ? "text-red-700" : "text-blue-700"}`}
                       >
                         {item.qty} {item.unit}
                       </span>
                       <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-                        {onGoToProcess && canEditQty && !isDeleted && (
+                        {onGoToProcess && canEditQty && !isItemDeleted && (
                           <button
                             type="button"
                             onClick={() => onGoToProcess(order)}
@@ -583,13 +611,17 @@ export default function OrderDetailPanel({
                             Edit qty
                           </button>
                         )}
-                        {onGoToProcess && !canEditQty && !isDeleted && (
-                          <span className="text-[11px] font-medium text-slate-400">
+                        {onGoToProcess && !canEditQty && (
+                          <span
+                            className={`text-[11px] font-medium ${
+                              isCancelled ? "text-red-500" : "text-slate-400"
+                            }`}
+                          >
                             Locked
                           </span>
                         )}
                         <span
-                          className={`text-sm font-bold tabular-nums ${isDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : "text-emerald-700"}`}
+                          className={`text-sm font-bold tabular-nums ${isItemDeleted ? "text-red-400 line-through" : isUnpriced ? "text-slate-400" : isCancelled ? "text-red-600" : "text-emerald-700"}`}
                         >
                           ₱
                           {((item.qty || 0) * (item.price || 0)).toLocaleString(
@@ -605,6 +637,7 @@ export default function OrderDetailPanel({
             </ul>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
