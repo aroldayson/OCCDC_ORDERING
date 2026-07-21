@@ -74,11 +74,14 @@ export function getWeekOptions(): WeekInfo[] {
 // Dates are fixed to the current school-year period (2026) and can be
 // updated each year by changing PERIOD_START_MONDAY.
 
-const PERIOD_START_MONDAY = new Date(2026, 5, 24); // June 2, 2026 (month is 0-indexed)
+const PERIOD_START_MONDAY = new Date(2026, 5, 22); // June 22, 2026 (Monday)
+
+/** Value for week selectors that show orders/items across every week. */
+export const ALL_WEEKS_VALUE = "all";
 
 function buildFixedWeek(periodWeek: number): FixedWeekInfo {
   const monday = addDays(PERIOD_START_MONDAY, (periodWeek - 1) * 7);
-  const friday = addDays(monday, 6);
+  const friday = addDays(monday, 4);
 
   const dateRange =
     monday.getMonth() === friday.getMonth()
@@ -102,6 +105,27 @@ function buildFixedWeek(periodWeek: number): FixedWeekInfo {
 /** Returns the 8 fixed Mon–Fri weeks for the June–August ordering period. */
 export function getJuneAugustWeeks(): FixedWeekInfo[] {
   return Array.from({ length: 8 }, (_, i) => buildFixedWeek(i + 1));
+}
+
+/** Extract period week number (1–8) from a week label, or null if not recognized. */
+export function getPeriodWeekFromLabel(weekLabel: string): number | null {
+  const match = weekLabel.match(/^WEEK\s+(\d+)/i);
+  if (!match) return null;
+  const n = Number.parseInt(match[1], 10);
+  return n >= 1 && n <= 8 ? n : null;
+}
+
+/** Canonical week label for a period week number. */
+export function getWeekLabelForPeriodWeek(periodWeek: number): string | null {
+  return getJuneAugustWeeks().find((w) => w.periodWeek === periodWeek)?.weekLabel ?? null;
+}
+
+/** True when two labels refer to the same period week (supports legacy date strings). */
+export function weekLabelsMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const weekA = getPeriodWeekFromLabel(a);
+  const weekB = getPeriodWeekFromLabel(b);
+  return weekA !== null && weekB !== null && weekA === weekB;
 }
 
 /**
@@ -155,9 +179,12 @@ export function getCurrentOrNextPeriodWeek(): number | null {
  * defaults to the Wednesday of the following week (next Wednesday).
  */
 export function getFridayFromWeekLabel(weekLabel: string, createdAt?: string | Date): Date | null {
-  // Match period week number from label like "WEEK 4 — ..."
   const weeks = getJuneAugustWeeks();
-  const match = weeks.find((w) => w.weekLabel === weekLabel);
+  const periodWeek = getPeriodWeekFromLabel(weekLabel);
+  const match =
+    periodWeek !== null
+      ? weeks.find((w) => w.periodWeek === periodWeek)
+      : weeks.find((w) => w.weekLabel === weekLabel);
   if (match) {
     const monday = addDays(PERIOD_START_MONDAY, (match.periodWeek - 1) * 7);
     
@@ -206,7 +233,11 @@ export function toDateInputValue(date: Date): string {
  */
 export function getDeliveryDateOptions(weekLabel: string): { value: string; label: string }[] {
   const weeks = getJuneAugustWeeks();
-  const match = weeks.find((w) => w.weekLabel === weekLabel);
+  const periodWeek = getPeriodWeekFromLabel(weekLabel);
+  const match =
+    periodWeek !== null
+      ? weeks.find((w) => w.periodWeek === periodWeek)
+      : weeks.find((w) => w.weekLabel === weekLabel);
   if (match) {
     const monday = addDays(PERIOD_START_MONDAY, (match.periodWeek - 1) * 7);
     const wednesday = addDays(monday, 7); // next Wednesday

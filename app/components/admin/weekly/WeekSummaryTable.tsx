@@ -3,7 +3,10 @@
 import { CalendarDays } from "lucide-react";
 import {
   getJuneAugustWeeks,
+  getCurrentOrNextPeriodWeek,
   getCurrentPeriodWeek,
+  ALL_WEEKS_VALUE,
+  weekLabelsMatch,
 } from "../../order/weekUtils";
 import { filterOrdersForWeek } from "../../order/orderAccess";
 import type { WeeklyOrderRecord } from "../../order/types";
@@ -36,7 +39,9 @@ export default function WeekSummaryTable({
     ).length;
     const completed = weekOrders.filter((o) => o.status === "completed").length;
     const cancelled = weekOrders.filter((o) => o.status === "cancelled").length;
-    const isActive = w.weekLabel === selectedWeekLabel;
+    const isActive =
+      selectedWeekLabel !== ALL_WEEKS_VALUE &&
+      weekLabelsMatch(w.weekLabel, selectedWeekLabel);
     const isCurrent = w.periodWeek === currentPeriodWeek;
 
     return { ...w, total, pending, completed, cancelled, isActive, isCurrent };

@@ -31,6 +31,8 @@ import {
   getJuneAugustWeeks,
   getCurrentOrNextPeriodWeek,
   getCurrentPeriodWeek,
+  ALL_WEEKS_VALUE,
+  weekLabelsMatch,
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import WeeklyOrder from "../order/WeeklyOrder";
@@ -501,6 +503,19 @@ export default function WeeklyOrderView({
   }, []);
 
   useEffect(() => {
+    if (selectedWeekLabel === ALL_WEEKS_VALUE) {
+      const periodWeek = getCurrentOrNextPeriodWeek();
+      const fallbackLabel =
+        periodWeek !== null
+          ? getJuneAugustWeeks()[periodWeek - 1]?.weekLabel
+          : getJuneAugustWeeks()[0]?.weekLabel;
+      if (fallbackLabel) {
+        getWeeklyProducts(fallbackLabel).then(setWeeklyProducts);
+      } else {
+        setWeeklyProducts([]);
+      }
+      return;
+    }
     getWeeklyProducts(selectedWeekLabel).then(setWeeklyProducts);
   }, [selectedWeekLabel]);
 
@@ -523,9 +538,10 @@ export default function WeeklyOrderView({
   }, [orders, selectedWeekLabel, isAdmin, schoolName]);
 
   const isPastWeek = useMemo(() => {
+    if (selectedWeekLabel === ALL_WEEKS_VALUE) return false;
     const allWeeks = getJuneAugustWeeks();
-    const selectedWeek = allWeeks.find(
-      (w) => w.weekLabel === selectedWeekLabel,
+    const selectedWeek = allWeeks.find((w) =>
+      weekLabelsMatch(w.weekLabel, selectedWeekLabel),
     );
     const currentPeriodWeek = getCurrentPeriodWeek();
     const currentOrNextWeek = getCurrentOrNextPeriodWeek();
@@ -732,7 +748,11 @@ export default function WeeklyOrderView({
 
       {tab !== "order" && (
         <ModuleHeader
-          weekLabel={selectedWeekLabel}
+          weekLabel={
+            selectedWeekLabel === ALL_WEEKS_VALUE
+              ? "All Weeks"
+              : selectedWeekLabel
+          }
           pendingCount={pendingCount}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={setCategoryFilter}
@@ -757,7 +777,10 @@ export default function WeeklyOrderView({
 
       {!isAdmin && tab === "order" && schoolName && (
         <div className="shrink-0 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          Ordering for <strong>{schoolName}</strong> · {selectedWeekLabel}
+          Ordering for <strong>{schoolName}</strong> ·{" "}
+          {selectedWeekLabel === ALL_WEEKS_VALUE
+            ? "All Weeks"
+            : selectedWeekLabel}
         </div>
       )}
 
@@ -1103,7 +1126,9 @@ export default function WeeklyOrderView({
               </div>
             )}
 
-            {fixedCategory !== "other_order" && showOrderForm && (
+            {fixedCategory !== "other_order" &&
+              showOrderForm &&
+              selectedWeekLabel !== ALL_WEEKS_VALUE && (
               <WeeklyOrder
                 embedded
                 defaultClientName={placeOrderClient || undefined}
@@ -1122,6 +1147,16 @@ export default function WeeklyOrderView({
                 }}
               />
             )}
+
+            {tab === "order" &&
+              showOrderForm &&
+              selectedWeekLabel === ALL_WEEKS_VALUE && (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600">
+                  Select a specific week from the filter to place an order.{" "}
+                  <span className="font-medium text-slate-800">All Weeks</span>{" "}
+                  shows combined data in To Process only.
+                </div>
+              )}
 
             {fixedCategory && (
               <div className="space-y-6">
