@@ -444,6 +444,7 @@ function OrderItemRow({
   isPastWeek,
   onGoToOrderSummary,
   defaultOpen = false,
+  isHighlighted = false,
 }: {
   order: WeeklyOrderRecord;
   item: OrderItem;
@@ -452,6 +453,7 @@ function OrderItemRow({
   isPastWeek: boolean;
   onGoToOrderSummary?: (context: OrderSummaryContext) => void;
   defaultOpen?: boolean;
+  isHighlighted?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [editing, setEditing] = useState(false);
@@ -468,7 +470,13 @@ function OrderItemRow({
   return (
     <div
       data-process-order-id={order.id}
-      className={`overflow-hidden rounded-xl border bg-white ${isDeleted ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200" : "border-slate-200"}`}
+      className={`overflow-hidden rounded-xl border bg-white ${
+        isHighlighted
+          ? "border-amber-300 bg-amber-50/90 ring-2 ring-inset ring-amber-300 shadow-xs"
+          : isDeleted
+            ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
+            : "border-slate-200"
+      }`}
     >
       <button
         type="button"
@@ -693,6 +701,7 @@ function CategoryOrderItemsList({
           isPastWeek={isPastWeek}
           onGoToOrderSummary={onGoToOrderSummary}
           defaultOpen={focusOrderId === order.id}
+          isHighlighted={focusOrderId === order.id}
         />
       ))}
     </div>
@@ -702,6 +711,7 @@ function CategoryOrderItemsList({
 type OrderAccordionProps = {
   order: WeeklyOrderRecord;
   defaultOpen?: boolean;
+  isHighlighted?: boolean;
   onUpdated: () => void;
   onView: (order: WeeklyOrderRecord) => void;
   onGoToOrderSummary?: (context: OrderSummaryContext) => void;
@@ -712,6 +722,7 @@ type OrderAccordionProps = {
 function OrderAccordion({
   order,
   defaultOpen = false,
+  isHighlighted = false,
   onUpdated,
   onView,
   onGoToOrderSummary,
@@ -757,10 +768,13 @@ function OrderAccordion({
   return (
     <div
       data-process-order-id={order.id}
-      className={`overflow-hidden rounded-xl border bg-white ${order.status === "cancelled"
-          ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
-          : "border-slate-200"
-        }`}
+      className={`overflow-hidden rounded-xl border bg-white ${
+        isHighlighted
+          ? "border-amber-300 bg-amber-50/90 ring-2 ring-inset ring-amber-300 shadow-xs"
+          : order.status === "cancelled"
+            ? "border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
+            : "border-slate-200"
+      }`}
     >
       <button
         type="button"
@@ -1153,6 +1167,7 @@ export default function OrderDetailsPanel({
                       (categoryFilter !== "all" &&
                         order.clientRole === categoryFilter)
                     }
+                    isHighlighted={focusOrderId === order.id}
                     onUpdated={onUpdated}
                     onView={onViewOrder}
                     onGoToOrderSummary={onGoToOrderSummary}

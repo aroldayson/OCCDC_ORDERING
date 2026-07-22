@@ -17,8 +17,7 @@ import {
 interface NotificationsViewProps {
   orders: WeeklyOrderRecord[];
   onOrdersUpdated: () => void;
-  onViewChange: (view: string) => void;
-  onSelectOrder: (id: string) => void;
+  onNotificationClick: (order: WeeklyOrderRecord) => void;
   isAdmin?: boolean;
   readOrderIds: string[];
   onMarkReadIds: (ids: string[]) => void;
@@ -60,8 +59,7 @@ function formatStatus(status: string) {
 export default function NotificationsView({
   orders,
   onOrdersUpdated,
-  onViewChange,
-  onSelectOrder,
+  onNotificationClick,
   isAdmin = true,
   readOrderIds,
   onMarkReadIds,
@@ -139,19 +137,7 @@ export default function NotificationsView({
   };
 
   const handleViewDetails = (order: WeeklyOrderRecord) => {
-    // Mark as read when clicking details
-    if (!readOrderIds.includes(order.id)) {
-      onMarkReadIds([...readOrderIds, order.id]);
-    }
-    if (isAdmin) {
-      const view =
-        order.clientRole === "other_order"
-          ? "other-order"
-          : `other-order-${order.clientRole}`;
-      onViewChange(view);
-    } else {
-      onViewChange("orders");
-    }
+    onNotificationClick(order);
   };
 
   const handleMarkSingleRead = (e: React.MouseEvent, orderId: string) => {

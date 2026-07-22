@@ -28,6 +28,10 @@ import {
   filterOrdersForWeek,
 } from "../order/orderAccess";
 import {
+  orderStatusToCategoryFilter,
+  resolveCategoryFilterFromStatus,
+} from "../order/orderStatusFilters";
+import {
   getJuneAugustWeeks,
   getCurrentOrNextPeriodWeek,
   getCurrentPeriodWeek,
@@ -84,6 +88,7 @@ type WeeklyOrderViewProps = {
   onViewChange?: (view: AdminView) => void;
   fixedCategory?: OrderRole;
   onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
+  onGoToPricing?: (order: WeeklyOrderRecord) => void;
   onGoToOrderSummary?: (context: {
     week: string;
     school?: string;
@@ -99,6 +104,8 @@ interface SchoolGroupBlockProps {
   setSelectedOrderDetail: (order: WeeklyOrderRecord | null) => void;
   weeklyProducts: WeeklyProduct[];
   onPrintDeliveryReceipt: (order: WeeklyOrderRecord) => void;
+  onGoToPricing?: (order: WeeklyOrderRecord) => void;
+  focusOrderId?: string;
 }
 
 function SchoolGroupBlock({
@@ -108,8 +115,25 @@ function SchoolGroupBlock({
   setSelectedOrderDetail,
   weeklyProducts,
   onPrintDeliveryReceipt,
+  onGoToPricing,
+  focusOrderId,
 }: SchoolGroupBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const containsFocus = Boolean(
+    focusOrderId && clientOrders.some((order) => order.id === focusOrderId),
+  );
+  const [isExpanded, setIsExpanded] = useState(containsFocus);
+
+  useEffect(() => {
+    if (!containsFocus || !focusOrderId) return;
+    setIsExpanded(true);
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(
+          `[data-other-order-id="${CSS.escape(focusOrderId)}"]`,
+        )
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [containsFocus, focusOrderId]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:shadow-md mb-6">
@@ -205,15 +229,19 @@ function SchoolGroupBlock({
           {clientOrders.map((order, idx: number) => {
             const isAdditional = idx > 0;
             const isCancelled = order.status === "cancelled";
+            const isHighlighted = focusOrderId === order.id;
             return (
               <div
                 key={order.id}
-                className={`p-5 ${
-                  isCancelled
-                    ? "mx-4 my-3 rounded-xl border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
-                    : idx > 0
-                      ? "border-t border-slate-200 border-dashed"
-                      : ""
+                data-other-order-id={order.id}
+                className={`p-5 transition-all ${
+                  isHighlighted
+                    ? "border-amber-300 bg-amber-50/90 ring-2 ring-inset ring-amber-300 shadow-xs"
+                    : isCancelled
+                      ? "mx-4 my-3 rounded-xl border-2 border-red-300 bg-red-50/40 ring-2 ring-inset ring-red-200"
+                      : idx > 0
+                        ? "border-t border-slate-200 border-dashed"
+                        : ""
                 }`}
               >
                 {isAdditional && (
@@ -389,6 +417,26 @@ function SchoolGroupBlock({
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                    {onGoToPricing && (
+                      <button
+                        type="button"
+                        onClick={() => onGoToPricing(order)}
+                        disabled={order.status === "cancelled"}
+                        className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-bold shadow-sm transition ${
+                          order.status === "cancelled"
+                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300 opacity-50"
+                            : "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                        }`}
+                        title={
+                          order.status === "cancelled"
+                            ? "Unavailable for cancelled orders"
+                            : "Open Pricing Update"
+                        }
+                      >
+                        <Package className="h-4 w-4" />
+                        Pricing Update
+                      </button>
+                    )}
                     <button
                       onClick={async () => {
                         const { resolveClientBySchoolName } =
@@ -452,6 +500,7 @@ export default function WeeklyOrderView({
   onViewChange,
   fixedCategory,
   onPrintDeliveryReceipt,
+  onGoToPricing,
   onGoToOrderSummary,
 }: WeeklyOrderViewProps) {
   const { user, loading: authLoading } = useAuth();
@@ -461,6 +510,7 @@ export default function WeeklyOrderView({
   const schoolFromUrl = searchParams?.get("school");
   const categoryFromUrl = searchParams?.get("category");
   const orderIdFromUrl = searchParams?.get("orderId");
+  const statusFromUrl = searchParams?.get("status");
   const isAdmin = user?.role === "admin";
   const showAllButtons = useMemo(() => {
     return !user?.categories || user.categories.length > 1;
@@ -529,7 +579,23 @@ export default function WeeklyOrderView({
     if (categoryFromUrl) {
       setCategoryFilter(categoryFromUrl);
     }
-  }, [tabFromUrl, weekFromUrl, categoryFromUrl, forceTab]);
+    if (statusFromUrl) {
+      setCategoryStatusFilter(resolveCategoryFilterFromStatus(statusFromUrl));
+    } else if (orderIdFromUrl) {
+      const order = orders.find((o) => o.id === orderIdFromUrl);
+      if (order) {
+        setCategoryStatusFilter(orderStatusToCategoryFilter(order.status));
+      }
+    }
+  }, [
+    tabFromUrl,
+    weekFromUrl,
+    categoryFromUrl,
+    statusFromUrl,
+    orderIdFromUrl,
+    orders,
+    forceTab,
+  ]);
 
   const scopedOrders = useMemo(() => {
     const byWeek = filterOrdersForWeek(orders, selectedWeekLabel);
@@ -578,8 +644,9 @@ export default function WeeklyOrderView({
   }, [scopedOrders, fixedCategory]);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryStatusFilter, setCategoryStatusFilter] =
-    useState<string>("pending");
+  const [categoryStatusFilter, setCategoryStatusFilter] = useState<string>(
+    () => resolveCategoryFilterFromStatus(statusFromUrl),
+  );
 
   const categoryPendingCount = useMemo(() => {
     return categoryOrders.filter((o) => o.status === "pending").length;
@@ -1265,6 +1332,8 @@ export default function WeeklyOrderView({
                         setSelectedOrderDetail={setSelectedOrderDetail}
                         weeklyProducts={weeklyProducts}
                         onPrintDeliveryReceipt={onPrintDeliveryReceipt}
+                        onGoToPricing={onGoToPricing}
+                        focusOrderId={orderIdFromUrl ?? undefined}
                       />
                     ))
                   )}
