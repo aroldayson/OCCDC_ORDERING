@@ -18,6 +18,11 @@ import OrderDetailPanel from "./OrderDetailPanel";
 import ProductCatalogManager from "./ProductCatalogManager";
 import DeliveryFeeManager from "./DeliveryFeeManager";
 import PrintReceiptModal from "./PrintReceiptModal";
+import {
+  orderStatusToCategoryFilter,
+  orderStatusToOrdersFilter,
+  resolveOrdersFilterFromStatus,
+} from "../order/orderStatusFilters";
 import { isCategoryAllowed, type OrderRole } from "../order/roles";
 import {
   getJuneAugustWeeks,
@@ -142,31 +147,6 @@ export default function AdminDashboard() {
     [router],
   );
 
-  const handleGoToOrdersFromPricing = useCallback(
-    (context: {
-      week: string;
-      school?: string;
-      category?: string;
-      orderId?: string;
-    }) => {
-      setActiveView("orders");
-      setOrdersWeek(context.week);
-      if (context.orderId) {
-        setSelectedId(context.orderId);
-        setOrderDetailOpen(true);
-      }
-      const params = new URLSearchParams();
-      params.set("view", "orders");
-      params.set("week", context.week);
-      if (context.school) params.set("school", context.school);
-      if (context.category) params.set("category", context.category);
-      if (context.orderId) params.set("orderId", context.orderId);
-      if (context.orderId) params.set("detail", "1");
-      router.push(`${window.location.pathname}?${params.toString()}`);
-    },
-    [router],
-  );
-
   const handleGoToProcessTab = useCallback(
     (order: WeeklyOrderRecord) => {
       setOrderDetailOpen(false);
@@ -223,8 +203,17 @@ export default function AdminDashboard() {
     const orderIdParam = searchParams?.get("orderId");
     const statusParam = searchParams?.get("status");
     const categoryParam = searchParams?.get("category");
+
+    let status = resolveOrdersFilterFromStatus(statusParam);
+    if (orderIdParam && !statusParam) {
+      const order = orders.find((o) => o.id === orderIdParam);
+      if (order) {
+        status = orderStatusToOrdersFilter(order.status);
+      }
+    }
+
     setOrdersWeek(normalizeWeekFilterValue(weekParam));
-    setOrdersStatus(statusParam ?? "all");
+    setOrdersStatus(status);
     setOrdersCategory(categoryParam ?? "all");
     if (orderIdParam) {
       setSelectedId(orderIdParam);
@@ -233,7 +222,7 @@ export default function AdminDashboard() {
       setSelectedId(null);
       setOrderDetailOpen(false);
     }
-  }, [activeView, searchParams]);
+  }, [activeView, searchParams, orders]);
 
   const [readOrderIds, setReadOrderIds] = useState<string[]>([]);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -335,6 +324,41 @@ export default function AdminDashboard() {
     return filterOrdersForSchool(orders, user?.school_name);
   }, [orders, isAdmin, user]);
 
+  const handleGoToOrdersFromPricing = useCallback(
+    (context: {
+      week: string;
+      school?: string;
+      category?: string;
+      orderId?: string;
+    }) => {
+      const order = context.orderId
+        ? visibleOrders.find((o) => o.id === context.orderId)
+        : undefined;
+      const statusFilter = order
+        ? orderStatusToOrdersFilter(order.status)
+        : "all";
+
+      setActiveView("orders");
+      setOrdersWeek(context.week);
+      setOrdersStatus(statusFilter);
+      if (context.category) setOrdersCategory(context.category);
+      if (context.orderId) {
+        setSelectedId(context.orderId);
+        setOrderDetailOpen(true);
+      }
+      const params = new URLSearchParams();
+      params.set("view", "orders");
+      params.set("week", context.week);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (context.school) params.set("school", context.school);
+      if (context.category) params.set("category", context.category);
+      if (context.orderId) params.set("orderId", context.orderId);
+      if (context.orderId) params.set("detail", "1");
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [router, visibleOrders],
+  );
+
   const filteredOrders = useMemo(() => {
     let result = visibleOrders;
 
@@ -426,13 +450,19 @@ export default function AdminDashboard() {
   const handleSelectOrder = useCallback(
     (id: string) => {
       const order = visibleOrders.find((o) => o.id === id);
+      const statusFilter = order
+        ? orderStatusToOrdersFilter(order.status)
+        : "all";
+
       setSelectedId(id);
       setOrderDetailOpen(true);
+      setOrdersStatus(statusFilter);
 
       const params = new URLSearchParams(window.location.search);
       params.set("view", "orders");
       params.set("orderId", id);
       params.set("detail", "1");
+      if (statusFilter !== "all") params.set("status", statusFilter);
       if (order?.weekLabel) params.set("week", getCanonicalWeekLabelForOrder(order));
       if (order?.clientName) params.set("school", order.clientName);
       if (order?.clientRole) params.set("category", order.clientRole);
@@ -526,21 +556,52 @@ export default function AdminDashboard() {
     saveReadIds(updated);
   };
 
-  const handleItemClick = (order: WeeklyOrderRecord) => {
-    if (!readOrderIds.includes(order.id)) {
-      saveReadIds([...readOrderIds, order.id]);
-    }
-    setNotifDropdownOpen(false);
-    if (isAdmin) {
-      const view =
-        order.clientRole === "other_order"
-          ? "other-order"
-          : `other-order-${order.clientRole}`;
-      handleViewChange(view);
-    } else {
-      handleViewChange("orders");
-    }
-  };
+  const markOrderRead = useCallback((orderId: string) => {
+    setReadOrderIds((prev) => {
+      if (prev.includes(orderId)) return prev;
+      const updated = [...prev, orderId];
+      localStorage.setItem("occdo-read-order-ids", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const handleNotificationClick = useCallback(
+    (order: WeeklyOrderRecord) => {
+      markOrderRead(order.id);
+      setNotifDropdownOpen(false);
+      setSelectedId(order.id);
+
+      const week = getCanonicalWeekLabelForOrder(order);
+      const statusFilter = isAdmin
+        ? orderStatusToCategoryFilter(order.status)
+        : orderStatusToOrdersFilter(order.status);
+      const params = new URLSearchParams();
+
+      if (isAdmin) {
+        const view =
+          order.clientRole === "other_order"
+            ? "other-order"
+            : `other-order-${order.clientRole}`;
+        setActiveView(view as AdminView);
+        params.set("view", view);
+      } else {
+        setActiveView("orders");
+        setOrdersWeek(normalizeWeekFilterValue(week));
+        setOrdersCategory(order.clientRole);
+        setOrdersStatus(statusFilter);
+        setOrderDetailOpen(false);
+        params.set("view", "orders");
+      }
+
+      params.set("orderId", order.id);
+      params.set("week", week);
+      params.set("school", order.clientName);
+      params.set("category", order.clientRole);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      router.push(`${window.location.pathname}?${params.toString()}`);
+    },
+    [isAdmin, markOrderRead, router],
+  );
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-slate-50 relative">
@@ -650,7 +711,7 @@ export default function AdminDashboard() {
                         return (
                           <div
                             key={order.id}
-                            onClick={() => handleItemClick(order)}
+                            onClick={() => handleNotificationClick(order)}
                             className={`flex gap-3 py-3 cursor-pointer transition hover:bg-slate-50/50 relative ${isUnread ? "bg-blue-50/10" : ""
                               }`}
                           >
@@ -735,8 +796,7 @@ export default function AdminDashboard() {
             <NotificationsView
               orders={visibleOrders}
               onOrdersUpdated={loadOrders}
-              onViewChange={handleViewChange}
-              onSelectOrder={setSelectedId}
+              onNotificationClick={handleNotificationClick}
               isAdmin={isAdmin}
               readOrderIds={readOrderIds}
               onMarkReadIds={saveReadIds}
@@ -749,6 +809,7 @@ export default function AdminDashboard() {
               onOrdersUpdated={loadOrders}
               onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+              onGoToPricing={handleGoToPricing}
               onGoToOrderSummary={handleGoToOrdersFromPricing}
             />
           )}
@@ -765,6 +826,7 @@ export default function AdminDashboard() {
               }
               onViewChange={handleViewChange}
               onPrintDeliveryReceipt={handlePrintDeliveryReceipt}
+              onGoToPricing={handleGoToPricing}
               onGoToOrderSummary={handleGoToOrdersFromPricing}
             />
           )}
