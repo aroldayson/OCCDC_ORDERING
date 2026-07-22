@@ -58,9 +58,6 @@ export default function ToProcessView({
 
   useEffect(() => {
     getClients().then(setRegisteredClients);
-    const refresh = () => getClients().then(setRegisteredClients);
-    window.addEventListener("occdo-clients-updated", refresh);
-    return () => window.removeEventListener("occdo-clients-updated", refresh);
   }, []);
 
   const filteredOrders = useMemo(() => {

@@ -47,8 +47,6 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
 
   useEffect(() => {
     getClients().then(setSchools);
-    const refresh = () => getClients().then(setSchools);
-    window.addEventListener("occdo-clients-updated", refresh);
 
     supabase
       .from("coop_profile")
@@ -59,8 +57,6 @@ export function SignupForm({ onSubmit, loading = false }: SignupFormProps) {
           setCoops(data);
         }
       });
-
-    return () => window.removeEventListener("occdo-clients-updated", refresh);
   }, []);
 
   const handleGoogleSignup = async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/AuthProvider";
 
@@ -14,17 +14,25 @@ export function ProtectedRoute({
   requiredRole,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, loading, initialized, isAuthenticated } = useAuth();
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!initialized || hasRedirectedRef.current) return;
+
+    if (!isAuthenticated) {
+      hasRedirectedRef.current = true;
       router.push("/auth/login");
-    } else if (!loading && requiredRole && user?.role !== requiredRole) {
+      return;
+    }
+
+    if (requiredRole && user?.role !== requiredRole) {
+      hasRedirectedRef.current = true;
       router.push("/dashboard");
     }
-  }, [loading, isAuthenticated, user, requiredRole, router]);
+  }, [initialized, isAuthenticated, user, requiredRole, router]);
 
-  if (loading) {
+  if (!initialized || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900">
         <div className="text-white">Loading...</div>

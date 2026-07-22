@@ -144,9 +144,6 @@ export default function WeeklyOrder({
 
   useEffect(() => {
     syncProducts();
-    window.addEventListener("occdo-weekly-products-updated", syncProducts);
-    return () =>
-      window.removeEventListener("occdo-weekly-products-updated", syncProducts);
   }, [syncProducts]);
 
   // Refresh catalog items whenever the category changes

@@ -12,13 +12,13 @@ import OccdoLogo from "../../components/brand/OccdoLogo";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, initialized } = useAuth();
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (initialized && isAuthenticated) {
       router.push("/dashboard");
     }
-  }, [loading, isAuthenticated, router]);
+  }, [initialized, isAuthenticated, router]);
 
   const handleSignup = async (
     email: string,

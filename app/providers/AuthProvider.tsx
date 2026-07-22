@@ -7,6 +7,7 @@ interface AuthContextType {
   user: UserProfile | null;
   session: any | null;
   loading: boolean;
+  initialized: boolean;
   signUp: (
     email: string,
     password: string,
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
   const fetchProfile = async (userId: string, email: string) => {
     try {
@@ -64,47 +66,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    async function getInitialSession() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!active) return;
-        setSession(session);
-        if (session?.user) {
-          const profile = await fetchProfile(session.user.id, session.user.email || "");
+    async function applySession(
+      currentSession: Awaited<
+        ReturnType<typeof supabase.auth.getSession>
+      >["data"]["session"],
+      options: { refreshProfile?: boolean } = {},
+    ) {
+      if (!active) return;
+      setSession(currentSession);
+
+      if (currentSession?.user) {
+        if (options.refreshProfile) {
+          const profile = await fetchProfile(
+            currentSession.user.id,
+            currentSession.user.email || "",
+          );
           if (active) {
             setUser(profile);
           }
-        } else {
-          setUser(null);
         }
+      } else {
+        setUser(null);
+      }
+    }
+
+    async function getInitialSession() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        await applySession(session, { refreshProfile: true });
       } catch (err) {
         console.error("Error getting initial session:", err);
       } finally {
         if (active) {
           setLoading(false);
+          setInitialized(true);
         }
       }
     }
 
     getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        if (!active) return;
-        setSession(currentSession);
-        if (currentSession?.user) {
-          setLoading(true);
-          const profile = await fetchProfile(currentSession.user.id, currentSession.user.email || "");
-          if (active) {
-            setUser(profile);
-            setLoading(false);
-          }
-        } else {
-          setUser(null);
-          setLoading(false);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!active) return;
+
+      // Initial session is handled above; skip to avoid duplicate profile fetches.
+      if (event === "INITIAL_SESSION") {
+        return;
       }
-    );
+
+      // Token refresh on tab focus must not reload the app or redirect.
+      if (event === "TOKEN_REFRESHED") {
+        setSession(currentSession);
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        await applySession(null);
+        return;
+      }
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "USER_UPDATED" ||
+        event === "PASSWORD_RECOVERY"
+      ) {
+        await applySession(currentSession, { refreshProfile: true });
+      }
+    });
 
     return () => {
       active = false;
@@ -183,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         loading,
+        initialized,
         signUp,
         signIn,
         signOut,

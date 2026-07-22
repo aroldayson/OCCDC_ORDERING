@@ -19,9 +19,6 @@ export default function ClientSelectField({
 
   useEffect(() => {
     getClients().then(setClients);
-    const refresh = () => getClients().then(setClients);
-    window.addEventListener("occdo-clients-updated", refresh);
-    return () => window.removeEventListener("occdo-clients-updated", refresh);
   }, []);
 
 

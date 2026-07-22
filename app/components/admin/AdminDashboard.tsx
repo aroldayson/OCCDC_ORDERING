@@ -8,7 +8,6 @@ import { getOrders } from "../order/orderStorage";
 import { filterOrdersForSchool, filterOrdersForWeek } from "../order/orderAccess";
 import type { WeeklyOrderRecord } from "../order/types";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { supabase } from "@/lib/supabase";
 import WeeklyOrderView from "./WeeklyOrderView";
 import AdminSidebar, { type AdminView } from "./AdminSidebar";
 import { SidebarToggleButton } from "./SidebarToggle";
@@ -26,6 +25,10 @@ import {
   getPeriodWeekFromLabel,
   getWeekLabelForPeriodWeek,
 } from "../order/weekUtils";
+import {
+  useRealtimeOrderNotifications,
+  type NotificationToast,
+} from "@/app/hooks/useRealtimeOrderNotifications";
 
 function normalizeWeekFilterValue(weekParam: string | null | undefined): string {
   if (!weekParam || weekParam === "all") return "all";
@@ -233,10 +236,10 @@ export default function AdminDashboard() {
   }, [activeView, searchParams]);
 
   const [readOrderIds, setReadOrderIds] = useState<string[]>([]);
-  const [toasts, setToasts] = useState<
-    { id: string; message: string; type: "success" | "info" }[]
-  >([]);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [toasts, setToasts] = useState<
+    (NotificationToast & { id: string })[]
+  >([]);
 
   // Load read notifications from localStorage on mount
   useEffect(() => {
@@ -255,19 +258,18 @@ export default function AdminDashboard() {
     localStorage.setItem("occdo-read-order-ids", JSON.stringify(ids));
   };
 
-  const showToast = useCallback(
-    (message: string, type: "success" | "info" = "info") => {
-      const id = Math.random().toString(36).substring(2, 9);
-      setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 5000);
-    },
-    [],
-  );
+  const showToast = useCallback((toast: NotificationToast) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
 
-  const loadOrders = useCallback(async () => {
-    setOrdersLoading(true);
+  const loadOrders = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setOrdersLoading(true);
+    }
     try {
       const data = await getOrders();
       setOrders(data);
@@ -283,7 +285,9 @@ export default function AdminDashboard() {
         return prev;
       });
     } finally {
-      setOrdersLoading(false);
+      if (!options?.silent) {
+        setOrdersLoading(false);
+      }
     }
   }, []);
 
@@ -311,75 +315,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadOrders();
+  }, [loadOrders]);
 
-    // Listen to local update events
-    window.addEventListener("occdo-orders-updated", loadOrders);
-
-    // Listen to remote changes on public.orders via Supabase Realtime
-    const channel = supabase
-      .channel("realtime-orders")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-        },
-        (payload) => {
-          loadOrders();
-
-          if (payload.eventType === "INSERT") {
-            // Realtime payload uses snake_case DB column names
-            const raw = payload.new as Record<string, unknown>;
-            const clientRole = (raw.client_role ?? raw.clientRole) as string;
-            const clientName = (raw.client_name ?? raw.clientName) as string;
-
-            if (isAdmin) {
-              if (
-                !user?.categories ||
-                user.categories.length === 0 ||
-                isCategoryAllowed(
-                  clientRole as Parameters<typeof isCategoryAllowed>[0],
-                  user.categories,
-                )
-              ) {
-                showToast(`New order from ${clientName}!`, "info");
-              }
-            }
-          } else if (payload.eventType === "UPDATE") {
-            const raw = payload.new as Record<string, unknown>;
-            const rawOld = payload.old as Record<string, unknown>;
-            const clientName = (raw.client_name ?? raw.clientName) as string;
-            const newStatus = raw.status as string;
-            const oldStatus = rawOld?.status as string | undefined;
-
-            if (
-              !isAdmin &&
-              user?.school_name &&
-              clientName === user.school_name
-            ) {
-              const isApproved =
-                newStatus === "accepted" ||
-                newStatus === "processing" ||
-                newStatus === "completed";
-              const statusChanged = !oldStatus || oldStatus !== newStatus;
-              if (isApproved && statusChanged) {
-                showToast(
-                  `Your order has been approved by the supplier!`,
-                  "success",
-                );
-              }
-            }
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      window.removeEventListener("occdo-orders-updated", loadOrders);
-      supabase.removeChannel(channel);
-    };
-  }, [loadOrders, isAdmin, user, showToast]);
+  useRealtimeOrderNotifications({
+    enabled: Boolean(user),
+    isAdmin,
+    user: user ?? null,
+    onOrdersChanged: loadOrders,
+    onNotification: showToast,
+  });
 
   const visibleOrders = useMemo(() => {
     if (isAdmin) {
@@ -987,15 +931,16 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {/* Toast notifications container */}
+      {/* Real-time notification toasts */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-bold shadow-lg transition-all duration-300 animate-slide-in ${toast.type === "success"
-              ? "border-emerald-100 bg-emerald-50 text-emerald-800"
-              : "border-blue-100 bg-blue-50 text-blue-800"
-              }`}
+            className={`flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-bold shadow-lg transition-all duration-300 animate-slide-in ${
+              toast.type === "success"
+                ? "border-emerald-100 bg-emerald-50 text-emerald-800"
+                : "border-blue-100 bg-blue-50 text-blue-800"
+            }`}
           >
             {toast.type === "success" ? (
               <Check className="h-4 w-4" />

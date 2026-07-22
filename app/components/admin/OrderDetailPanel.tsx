@@ -93,21 +93,8 @@ export default function OrderDetailPanel({
       setHasReceiptData(false);
     }
 
-    const handleProofUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ orderId: string }>;
-      if (customEvent.detail.orderId === order?.id) {
-        getDeliveryProof(order.id).then((data) => {
-          if (active) {
-            setProofImageData(data);
-          }
-        });
-      }
-    };
-
-    window.addEventListener("occdo-delivery-proof-updated", handleProofUpdate);
     return () => {
       active = false;
-      window.removeEventListener("occdo-delivery-proof-updated", handleProofUpdate);
     };
   }, [order?.id]);
 
