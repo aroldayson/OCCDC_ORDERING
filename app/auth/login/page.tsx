@@ -10,7 +10,7 @@ import OccdoLogo from "../../components/brand/OccdoLogo";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isAuthenticated, loading, signIn } = useAuth();
+  const { isAuthenticated, initialized, signIn } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,10 +19,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (initialized && isAuthenticated) {
       router.push("/dashboard");
     }
-  }, [loading, isAuthenticated, router]);
+  }, [initialized, isAuthenticated, router]);
 
   const handleGoogleLogin = async () => {
     setError("");

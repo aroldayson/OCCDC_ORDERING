@@ -31,7 +31,6 @@ import {
 } from "../order/weekUtils";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { isCategoryAllowed } from "../order/roles";
-import { supabase } from "@/lib/supabase";
 
 function formatProductId(id: string) {
   const match = id.match(/-(\d+)$/);
@@ -200,37 +199,6 @@ export default function ProductCatalogManager({
 
   useEffect(() => {
     loadProducts();
-    window.addEventListener("occdo-weekly-products-updated", loadProducts);
-
-    const channel = supabase
-      .channel("realtime-products")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "weekly_products" },
-        (payload) => {
-          loadProducts();
-
-          // When a row is manually deleted from the DB (e.g. via Supabase dashboard),
-          // cascade the removal to any orders that still reference that product.
-          if (payload.eventType === "DELETE") {
-            const deleted = payload.old as { id?: string; week_label?: string };
-            if (deleted.id && deleted.week_label) {
-              import("../order/weeklyProductStorage").then(
-                ({ removeWeeklyProduct }) => {
-                  // removeWeeklyProduct handles the order-item cascade
-                  removeWeeklyProduct(deleted.id!, deleted.week_label!);
-                },
-              );
-            }
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      window.removeEventListener("occdo-weekly-products-updated", loadProducts);
-      supabase.removeChannel(channel);
-    };
   }, [loadProducts]);
 
   const allowedProducts = useMemo(() => {

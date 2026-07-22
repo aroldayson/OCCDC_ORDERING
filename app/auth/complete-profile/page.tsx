@@ -12,7 +12,7 @@ import { ClipboardList, GraduationCap, MapPin, Truck } from "lucide-react";
 
 export default function CompleteProfilePage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, initialized } = useAuth();
   
   const [role, setRole] = useState<UserRole>("client");
   const [schoolName, setSchoolName] = useState("");
@@ -38,10 +38,10 @@ export default function CompleteProfilePage() {
 
   // Redirect if they already have a completed profile
   useEffect(() => {
-    if (!loading && user && user.role !== "user") {
+    if (initialized && user && user.role !== "user") {
       router.push("/dashboard");
     }
-  }, [user, loading, router]);
+  }, [user, initialized, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
